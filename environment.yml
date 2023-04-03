@@ -22,7 +22,7 @@ dependencies:
       - pre-commit==2.21.0
       - pydantic==1.10.4
       - pytorch-lightning==2.0.0
-      - tokenizers==0.13.3
+      - tokenizers==0.13.2
       - transformers==4.27.3
       - ujson==5.7.0
   - python=3.8
