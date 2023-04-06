@@ -1,17 +1,20 @@
 import numpy as np
 from evaluate import load
 from gluonts.time_feature import get_seasonality
+from configs import Configs
+from typing import Any, Dict, List, Tuple
 
 
-def estimate_mase_smape(cfg, forecasts, test_dataset):
+def estimate_mase_smape(
+    cfg: Configs, forecasts, test_dataset: List[Dict[str, Any]]
+) -> Tuple[List[float], List[float]]:
     forecast_median = np.median(forecasts, 1)
     mase_metric = load("evaluate-metric/mase")
     smape_metric = load("evaluate-metric/smape")
     mase_metrics = []
     smape_metrics = []
-    i = 0
+
     for item_id, ts in enumerate(test_dataset):
-        print(i)
         training_data = ts["target"][: -cfg.model.model_config["prediction_length"]]
         ground_truth = ts["target"][-cfg.model.model_config["prediction_length"] :]
         mase = mase_metric.compute(
@@ -27,5 +30,4 @@ def estimate_mase_smape(cfg, forecasts, test_dataset):
             references=np.array(ground_truth),
         )
         smape_metrics.append(smape["smape"])
-        i = i + 1
     return smape_metrics, mase_metrics
