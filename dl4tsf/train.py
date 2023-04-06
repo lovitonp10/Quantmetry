@@ -1,6 +1,7 @@
 import logging
 
 import hydra
+import numpy as np
 from configs import Configs
 from domain import forecasters
 from omegaconf import DictConfig, OmegaConf
@@ -10,7 +11,6 @@ from load.dataloaders import CustomDataLoader
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
     # Convert hydra config to dict
-
     cfg = OmegaConf.to_object(cfgHydra)
     cfg: Configs = Configs(**cfg)
 
