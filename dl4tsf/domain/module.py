@@ -11,6 +11,7 @@ from gluonts.time_feature import get_lags_for_frequency
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.modules.feature import FeatureEmbedder as BaseFeatureEmbedder
 from gluonts.torch.modules.scaler import MeanScaler, NOPScaler
+import configs
 
 
 class FeatureEmbedder(BaseFeatureEmbedder):
@@ -254,125 +255,118 @@ class TFTModel(nn.Module):
     def __init__(
         self,
         freq: str,
-        context_length: int,
-        prediction_length: int,
+        model_config: configs.ModelConfig,
         num_feat_dynamic_real: int,
         num_feat_static_real: int,
         num_feat_static_cat: int,
-        cardinality: List[int],
-        # TFT inputs
-        num_heads: int,
-        embed_dim: int,
-        variable_dim: int,
-        dropout: float,
         # univariate input
-        input_size: int = 1,
         distr_output: DistributionOutput = StudentTOutput(),
-        lags_seq: Optional[List[int]] = None,
-        scaling: bool = True,
-        num_parallel_samples: int = 100,
     ) -> None:
         super().__init__()
 
-        self.input_size = input_size
+        self.model_config = model_config
 
+        self.distr_output = distr_output
         self.target_shape = distr_output.event_shape
+
         self.num_feat_dynamic_real = num_feat_dynamic_real
         self.num_feat_static_cat = num_feat_static_cat
         self.num_feat_static_real = num_feat_static_real
 
-        self.lags_seq = lags_seq or get_lags_for_frequency(freq_str=freq)
-        self.num_parallel_samples = num_parallel_samples
-        self.history_length = context_length + max(self.lags_seq)
-
-        self.embedder = FeatureEmbedder(
-            cardinalities=cardinality,
-            embedding_dims=[variable_dim] * num_feat_static_cat,
+        self.model_config.lags_sequence = (
+            self.model_config.lags_sequence or get_lags_for_frequency(freq_str=freq)
         )
-        if scaling:
+        self.history_length = self.model_config.context_length + max(
+            self.model_config.lags_sequence
+        )
+        self.embedder = FeatureEmbedder(
+            cardinalities=self.model_config.cardinality,
+            embedding_dims=[self.model_config.variable_dim] * num_feat_static_cat,
+        )
+        if self.model_config.scaling:
             self.scaler = MeanScaler(dim=1, keepdim=True)
         else:
             self.scaler = NOPScaler(dim=1, keepdim=True)
 
-        self.context_length = context_length
-        self.prediction_length = prediction_length
-        self.distr_output = distr_output
-
         # projection networks
         self.target_proj = nn.Linear(
-            in_features=input_size * len(self.lags_seq), out_features=variable_dim
+            in_features=self.model_config.input_size * len(self.model_config.lags_sequence),
+            out_features=self.model_config.variable_dim,
         )
 
-        self.dynamic_proj = nn.Linear(in_features=num_feat_dynamic_real, out_features=variable_dim)
+        self.dynamic_proj = nn.Linear(
+            in_features=num_feat_dynamic_real, out_features=self.model_config.variable_dim
+        )
 
         self.static_feat_proj = nn.Linear(
-            in_features=num_feat_static_real + input_size, out_features=variable_dim
+            in_features=num_feat_static_real + self.model_config.input_size,
+            out_features=self.model_config.variable_dim,
         )
 
         # variable selection networks
         self.past_selection = VariableSelectionNetwork(
-            d_hidden=variable_dim,
+            d_hidden=self.model_config.variable_dim,
             n_vars=2,  # target and time features
-            dropout=dropout,
+            dropout=self.model_config.dropout,
             add_static=True,
         )
 
         self.future_selection = VariableSelectionNetwork(
-            d_hidden=variable_dim,
+            d_hidden=self.model_config.variable_dim,
             n_vars=2,  # target and time features
-            dropout=dropout,
+            dropout=self.model_config.dropout,
             add_static=True,
         )
 
         self.static_selection = VariableSelectionNetwork(
-            d_hidden=variable_dim,
+            d_hidden=self.model_config.variable_dim,
             n_vars=2,  # cat, static_feat
-            dropout=dropout,
+            dropout=self.model_config.dropout,
         )
 
         # Static Gated Residual Networks
         self.selection = GatedResidualNetwork(
-            d_hidden=variable_dim,
-            dropout=dropout,
+            d_hidden=self.model_config.variable_dim,
+            dropout=self.model_config.dropout,
         )
 
         self.enrichment = GatedResidualNetwork(
-            d_hidden=variable_dim,
-            dropout=dropout,
+            d_hidden=self.model_config.variable_dim,
+            dropout=self.model_config.dropout,
         )
 
         self.state_h = GatedResidualNetwork(
-            d_hidden=variable_dim,
-            d_output=embed_dim,
-            dropout=dropout,
+            d_hidden=self.model_config.variable_dim,
+            d_output=self.model_config.embed_dim,
+            dropout=self.model_config.dropout,
         )
 
         self.state_c = GatedResidualNetwork(
-            d_hidden=variable_dim,
-            d_output=embed_dim,
-            dropout=dropout,
+            d_hidden=self.model_config.variable_dim,
+            d_output=self.model_config.embed_dim,
+            dropout=self.model_config.dropout,
         )
 
         # Encoder and Decoder network
         self.temporal_encoder = TemporalFusionEncoder(
-            d_input=variable_dim,
-            d_hidden=embed_dim,
+            d_input=self.model_config.variable_dim,
+            d_hidden=self.model_config.embed_dim,
         )
         self.temporal_decoder = TemporalFusionDecoder(
-            context_length=self.context_length,
-            prediction_length=self.prediction_length,
-            d_hidden=embed_dim,
-            d_var=variable_dim,
-            num_heads=num_heads,
-            dropout=dropout,
+            context_length=self.model_config.context_length,
+            prediction_length=self.model_config.prediction_length,
+            d_hidden=self.model_config.embed_dim,
+            d_var=self.model_config.variable_dim,
+            num_heads=self.model_config.num_heads,
+            dropout=self.model_config.dropout,
         )
 
         # distribution output
-        self.param_proj = distr_output.get_args_proj(embed_dim)
+        self.param_proj = distr_output.get_args_proj(self.model_config.embed_dim)
 
     @property
     def _past_length(self) -> int:
-        return self.context_length + max(self.lags_seq)
+        return self.model_config.context_length + max(self.model_config.lags_sequence)
 
     def get_lagged_subsequences(
         self, sequence: torch.Tensor, subsequences_length: int, shift: int = 0
@@ -396,7 +390,7 @@ class TFTModel(nn.Module):
             lagged[i, j, :, k] = sequence[i, -indices[k]-S+j, :].
         """
         sequence_length = sequence.shape[1]
-        indices = [lag - shift for lag in self.lags_seq]
+        indices = [lag - shift for lag in self.model_config.lags_sequence]
 
         assert max(indices) + subsequences_length <= sequence_length, (
             f"lags cannot go further than history length, found lag {max(indices)} "
@@ -424,18 +418,18 @@ class TFTModel(nn.Module):
         time_feat = (
             torch.cat(
                 (
-                    past_time_feat[:, self._past_length - self.context_length :, ...],
+                    past_time_feat[:, self._past_length - self.model_config.context_length :, ...],
                     future_time_feat,
                 ),
                 dim=1,
             )
             if future_target is not None
-            else past_time_feat[:, self._past_length - self.context_length :, ...]
+            else past_time_feat[:, self._past_length - self.model_config.context_length :, ...]
         )
 
         # calculate scale
-        context = past_target[:, -self.context_length :]
-        observed_context = past_observed_values[:, -self.context_length :]
+        context = past_target[:, -self.model_config.context_length :]
+        observed_context = past_observed_values[:, -self.model_config.context_length :]
         _, scale = self.scaler(context, observed_context)
 
         # scale the target and create lag features of targets
@@ -445,9 +439,9 @@ class TFTModel(nn.Module):
             else past_target / scale
         )
         subsequences_length = (
-            self.context_length + self.prediction_length
+            self.model_config.context_length + self.model_config.prediction_length
             if future_target is not None
-            else self.context_length
+            else self.model_config.context_length
         )
 
         lagged_target = self.get_lagged_subsequences(
@@ -459,7 +453,7 @@ class TFTModel(nn.Module):
 
         # embeddings
         embedded_cat = self.embedder(feat_static_cat)
-        log_scale = scale.log() if self.input_size == 1 else scale.squeeze(1).log()
+        log_scale = scale.log() if self.model_config.input_size == 1 else scale.squeeze(1).log()
         static_feat = torch.cat(
             (feat_static_real, log_scale),
             dim=1,
@@ -477,12 +471,12 @@ class TFTModel(nn.Module):
     def output_params(self, target, time_feat, embedded_cat, static_feat):
         target_proj = self.target_proj(target)
 
-        past_target_proj = target_proj[:, : self.context_length, ...]
-        future_target_proj = target_proj[:, self.context_length :, ...]
+        past_target_proj = target_proj[:, : self.model_config.context_length, ...]
+        future_target_proj = target_proj[:, self.model_config.context_length :, ...]
 
         time_feat_proj = self.dynamic_proj(time_feat)
-        past_time_feat_proj = time_feat_proj[:, : self.context_length, ...]
-        future_time_feat_proj = time_feat_proj[:, self.context_length :, ...]
+        past_time_feat_proj = time_feat_proj[:, : self.model_config.context_length, ...]
+        future_time_feat_proj = time_feat_proj[:, self.model_config.context_length :, ...]
 
         static_feat_proj = self.static_feat_proj(static_feat)
 
@@ -529,7 +523,7 @@ class TFTModel(nn.Module):
         num_parallel_samples: Optional[int] = None,
     ) -> torch.Tensor:
         if num_parallel_samples is None:
-            num_parallel_samples = self.num_parallel_samples
+            num_parallel_samples = self.model_config.num_parallel_samples
 
         (target, time_feat, scale, embedded_cat, static_feat,) = self.create_network_inputs(
             feat_static_cat=feat_static_cat,
@@ -556,31 +550,34 @@ class TFTModel(nn.Module):
         c_c = self.state_c(static_var)
         states = [c_h.unsqueeze(0), c_c.unsqueeze(0)]
 
-        repeated_scale = scale.repeat_interleave(repeats=self.num_parallel_samples, dim=0)
+        repeated_scale = scale.repeat_interleave(
+            repeats=self.model_config.num_parallel_samples, dim=0
+        )
         repeated_time_feat_proj = future_time_feat_proj.repeat_interleave(
-            repeats=self.num_parallel_samples, dim=0
+            repeats=self.model_config.num_parallel_samples, dim=0
         )
 
         repeated_past_target = (
-            past_target.repeat_interleave(repeats=self.num_parallel_samples, dim=0)
+            past_target.repeat_interleave(repeats=self.model_config.num_parallel_samples, dim=0)
             / repeated_scale
         )
         repeated_past_selection = past_selection.repeat_interleave(
-            repeats=self.num_parallel_samples, dim=0
+            repeats=self.model_config.num_parallel_samples, dim=0
         )
         repeated_static_selection = static_selection.repeat_interleave(
-            repeats=self.num_parallel_samples, dim=0
+            repeats=self.model_config.num_parallel_samples, dim=0
         )
         repeated_static_enrichment = static_enrichment.repeat_interleave(
-            repeats=self.num_parallel_samples, dim=0
+            repeats=self.model_config.num_parallel_samples, dim=0
         )
         repeated_states = [
-            s.repeat_interleave(repeats=self.num_parallel_samples, dim=1) for s in states
+            s.repeat_interleave(repeats=self.model_config.num_parallel_samples, dim=1)
+            for s in states
         ]
 
         # greedy decoding
         future_samples = []
-        for k in range(self.prediction_length):
+        for k in range(self.model_config.prediction_length):
             lagged_sequence = self.get_lagged_subsequences(
                 sequence=repeated_past_target,
                 subsequences_length=1 + k,
@@ -612,7 +609,8 @@ class TFTModel(nn.Module):
 
         concat_future_samples = torch.cat(future_samples, dim=1)
         return concat_future_samples.reshape(
-            (-1, self.num_parallel_samples, self.prediction_length) + self.target_shape,
+            (-1, self.model_config.num_parallel_samples, self.model_config.prediction_length)
+            + self.target_shape,
         )
 
 
