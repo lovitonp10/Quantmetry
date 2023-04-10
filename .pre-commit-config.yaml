@@ -19,6 +19,6 @@ repos:
         - id: flake8
           args:
               - --max-line-length=99
-              - --ignore=E305,W503,E203
+              - --ignore=E305,W503,E203,F405, F403
               - --per-file-ignores=
                 - src/utils/getters/getters*:F401,F403

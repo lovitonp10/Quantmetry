@@ -95,21 +95,17 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = freq
-        self.prediction_length = self.model_config.prediction_length
-        self.context_length = (
+        self.model_config.context_length = (
             self.model_config.context_length
             if self.model_config.context_length is not None
-            else self.prediction_length
+            else self.model_config.prediction_length
         )
 
         self.distr_output = distr_output
         self.loss = loss
-
-        self.embed_dim = self.model_config.embed_dim
-        self.model_config.variable_dim = self.model_config.variable_dim or self.embed_dim
-        self.num_heads = self.model_config.num_heads
-        self.scaling = self.model_config.scaling
-        self.num_parallel_samples = self.model_config.num_parallel_samples
+        self.model_config.variable_dim = (
+            self.model_config.variable_dim or self.model_config.embed_dim
+        )
 
         self.num_feat_dynamic_real = num_feat_dynamic_real
         self.num_feat_static_cat = num_feat_static_cat
@@ -130,10 +126,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.nb_batch_per_epoch = self.cfg_train.nb_batch_per_epoch
 
         self.train_sampler = train_sampler or ExpectedNumInstanceSampler(
-            num_instances=1.0, min_future=self.prediction_length
+            num_instances=1.0, min_future=self.model_config.prediction_length
         )
         self.validation_sampler = validation_sampler or ValidationSplitSampler(
-            min_future=self.prediction_length
+            min_future=self.model_config.prediction_length
         )
 
     def create_transformation(self) -> Transformation:
@@ -179,12 +175,12 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                     target_field=FieldName.TARGET,
                     output_field=FieldName.FEAT_TIME,
                     time_features=self.time_features,
-                    pred_length=self.prediction_length,
+                    pred_length=self.model_config.prediction_length,
                 ),
                 AddAgeFeature(
                     target_field=FieldName.TARGET,
                     output_field=FieldName.FEAT_AGE,
-                    pred_length=self.prediction_length,
+                    pred_length=self.model_config.prediction_length,
                     log_scale=True,
                 ),
                 VstackFeatures(
@@ -211,7 +207,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             forecast_start_field=FieldName.FORECAST_START,
             instance_sampler=instance_sampler,
             past_length=module.model._past_length,
-            future_length=self.prediction_length,
+            future_length=self.model_config.prediction_length,
             time_series_fields=[
                 FieldName.FEAT_TIME,
                 FieldName.OBSERVED_VALUES,
@@ -277,7 +273,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             input_names=PREDICTION_INPUT_NAMES,
             prediction_net=module.model,
             batch_size=self.batch_size,
-            prediction_length=self.prediction_length,
+            prediction_length=self.model_config.prediction_length,
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         )
 
