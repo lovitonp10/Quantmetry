@@ -98,32 +98,32 @@ class TFTModel(nn.Module):
 
         self.state_h = GatedResidualNetwork(
             d_hidden=self.model_config.variable_dim,
-            d_output=self.model_config.embed_dim,
+            d_output=self.model_config.d_models,
             dropout=self.model_config.dropout,
         )
 
         self.state_c = GatedResidualNetwork(
             d_hidden=self.model_config.variable_dim,
-            d_output=self.model_config.embed_dim,
+            d_output=self.model_config.d_models,
             dropout=self.model_config.dropout,
         )
 
         # Encoder and Decoder network
         self.temporal_encoder = TemporalFusionEncoder(
             d_input=self.model_config.variable_dim,
-            d_hidden=self.model_config.embed_dim,
+            d_hidden=self.model_config.d_models,
         )
         self.temporal_decoder = TemporalFusionDecoder(
             context_length=self.model_config.context_length,
             prediction_length=self.model_config.prediction_length,
-            d_hidden=self.model_config.embed_dim,
+            d_hidden=self.model_config.d_models,
             d_var=self.model_config.variable_dim,
             num_heads=self.model_config.num_heads,
             dropout=self.model_config.dropout,
         )
 
         # distribution output
-        self.param_proj = distr_output.get_args_proj(self.model_config.embed_dim)
+        self.param_proj = distr_output.get_args_proj(self.model_config.d_models)
 
     @property
     def _past_length(self) -> int:

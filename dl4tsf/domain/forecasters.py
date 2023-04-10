@@ -104,7 +104,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.distr_output = distr_output
         self.loss = loss
         self.model_config.variable_dim = (
-            self.model_config.variable_dim or self.model_config.embed_dim
+            self.model_config.variable_dim or self.model_config.d_models
         )
 
         self.num_feat_dynamic_real = num_feat_dynamic_real

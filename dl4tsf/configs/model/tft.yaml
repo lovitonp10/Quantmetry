@@ -6,7 +6,6 @@ model_config:
     - 1
     - 168 # 7*24
   dropout: 0.1
-  embed_dim: 32
   num_heads:  4
   variable_dim: null
   encoder_layers: 1

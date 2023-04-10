@@ -16,7 +16,6 @@ class ModelConfig(BaseModel):
     context_length: Optional[int]
     lags_sequence: List[int]
     dropout: float
-    embed_dim: int
     variable_dim: Optional[int]
     num_heads: int
     encoder_layers: int
