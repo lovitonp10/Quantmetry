@@ -79,10 +79,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         # model
         distr_output: DistributionOutput = StudentTOutput(),
         loss: DistributionLoss = NegativeLogLikelihood(),
-        train_sampler: Optional[InstanceSampler] = None,
-        validation_sampler: Optional[InstanceSampler] = None,
-        time_features: Optional[List[TimeFeature]] = None,
-        trainer_kwargs: Optional[Dict[str, Any]] = dict(),
+        # train_sampler: Optional[InstanceSampler] = None,
+        # validation_sampler: Optional[InstanceSampler] = None,
+        # time_features: Optional[List[TimeFeature]] = None,
         from_pretrained: str = None,
     ) -> None:
         Forecaster.__init__(
@@ -92,6 +91,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             freq=freq,
             from_pretrained=from_pretrained,
         )
+        trainer_kwargs = cfg_train.trainer_kwargs
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = freq
@@ -117,18 +117,18 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             else [1]
         )
         self.time_features = (
-            time_features
-            if time_features is not None
+            self.cfg_train.time_features
+            if self.cfg_train.time_features is not None
             else time_features_from_frequency_str(self.freq)
         )
 
         self.batch_size = self.cfg_train.batch_size_train
         self.nb_batch_per_epoch = self.cfg_train.nb_batch_per_epoch
 
-        self.train_sampler = train_sampler or ExpectedNumInstanceSampler(
+        self.train_sampler = self.cfg_train.train_sampler or ExpectedNumInstanceSampler(
             num_instances=1.0, min_future=self.model_config.prediction_length
         )
-        self.validation_sampler = validation_sampler or ValidationSplitSampler(
+        self.validation_sampler = self.cfg_train.validation_sampler or ValidationSplitSampler(
             min_future=self.model_config.prediction_length
         )
 

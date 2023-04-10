@@ -35,6 +35,10 @@ class Train(BaseModel):
     epochs: int
     batch_size_train: int
     nb_batch_per_epoch: int
+    train_sampler: Any
+    validation_sampler: Any
+    time_features: Any
+    trainer_kwargs: Dict[str, Any]
 
 
 class Configs(BaseModel):
