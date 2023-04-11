@@ -1,3 +1,7 @@
 repository_name: monash_tsf
 dataset_name: traffic_hourly
 freq: 1H
+feats:
+  num_feat_dynamic_real: 0
+  num_feat_static_cat: 0
+  num_feat_static_real: 0

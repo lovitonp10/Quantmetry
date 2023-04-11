@@ -1,3 +1,10 @@
 epochs: 1
 batch_size_train: 1
 nb_batch_per_epoch: 1
+train_sampler: null
+validation_sampler: null
+time_features: null
+trainer_kwargs:
+    max_epochs: ${train.epochs}
+    limit_train_batches: ${train.batch_size_train}
+    gradient_clip_val : 10.
