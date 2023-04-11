@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel
 
 
-class DataSet(BaseModel):
+class Dataset(BaseModel):
     repository_name: str
     dataset_name: str
     freq: str
@@ -42,6 +42,6 @@ class Train(BaseModel):
 
 
 class Configs(BaseModel):
-    dataset: DataSet
+    dataset: Dataset
     model: Model
     train: Train
