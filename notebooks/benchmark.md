@@ -13,9 +13,14 @@ jupyter:
 ---
 
 ```python
+cd ..
+```
+
+```python
 %matplotlib inline
 import logging
 import hydra
+import sys, os
 import pandas as pd
 from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
@@ -23,6 +28,9 @@ from itertools import islice
 
 from gluonts.evaluation import make_evaluation_predictions, Evaluator
 from gluonts.dataset.repository.datasets import get_dataset
+
+sys.path.append(os.path.join(os.getcwd(),"dl4tsf/"))
+#sys.path.append(os.path.join(os.path.dirname(__file__), "dl4tsf"))
 
 from load.load_prepare import prepare_data
 from domain.forecasters import TFTForecaster
@@ -32,20 +40,20 @@ from configs import Configs
 ```
 
 ```python
+pwd
+```
+
+```python
 %load_ext autoreload
 %autoreload 2
 ```
 
 ```python
-with hydra.initialize(version_base="1.3", config_path="configs"):
+with hydra.initialize(version_base="1.3", config_path="../dl4tsf/configs"):
     cfgHydra = hydra.compose(config_name="config")
 
 cfg = OmegaConf.to_object(cfgHydra)
 cfg: Configs = Configs(**cfg)
-```
-
-```python
-cfg
 ```
 
 ```python
@@ -141,7 +149,7 @@ predictor = estimator.train(
 ```
 
 ```python
-predictor.
+predictor
 ```
 
 ```python
@@ -153,10 +161,6 @@ forecast_it, ts_it = make_evaluation_predictions(
 
 ```python
 forecasts = list(forecast_it)
-```
-
-```python
-forecasts
 ```
 
 ```python
