@@ -51,7 +51,41 @@ https://quantmetryparis.sharepoint.com/:f:/s/QM-Capitalisation-INT/Ei45bH_tU6FDh
 
 The current data needed are:
 - climate_delhi
+# Jupyter notebooks
+Make sure that code done in jupyter notebook are only for testing or visualization.
+ipynb files are not accepted in git. Please transform to md using jupytext commands below.
 
+## Create new jupyter notebook server
+
+
+`nohup jupyter notebook &`
+- Nohup, short for no hang. meaning the server will not shutdown when you exit the cmd.
+- By appending the & operator to any command, you dictate the shell to execute that Linux command in the background so that you can continue using the shell untethered
+
+To check current active notebook servers:
+
+`jupyter notebook list`
+
+To stop a notebook server : (always make sure you have only one server active)
+
+`jupyter notebook stop <port number>`
+## Jupytext
+### Transform notebooks from md to ipynb and vice versa
+```
+jupytext --to ipynb notebook_1.md
+jupytext --to md - notebook.ipynb
+````
+
+### To sync notebook with md
+`
+jupytext --sync notebook.ipynb
+`
+## Collaborate with your team
+
+- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
+- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
+- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
+- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
 
 ## Test and Deploy
 
