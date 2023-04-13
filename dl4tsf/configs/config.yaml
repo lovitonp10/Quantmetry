@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - dataset: monash_traffic_hourly
+  - dataset: traffic
   - model: tft
   - train: default
 

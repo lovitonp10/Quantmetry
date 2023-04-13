@@ -46,22 +46,26 @@ Once the conda environment is activated, install pre-commit using this command
 
 
 
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
 
 ## Test and Deploy
 
-Use the built-in continuous integration in GitLab.
+### Available working models
+Currently the following models are implemented and tested:
+- TFT
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Available working datasets
+Currently the following datasets are implemented and tested:
+- traffic
+- climate_delhi
+
+### Testing the train/forecast script:
+Run the following command to train and forecast using TFT:
+```
+cd dl4tsf
+python train model=tft dataset=traffic
+# or
+python train model=tft dataset=climate_delhi
+```
 
 
 

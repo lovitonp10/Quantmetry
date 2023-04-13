@@ -4,8 +4,7 @@ from pydantic import BaseModel
 
 
 class Dataset(BaseModel):
-    repository_name: str
-    dataset_name: str
+    load: Dict[str, Any]
     freq: str
     feats: Dict[str, int]
 
@@ -27,6 +26,7 @@ class ModelConfig(BaseModel):
 
 
 class Model(BaseModel):
+    model_name: str
     model_config: ModelConfig
     optimizer_config: Dict[str, Any]
 

@@ -1,17 +1,15 @@
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional, Tuple
 
 import configs
+import pandas as pd
 import torch
-
-# import pandas as pd
-
 from domain.lightning_module import TFTLightningModule
 from domain.module import TFTModel
 from gluonts.core.component import validated
-
-# from gluonts.dataset.pandas import PandasDataset
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
+from gluonts.dataset.pandas import PandasDataset
+from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
@@ -35,7 +33,9 @@ from gluonts.transform import (
     ValidationSplitSampler,
     VstackFeatures,
 )
+from load.dataloaders import CustomDataLoader
 from torch.utils.data import DataLoader
+from utils import utils_gluonts
 
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
@@ -101,6 +101,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             else self.model_config.prediction_length
         )
 
+        self.model = None
         self.distr_output = distr_output
         self.loss = loss
         self.model_config.variable_dim = (
@@ -127,7 +128,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             min_future=self.model_config.prediction_length
         )
 
-    def train(self, input_data):
+    def train(self, input_data: CustomDataLoader):
+        if not isinstance(input_data, PandasDataset):
+            raise Exception
         # step 1 transform input data from type XXXX (List[Dict]) to Dataset
 
         # df_temp = input_data[0]
@@ -139,10 +142,16 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         #     freq=self.freq)
         # df_pd = pd.DataFrame(data=df_temp, columns=['target'], index=ind)
         # df = PandasDataset(df_pd, target ="target", freq=self.freq)
+        self.model = None
+        self.model = super().train(training_data=input_data)
+        return self.model
 
-        self.model = PyTorchLightningEstimator.train(training_data=input_data)
-        loss = 0  # to modify
-        return self.model, loss
+    def predict(self, test_data: CustomDataLoader) -> Tuple[List[pd.Series], List[pd.Series]]:
+        forecast_it, ts_it = make_evaluation_predictions(dataset=test_data, predictor=self.model)
+        forecasts_df = []
+        for forecast in forecast_it:
+            forecasts_df.append(utils_gluonts.sample_df(forecast))
+        return forecasts_df, list(ts_it)
 
     def create_transformation(self) -> Transformation:
         remove_field_names = []
