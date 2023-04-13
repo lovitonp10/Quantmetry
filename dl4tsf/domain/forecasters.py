@@ -2,9 +2,14 @@ from typing import Iterable, Optional
 
 import configs
 import torch
+
+# import pandas as pd
+
 from domain.lightning_module import TFTLightningModule
 from domain.module import TFTModel
 from gluonts.core.component import validated
+
+# from gluonts.dataset.pandas import PandasDataset
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
@@ -122,11 +127,22 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             min_future=self.model_config.prediction_length
         )
 
-    # def train(self, input_data):
-    #     # step 1 transform input data from type XXXX (List[Dict]) to Dataset
-    #     self.model = PyTorchLightningEstimator.train(training_data = input_data)
-    #     loss = 0 # to modify
-    #     return self.model, loss
+    def train(self, input_data):
+        # step 1 transform input data from type XXXX (List[Dict]) to Dataset
+
+        # df_temp = input_data[0]
+        # first_time = df_temp["start"]
+        # last_time = df_temp["start"]+len(df_temp["target"])-1
+        # ind = pd.date_range(
+        #     start = first_time.start_time,
+        #     end = last_time.start_time,
+        #     freq=self.freq)
+        # df_pd = pd.DataFrame(data=df_temp, columns=['target'], index=ind)
+        # df = PandasDataset(df_pd, target ="target", freq=self.freq)
+
+        self.model = PyTorchLightningEstimator.train(training_data=input_data)
+        loss = 0  # to modify
+        return self.model, loss
 
     def create_transformation(self) -> Transformation:
         remove_field_names = []
