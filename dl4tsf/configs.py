@@ -39,6 +39,7 @@ class Train(BaseModel):
     validation_sampler: Any
     time_features: Any
     trainer_kwargs: Dict[str, Any]
+    callback: Dict[str, Any]
 
 
 class Configs(BaseModel):

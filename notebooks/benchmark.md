@@ -24,6 +24,7 @@ sys.path.append(os.path.join(os.getcwd(),"dl4tsf/"))
 ```python
 %matplotlib inline
 import hydra
+import pandas as pd
 from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
@@ -40,6 +41,7 @@ from configs import Configs
 
 ```python
 pwd
+
 ```
 
 ```python
@@ -48,11 +50,15 @@ pwd
 ```
 
 ```python
-with hydra.initialize(version_base="1.3", config_path="../dl4tsf/configs"):
+with hydra.initialize(version_base="1.3", config_path="configs"):
     cfgHydra = hydra.compose(config_name="config")
 
 cfg = OmegaConf.to_object(cfgHydra)
 cfg: Configs = Configs(**cfg)
+```
+
+```python
+cfg
 ```
 
 ```python

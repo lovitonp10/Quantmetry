@@ -8,3 +8,5 @@ trainer_kwargs:
     max_epochs: ${train.epochs}
     limit_train_batches: ${train.batch_size_train}
     gradient_clip_val : 10.
+callback:
+  _target_: domain.callbacks.MetricsCallback

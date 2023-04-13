@@ -3,6 +3,7 @@ from gluonts.evaluation import make_evaluation_predictions, Evaluator
 from gluonts.evaluation.backtest import backtest_metrics
 import configs
 import pandas as pd
+import hydra
 import torch
 from domain.lightning_module import TFTLightningModule
 from domain.module import TFTModel
@@ -88,7 +89,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             cfg_dataset=cfg_dataset,
             from_pretrained=from_pretrained,
         )
-        trainer_kwargs = cfg_train.trainer_kwargs
+        self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
+        self.callbacks = {"callbacks": [self.callback]}
+        trainer_kwargs = {**cfg_train.trainer_kwargs, **self.callbacks}
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = self.cfg_dataset.freq
