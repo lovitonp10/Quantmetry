@@ -60,6 +60,7 @@ Currently the following datasets are implemented and tested:
 
 ### Testing the train/forecast script:
 Run the following command to train and forecast using TFT:
+(for now it takes so much time to forecast traffic data, so avoid it)
 ```
 cd dl4tsf
 python train model=tft dataset=traffic
