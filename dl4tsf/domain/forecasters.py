@@ -8,7 +8,6 @@ from domain.module import TFTModel
 from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
-from gluonts.dataset.pandas import PandasDataset
 from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
@@ -129,19 +128,6 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
 
     def train(self, input_data: CustomDataLoader):
-        if not isinstance(input_data, PandasDataset):
-            raise Exception
-        # step 1 transform input data from type XXXX (List[Dict]) to Dataset
-
-        # df_temp = input_data[0]
-        # first_time = df_temp["start"]
-        # last_time = df_temp["start"]+len(df_temp["target"])-1
-        # ind = pd.date_range(
-        #     start = first_time.start_time,
-        #     end = last_time.start_time,
-        #     freq=self.freq)
-        # df_pd = pd.DataFrame(data=df_temp, columns=['target'], index=ind)
-        # df = PandasDataset(df_pd, target ="target", freq=self.freq)
         self.model = None
         self.model = super().train(training_data=input_data)
         return self.model
