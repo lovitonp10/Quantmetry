@@ -1,5 +1,6 @@
 from typing import Iterable, List, Optional, Tuple
-
+from gluonts.evaluation import make_evaluation_predictions, Evaluator
+from gluonts.evaluation.backtest import backtest_metrics
 import configs
 import pandas as pd
 import torch
@@ -8,12 +9,12 @@ from domain.module import TFTModel
 from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
-from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
+from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import IterableDataset
 from gluonts.transform import (
@@ -35,6 +36,7 @@ from gluonts.transform import (
 from load.dataloaders import CustomDataLoader
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
+
 
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
@@ -132,12 +134,17 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = super().train(training_data=input_data)
         return self.model
 
-    def predict(self, test_data: CustomDataLoader) -> Tuple[List[pd.Series], List[pd.Series]]:
+    def predict(self, test_data: gluontsPandasDataset) -> Tuple[List[pd.Series], List[pd.Series]]:
         forecast_it, ts_it = make_evaluation_predictions(dataset=test_data, predictor=self.model)
         forecasts_df = []
         for forecast in forecast_it:
             forecasts_df.append(utils_gluonts.sample_df(forecast))
-        return forecasts_df, list(ts_it)
+        return list(ts_it), forecasts_df
+
+    def evaluate(self, input_data: gluontsPandasDataset):
+        ev = Evaluator(num_workers=0)
+        agg_metrics, _ = backtest_metrics(input_data, self.model, evaluator=ev)
+        return agg_metrics
 
     def create_transformation(self) -> Transformation:
         remove_field_names = []
