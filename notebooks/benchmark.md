@@ -13,14 +13,12 @@ jupyter:
 ---
 
 ```python
-
 cd ..
 ```
 
 ```python
 import sys, os
 sys.path.append(os.path.join(os.getcwd(),"dl4tsf/"))
-
 ```
 
 ```python
@@ -28,12 +26,13 @@ sys.path.append(os.path.join(os.getcwd(),"dl4tsf/"))
 import hydra
 from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
-
+import numpy as np
 
 from gluonts.evaluation import make_evaluation_predictions
 
 from load.dataloaders import CustomDataLoader
 from domain.forecasters import TFTForecaster
+
 # , InformerForecaster
 from omegaconf import OmegaConf
 from configs import Configs
@@ -63,32 +62,13 @@ cfg.dataset
 # TFT
 
 ```python
-cfg.dataset
-```
-
-```python
-cfg.model.model_config
-```
-
-```python
-# # climate_delhi
-# cfg.dataset.load["path"] =  'data/climate_delhi/'
-# cfg.dataset.freq = '1D'
-# cfg.model.model_config.context_length = 1
-# cfg.model.model_config.prediction_length = 5
-```
-
-```python
-# traffic
-cfg.dataset.freq = '1H'
-cfg.model.model_config.context_length = 1*48
-cfg.model.model_config.prediction_length = 5*48
+cfg.model
 ```
 
 ```python
 loader_data = CustomDataLoader(
     cfg_dataset=cfg.dataset,
-    target="meantemp",
+    target=cfg.dataset.load['target'],
     cfg_model=cfg.model,
     test_length=5,
 )
@@ -101,7 +81,6 @@ estimator = TFTForecaster(
         cfg_train= cfg.train,
     cfg_dataset=cfg.dataset,
 )
-
 ```
 
 ```python

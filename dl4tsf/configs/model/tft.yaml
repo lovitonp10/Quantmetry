@@ -1,8 +1,8 @@
 model_name: TFTForecaster
 model_config:
   input_size: 1
-  prediction_length : 48
-  context_length : 92
+  prediction_length : 7
+  context_length : 28
   lags_sequence:
     - 1
     - 168 # 7*24
