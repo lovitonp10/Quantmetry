@@ -44,7 +44,13 @@ Once the conda environment is activated, install pre-commit using this command
 
 `pre-commit install`
 
+## Retrieve Data
+Make sure you never add data files to the git repository.
+The current data folders that must be available for a proper testing of the modules are available here:
+https://quantmetryparis.sharepoint.com/:f:/s/QM-Capitalisation-INT/Ei45bH_tU6FDh5msNzS0bvsBnNj69EwRq64W63tBcwFhRw?e=z9buEp
 
+The current data needed are:
+- climate_delhi
 
 
 ## Test and Deploy
