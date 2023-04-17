@@ -44,24 +44,34 @@ Once the conda environment is activated, install pre-commit using this command
 
 `pre-commit install`
 
+## Retrieve Data
+Make sure you never add data files to the git repository.
+The current data folders that must be available for a proper testing of the modules are available here:
+https://quantmetryparis.sharepoint.com/:f:/s/QM-Capitalisation-INT/Ei45bH_tU6FDh5msNzS0bvsBnNj69EwRq64W63tBcwFhRw?e=z9buEp
 
+The current data needed are:
+- climate_delhi
 
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
 
 ## Test and Deploy
 
-Use the built-in continuous integration in GitLab.
+### Available working models
+Currently the following models are implemented and tested:
+- TFT
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+### Available working datasets
+Currently the following datasets are implemented and tested:
+- traffic
+- climate_delhi
+
+### Testing the train/forecast script:
+Run the following command to train and forecast using TFT:
+(for now it takes so much time to forecast traffic data, so avoid it)
+```
+python dl4tsf/train.py model=tft dataset=traffic
+# or
+python dl4tsf/train.py model=tft dataset=climate_delhi
+```
 
 
 
