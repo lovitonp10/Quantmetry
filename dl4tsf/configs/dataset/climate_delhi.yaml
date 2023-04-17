@@ -1,6 +1,6 @@
 load:
   _target_: load.load_data.climate
-  path: ../data/climate_delhi/
+  path: data/climate_delhi/
   target: meantemp
 freq: 1D
 feats:

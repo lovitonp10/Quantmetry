@@ -68,10 +68,9 @@ Currently the following datasets are implemented and tested:
 Run the following command to train and forecast using TFT:
 (for now it takes so much time to forecast traffic data, so avoid it)
 ```
-cd dl4tsf
-python train model=tft dataset=traffic
+python dl4tsf/train.py model=tft dataset=traffic
 # or
-python train model=tft dataset=climate_delhi
+python dl4tsf/train.py model=tft dataset=climate_delhi
 ```
 
 
