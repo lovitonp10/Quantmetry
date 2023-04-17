@@ -4,7 +4,7 @@ import hydra
 from configs import Configs
 from domain import forecasters
 from omegaconf import DictConfig, OmegaConf
-from load.dataloaders import DataLoader
+from load.dataloaders import CustomDataLoader
 
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
@@ -22,7 +22,7 @@ def main(cfgHydra: DictConfig):
     )
 
     logging.info("Prepare Data")
-    loader_data = DataLoader(
+    loader_data = CustomDataLoader(
         cfg_dataset=cfg.dataset,
         target="meantemp",
         cfg_model=cfg.model,
