@@ -4,6 +4,7 @@ import pandas as pd
 from gluonts.dataset.common import MetaData, TrainDatasets
 from gluonts.dataset.pandas import PandasDataset
 from utils.utils_gluonts import get_test_length
+from utils.custom_objects_pydantic import HuggingFaceDataset
 
 
 class CustomDataLoader:
@@ -26,13 +27,13 @@ class CustomDataLoader:
             self.df_pandas = self.tmp
         if isinstance(self.tmp, TrainDatasets):
             self.df_gluonts = self.tmp
+        if isinstance(self.tmp, HuggingFaceDataset):
+            self.df_huggingface = self.tmp
 
-    def get_pandas_format(self) -> pd.DataFrame:
-        if self.df_pandas:
-            return self.df_pandas
-        # to implement
+    def create_pandas_from_hugging_face(self):
+        pass
 
-    def get_gluonts_format(self) -> TrainDatasets:
+    def create_gluonts_from_pandas(self):
         test_length_rows = get_test_length(self.freq, self.test_length)
 
         train_df = pd.melt(self.df_pandas[:-(test_length_rows)], ignore_index=False)
@@ -53,8 +54,22 @@ class CustomDataLoader:
 
         self.df_gluonts = TrainDatasets(metadata=meta, train=train_data, test=test_data)
 
-        return self.df_gluonts
+        
+    def get_pandas_format(self) -> pd.DataFrame:
+        if self.df_pandas:
+            return self.df_pandas
+        # to implement
+
+    def get_gluonts_format(self) -> TrainDatasets:
+        if hasattr(self, "df_gluonts") and (self.df_gluonts):
+            return self.df_gluonts
+        elif hasattr(self, "df_pandas") and (self.df_pandas):
+            self.create_gluonts_from_pandas()
+            self.get_gluonts_format()
+        elif hasattr(self, "df_huggingface") and (self.df_huggingface):
+            self.create_pandas_from_hugging_face()
+            self.get_gluonts_format()
 
     def get_huggingface_format(self):
-        # to implement
-        pass
+        if hasattr(self, "df_huggingface") and (self.df_huggingface):
+            return self.df_huggingface

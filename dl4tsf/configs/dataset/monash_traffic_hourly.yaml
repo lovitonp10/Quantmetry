@@ -1,6 +1,9 @@
-repository_name: monash_tsf
-dataset_name: traffic_hourly
 freq: 1H
+load:
+  _target_: load.load_data.huggingface_dataset
+  repository_name: monash_tsf
+  dataset_name: traffic_hourly
+  freq: ${dataset.freq}
 feats:
   num_feat_dynamic_real: 0
   num_feat_static_cat: 0

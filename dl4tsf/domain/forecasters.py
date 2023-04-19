@@ -1,5 +1,6 @@
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+from gluonts.evaluation import make_evaluation_predictions, Evaluator
+from gluonts.evaluation.backtest import backtest_metrics
 import configs
 import hydra
 import pandas as pd
@@ -43,11 +44,8 @@ import logging
 
 import numpy as np
 from accelerate import Accelerator
-import configs
 from torch.optim import AdamW
-from typing import Any, Dict, List, Tuple
 from transformers import InformerConfig, InformerForPrediction
-from gluonts.time_feature import time_features_from_frequency_str
 from domain.transformations import create_test_dataloader, create_train_dataloader
 from gluonts.time_feature import get_seasonality
 
@@ -67,7 +65,6 @@ TRAINING_INPUT_NAMES = PREDICTION_INPUT_NAMES + [
     "future_target",
     "future_observed_values",
 ]
-
 
 
 class Forecaster:
@@ -346,7 +343,7 @@ class Informer(Forecaster):
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
         self.model_config_informer = InformerConfig(
-            num_time_features=len(time_features) + 1, **self.model_config
+            num_time_features=len(time_features) + 1, **self.model_config.dict()
         )
         if self.from_pretrained:
             self.model = InformerForPrediction.from_pretrained(self.from_pretrained)
@@ -461,8 +458,8 @@ class Informer(Forecaster):
         smape_metrics = []
 
         for item_id, ts in enumerate(test_dataset):
-            training_data = ts["target"][: -self.model_config["prediction_length"]]
-            ground_truth = ts["target"][-self.model_config["prediction_length"] :]
+            training_data = ts["target"][: -self.model_config.prediction_length]
+            ground_truth = ts["target"][-self.model_config.prediction_length :]
             mase = mase_metric.compute(
                 predictions=forecast_median[item_id],
                 references=np.array(ground_truth),
