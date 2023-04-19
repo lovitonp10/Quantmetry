@@ -1,5 +1,5 @@
-epochs: 3
-batch_size_train: 1
+epochs: 1000
+batch_size_train: 2
 nb_batch_per_epoch: 1
 train_sampler: null
 validation_sampler: null

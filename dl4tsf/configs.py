@@ -4,8 +4,10 @@ from pydantic import BaseModel
 
 
 class Dataset(BaseModel):
+    dataset_name: str
     load: Dict[str, Any]
     freq: str
+    test_length: int
     feats: Dict[str, int]
 
 

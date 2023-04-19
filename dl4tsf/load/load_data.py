@@ -5,7 +5,7 @@ from gluonts.dataset.common import TrainDatasets
 from gluonts.dataset.repository.datasets import get_dataset
 
 
-def climate(path: str = "data/climate_delhi/", target: str = "mean_temp"):
+def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_climate = pd.DataFrame()
     for file in list_csv:
