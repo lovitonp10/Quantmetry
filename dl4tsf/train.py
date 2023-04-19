@@ -4,6 +4,7 @@ import hydra
 import numpy as np
 from configs import Configs
 from domain import forecasters
+from domain.plots import plot_timeseries
 from omegaconf import DictConfig, OmegaConf
 from load.dataloaders import CustomDataLoader
 
@@ -24,25 +25,42 @@ def main(cfgHydra: DictConfig):
     logging.info("Prepare Data")
     loader_data = CustomDataLoader(
         cfg_dataset=cfg.dataset,
-        target=cfg.dataset.load["target"],
+        target="meantemp",
         cfg_model=cfg.model,
-        test_length=cfg.dataset.test_length,
+        test_length=114,
     )
-    data_gluonts = loader_data.get_gluonts_format()
+    # data_gluonts = loader_data.get_gluonts_format()
+    data_huggingface = loader_data.get_huggingface_format()
 
     logging.info("Training")
-    forecaster_inst = getattr(forecasters, cfg.model.model_name)
-    forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-    forecaster.train(input_data=data_gluonts.train)
-    losses = forecaster.get_callback_losses(type="train")
+    model_inst = getattr(forecasters, cfg.model.model_name)
+    model = model_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
+    model_uni, losses = model.train(train_dataset=data_huggingface.train)
+    print(losses)
 
-    logging.info("first 10 losses")
-    logging.info(losses[:10])
+    ts_it, forecasts = model.predict(test_dataset=data_huggingface.test)
 
-    ts_it, forecast_it = forecaster.predict(test_data=data_gluonts.test)
+    print(1)
+    # model_uni.save_pretrained("../models/informer_v1")
 
-    logging.info(ts_it[0].head())
-    logging.info(forecast_it[0].head())
+    # logging.info("Inference")
+    # model_inst = getattr(forecasters, cfg.model.model_name)
+    # model = model_inst(
+    #     cfg_model=cfg.model,
+    #     cfg_train=cfg.train,
+    #     cfg_dataset=cfg.dataset,
+    #     from_pretrained="../models/informer_v1",
+    # )
+    metrics, forecasts = model.score(test_dataset=data_huggingface.test)
+    print(np.mean(metrics["smape"]), np.mean(metrics["mase"]))
+
+    logging.info("Plot first TS predictions")
+    plot_timeseries(
+        0,
+        uni_variate_dataset=data_huggingface.test,
+        prediction_length=cfg.model.model_config.prediction_length,
+        forecasts=forecasts,
+    )
 
 
 if __name__ == "__main__":
