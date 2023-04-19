@@ -333,14 +333,20 @@ class Informer(Forecaster):
         self,
         cfg_model: configs.Model,
         cfg_train: configs.Train,
-        freq: str,
+        cfg_dataset: configs.Dataset,
         from_pretrained: str = None,
     ) -> None:
-        super().__init__(cfg_model, cfg_train, freq, from_pretrained)
-
+        Forecaster.__init__(
+            self,
+            cfg_model=cfg_model,
+            cfg_train=cfg_train,
+            cfg_dataset=cfg_dataset,
+            from_pretrained=from_pretrained,
+        )
+        self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
         self.model_config_informer = InformerConfig(
-            num_time_features=len(time_features) + 1, **self.cfg_model.model_config
+            num_time_features=len(time_features) + 1, **self.model_config
         )
         if self.from_pretrained:
             self.model = InformerForPrediction.from_pretrained(self.from_pretrained)
@@ -375,7 +381,7 @@ class Informer(Forecaster):
         accelerator = Accelerator()
         device = accelerator.device
         self.model.to(device)
-        optimizer = AdamW(self.model.parameters(), **self.cfg_model.optimizer_config)
+        optimizer = AdamW(self.model.parameters(), **self.optimizer_config)
 
         self.model, optimizer, self.train_dataloader = accelerator.prepare(
             self.model,
@@ -383,7 +389,6 @@ class Informer(Forecaster):
             self.train_dataloader,
         )
 
-        logging.info("Training")
         loss_history = []
         self.model.train()
 
@@ -456,8 +461,8 @@ class Informer(Forecaster):
         smape_metrics = []
 
         for item_id, ts in enumerate(test_dataset):
-            training_data = ts["target"][: -self.cfg_model.model_config["prediction_length"]]
-            ground_truth = ts["target"][-self.cfg_model.model_config["prediction_length"] :]
+            training_data = ts["target"][: -self.model_config["prediction_length"]]
+            ground_truth = ts["target"][-self.model_config["prediction_length"] :]
             mase = mase_metric.compute(
                 predictions=forecast_median[item_id],
                 references=np.array(ground_truth),

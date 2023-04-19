@@ -33,7 +33,7 @@ def UnivariateGrouper(input_dataset) -> Dict[str, Any]:
         start = input_dataset[i]["start"]
         feat_dynamic_real = input_dataset[i].get("feat_dynamic_real", None)
         feat_static_cat = input_dataset[i].get("feat_static_cat", None)
-        #   feat_static_real = input_dataset[i].get('feat_static_real', None)
+        feat_static_real = input_dataset[i].get("feat_static_real", None)
 
         output_dataset.append(
             {
@@ -41,6 +41,7 @@ def UnivariateGrouper(input_dataset) -> Dict[str, Any]:
                 FieldName.START: start,
                 FieldName.FEAT_DYNAMIC_REAL: feat_dynamic_real,
                 FieldName.FEAT_STATIC_CAT: feat_static_cat,
+                FieldName.FEAT_STATIC_REAL: feat_static_real,
             }
         )
     return output_dataset
