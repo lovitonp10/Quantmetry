@@ -8,7 +8,6 @@ class Dataset(BaseModel):
     load: Dict[str, Any]
     test_length: str
     freq: str
-    test_length: int
     feats: Dict[str, int]
 
 
