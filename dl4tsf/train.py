@@ -23,7 +23,10 @@ def main(cfgHydra: DictConfig):
 
     logging.info("Prepare Data")
     loader_data = CustomDataLoader(
-        cfg_dataset=cfg.dataset, target=cfg.dataset.load["target"], cfg_model=cfg.model
+        cfg_dataset=cfg.dataset,
+        target=cfg.dataset.load["target"],
+        cfg_model=cfg.model,
+        test_length=cfg.dataset.test_length,
     )
     data_gluonts = loader_data.get_gluonts_format()
 
@@ -36,10 +39,10 @@ def main(cfgHydra: DictConfig):
     logging.info("first 10 losses")
     logging.info(losses[:10])
 
-    forecast_it, ts_it = forecaster.predict(test_data=data_gluonts.test)
+    ts_it, forecast_it = model.predict(test_data=data_gluonts.test)
 
-    logging.info(forecast_it[0].head())
     logging.info(ts_it[0].head())
+    logging.info(forecast_it[0].head())
 
 
 if __name__ == "__main__":
