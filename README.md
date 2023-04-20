@@ -53,6 +53,7 @@ The current data folders that must be available for a proper testing of the modu
 
 The current data needed are:
 - climate_delhi
+- energy
 
 # Jupyter notebooks
 Make sure that code done in jupyter notebook are only for testing or visualization.
@@ -96,6 +97,7 @@ Currently the following models are implemented and tested:
 Currently the following datasets are implemented and tested:
 - traffic
 - climate_delhi
+- energy
 
 ### Testing the train/forecast script:
 Run the following command to train and forecast using TFT:
