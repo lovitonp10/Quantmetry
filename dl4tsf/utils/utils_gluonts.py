@@ -12,19 +12,20 @@ def sample_df(forecast: Forecast) -> List[pd.DataFrame]:
 
 
 def get_test_length(freq: str, test_length: str) -> int:
-    """_summary_
+    """Calculates the number of of rows for the test set give time frequency and test length.
+
 
     Parameters
     ----------
     freq : str
-        _description_
+        A string representing the frequency of the dataset in the format 'Xunit'.
     test_length : str
-        _description_
+        A string representing the desired duration of a the test test. In the format 'Xunit'.
 
     Returns
     -------
     int
-        _description_
+        The number of rows of the test set.
     """
     freq_minutes = pd.Timedelta(freq).total_seconds() / 60
     test_length_minutes = pd.Timedelta(test_length).total_seconds() / 60
