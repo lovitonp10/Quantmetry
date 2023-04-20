@@ -23,22 +23,23 @@ def main(cfgHydra: DictConfig):
 
     logging.info("Prepare Data")
     loader_data = CustomDataLoader(
-        cfg_dataset=cfg.dataset,
-        target="meantemp",
-        cfg_model=cfg.model,
-        test_length=114,
+        cfg_dataset=cfg.dataset, target=cfg.dataset.load["target"], cfg_model=cfg.model
     )
     data_gluonts = loader_data.get_gluonts_format()
 
     logging.info("Training")
-    model_inst = getattr(forecasters, cfg.model.model_name)
-    model = model_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-    model.train(input_data=data_gluonts.train)
+    forecaster_inst = getattr(forecasters, cfg.model.model_name)
+    forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
+    forecaster.train(input_data=data_gluonts.train)
+    losses = forecaster.get_callback_losses(type="train")
 
-    forecast_it, ts_it = model.predict(test_data=data_gluonts.test)
+    logging.info("first 10 losses")
+    logging.info(losses[:10])
 
-    print(forecast_it[0].head())
-    print(ts_it[0].head())
+    forecast_it, ts_it = forecaster.predict(test_data=data_gluonts.test)
+
+    logging.info(forecast_it[0].head())
+    logging.info(ts_it[0].head())
 
 
 if __name__ == "__main__":

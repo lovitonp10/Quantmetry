@@ -1,7 +1,7 @@
-from typing import Iterable, List, Optional, Tuple
-from gluonts.evaluation import make_evaluation_predictions, Evaluator
-from gluonts.evaluation.backtest import backtest_metrics
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
 import configs
+import hydra
 import pandas as pd
 import torch
 from domain.lightning_module import TFTLightningModule
@@ -9,12 +9,14 @@ from domain.module import TFTModel
 from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
+from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
+from gluonts.evaluation import Evaluator, make_evaluation_predictions
+from gluonts.evaluation.backtest import backtest_metrics
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
-from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import IterableDataset
 from gluonts.transform import (
@@ -33,10 +35,9 @@ from gluonts.transform import (
     ValidationSplitSampler,
     VstackFeatures,
 )
-from load.dataloaders import CustomDataLoader
+from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
-
 
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
@@ -88,7 +89,12 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             cfg_dataset=cfg_dataset,
             from_pretrained=from_pretrained,
         )
-        trainer_kwargs = cfg_train.trainer_kwargs
+        self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
+        self.logger = TensorBoardLogger(
+            "tensorboard_logs", name=cfg_dataset.dataset_name, sub_dir="TFT", log_graph=True
+        )
+        self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
+        trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = self.cfg_dataset.freq
@@ -129,10 +135,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             min_future=self.model_config.prediction_length
         )
 
-    def train(self, input_data: CustomDataLoader):
+    def train(self, input_data: gluontsPandasDataset):
         self.model = None
         self.model = super().train(training_data=input_data)
-        return self.model
 
     def predict(self, test_data: gluontsPandasDataset) -> Tuple[List[pd.Series], List[pd.Series]]:
         forecast_it, ts_it = make_evaluation_predictions(dataset=test_data, predictor=self.model)
@@ -141,7 +146,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             forecasts_df.append(utils_gluonts.sample_df(forecast))
         return list(ts_it), forecasts_df
 
-    def evaluate(self, input_data: gluontsPandasDataset):
+    def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
+        return self.callback.metrics["loss"][f"{type}_loss"]
+
+    def evaluate(self, input_data: gluontsPandasDataset) -> Dict[str, Any]:
         ev = Evaluator(num_workers=0)
         agg_metrics, _ = backtest_metrics(input_data, self.model, evaluator=ev)
         return agg_metrics

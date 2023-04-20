@@ -1,5 +1,5 @@
-epochs: 3
-batch_size_train: 1
+epochs: 1000
+batch_size_train: 2
 nb_batch_per_epoch: 1
 train_sampler: null
 validation_sampler: null
@@ -8,3 +8,5 @@ trainer_kwargs:
     max_epochs: ${train.epochs}
     limit_train_batches: ${train.batch_size_train}
     gradient_clip_val : 10.
+callback:
+  _target_: domain.callbacks.MetricsCallback

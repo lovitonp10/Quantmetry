@@ -7,18 +7,14 @@ from gluonts.dataset.pandas import PandasDataset
 
 class CustomDataLoader:
     def __init__(
-        self,
-        cfg_dataset: configs.Dataset,
-        target: str,
-        cfg_model: configs.Model,
-        test_length: int,
+        self, cfg_dataset: configs.Dataset, target: str, cfg_model: configs.Model
     ) -> None:
         self.tmp = hydra.utils.instantiate(cfg_dataset.load, _convert_="all")
         self.register_data()
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
         self.target = target if target else "target"
-        self.test_length = test_length
+        self.test_length = cfg_dataset.test_length
 
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):

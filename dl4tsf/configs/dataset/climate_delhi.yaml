@@ -1,8 +1,10 @@
+dataset_name: climate_delhi
 load:
   _target_: load.load_data.climate
   path: data/climate_delhi/
   target: meantemp
 freq: 1D
+test_length: 114
 feats:
   num_feat_dynamic_real: 0
   num_feat_static_cat: 0
