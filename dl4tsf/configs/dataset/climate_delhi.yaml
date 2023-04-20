@@ -5,7 +5,6 @@ load:
   target: meantemp
 test_length: 114D
 freq: 1D
-test_length: 114
 feats:
   num_feat_dynamic_real: 0
   num_feat_static_cat: 0
