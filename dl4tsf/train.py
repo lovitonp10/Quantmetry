@@ -39,7 +39,7 @@ def main(cfgHydra: DictConfig):
     logging.info("first 10 losses")
     logging.info(losses[:10])
 
-    ts_it, forecast_it = model.predict(test_data=data_gluonts.test)
+    ts_it, forecast_it = forecaster.predict(test_data=data_gluonts.test)
 
     logging.info(ts_it[0].head())
     logging.info(forecast_it[0].head())
