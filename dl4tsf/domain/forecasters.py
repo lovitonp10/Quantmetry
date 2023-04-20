@@ -325,7 +325,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         return TFTLightningModule(model=model, loss=self.loss)
 
 
-class Informer(Forecaster):
+class InformerForecaster(Forecaster):
     def __init__(
         self,
         cfg_model: configs.Model,
@@ -370,11 +370,11 @@ class Informer(Forecaster):
             batch_size=self.cfg_train.batch_size_test,
         )
 
-    def train(self, train_dataset: List[Dict[str, Any]]):
+    def train(self, input_data: List[Dict[str, Any]]):
         if self.from_pretrained:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
-        self.get_train_dataloader(train_dataset)
+        self.get_train_dataloader(input_data)
         accelerator = Accelerator()
         device = accelerator.device
         self.model.to(device)
@@ -386,7 +386,7 @@ class Informer(Forecaster):
             self.train_dataloader,
         )
 
-        loss_history = []
+        self.loss_history = []
         self.model.train()
 
         for epoch in range(self.cfg_train.epochs):
@@ -412,13 +412,13 @@ class Informer(Forecaster):
                 accelerator.backward(loss)
                 optimizer.step()
 
-                loss_history.append(loss.item())
+                self.loss_history.append(loss.item())
                 if idx % 100 == 0:
                     print(loss.item())
 
-        return self.model, loss_history
-
-    def predict(self, test_dataset: List[Dict[str, Any]]) -> np.array:
+    def predict(
+        self, test_dataset: List[Dict[str, Any]]
+    ) -> Tuple[List[pd.Series], List[pd.Series]]:
         self.get_test_dataloader(test_dataset)
         accelerator = Accelerator()
         device = accelerator.device
@@ -426,9 +426,9 @@ class Informer(Forecaster):
         self.model.to(device)
         self.model.eval()
         forecasts_ = []
+        ts_it_ = []
         i = 0
         for batch in self.test_dataloader:
-            print(i)
             outputs = self.model.generate(
                 static_categorical_features=batch["static_categorical_features"].to(device)
                 if self.model_config_informer.num_static_categorical_features > 0
@@ -442,15 +442,20 @@ class Informer(Forecaster):
                 past_observed_mask=batch["past_observed_mask"].to(device),
             )
             forecasts_.append(outputs.sequences.cpu().numpy())
+            ts_it_.append(batch["past_values"].numpy())
             i = i + 1
         forecasts = np.vstack(forecasts_)
-        return forecasts
+        ts_it = np.vstack(ts_it_)
+        return ts_it, forecasts
 
-    def score(
+    def get_callback_losses(self) -> Dict[str, Any]:
+        return self.loss_history
+
+    def evaluate(
         self, test_dataset: List[Dict[str, Any]], forecasts=[]
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
-            forecasts = self.predict(test_dataset)
+            _, forecasts = self.predict(test_dataset)
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
         smape_metric = evaluate.load("evaluate-metric/smape")
@@ -477,4 +482,4 @@ class Informer(Forecaster):
         metrics = {}
         metrics["smape"] = smape_metrics
         metrics["mase"] = mase_metrics
-        return metrics, forecasts
+        return metrics

@@ -1,7 +1,6 @@
 import logging
 
 import hydra
-import numpy as np
 from configs import Configs
 from domain import forecasters
 from domain.plots import plot_timeseries
@@ -35,24 +34,13 @@ def main(cfgHydra: DictConfig):
     logging.info("Training")
     model_inst = getattr(forecasters, cfg.model.model_name)
     model = model_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-    model_uni, losses = model.train(train_dataset=data_huggingface.train)
-    print(losses)
+    model.train(input_data=data_huggingface.train)
+    print(model.get_callback_losses())
 
-    ts_it, forecasts = model.predict(test_dataset=data_huggingface.test)
+    _, forecasts = model.predict(test_dataset=data_huggingface.test)
 
-    print(1)
-    # model_uni.save_pretrained("../models/informer_v1")
-
-    # logging.info("Inference")
-    # model_inst = getattr(forecasters, cfg.model.model_name)
-    # model = model_inst(
-    #     cfg_model=cfg.model,
-    #     cfg_train=cfg.train,
-    #     cfg_dataset=cfg.dataset,
-    #     from_pretrained="../models/informer_v1",
-    # )
-    metrics, forecasts = model.score(test_dataset=data_huggingface.test)
-    print(np.mean(metrics["smape"]), np.mean(metrics["mase"]))
+    metrics, forecasts = model.evaluate(test_dataset=data_huggingface.test)
+    print(metrics)
 
     logging.info("Plot first TS predictions")
     plot_timeseries(

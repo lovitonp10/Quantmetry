@@ -5,15 +5,33 @@
     "version": "0.2.0",
     "configurations": [
 
+
         {
-            "name": "training",
+            "name": "training informer",
             "type": "python",
             "request": "launch",
             "program": "dl4tsf/train.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
-            "args": ["model=tft", "dataset=traffic"]
+            "env": {
+                "PYTORCH_ENABLE_MPS_FALLBACK": "1"
+              },
+            "args": ["model=informer", "dataset=monash_traffic_hourly"],
+
+        } ,
+        {
+            "name": "training tft",
+            "type": "python",
+            "request": "launch",
+            "program": "dl4tsf/train.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTORCH_ENABLE_MPS_FALLBACK": "1"
+              },
+            "args": ["model=tft", "dataset=climate_delhi"],
 
         } ,
     ]

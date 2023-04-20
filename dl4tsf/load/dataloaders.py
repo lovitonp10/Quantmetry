@@ -61,14 +61,14 @@ class CustomDataLoader:
         # to implement
 
     def get_gluonts_format(self) -> TrainDatasets:
-        if hasattr(self, "df_gluonts") and (self.df_gluonts):
+        if hasattr(self, "df_gluonts") and (self.df_gluonts is not None):
             return self.df_gluonts
-        elif hasattr(self, "df_pandas") and (self.df_pandas):
+        elif hasattr(self, "df_pandas") and (self.df_pandas is not None):
             self.create_gluonts_from_pandas()
-            self.get_gluonts_format()
-        elif hasattr(self, "df_huggingface") and (self.df_huggingface):
+            return self.get_gluonts_format()
+        elif hasattr(self, "df_huggingface") and (self.df_huggingface is not None):
             self.create_pandas_from_hugging_face()
-            self.get_gluonts_format()
+            return self.get_gluonts_format()
 
     def get_huggingface_format(self):
         if hasattr(self, "df_huggingface") and (self.df_huggingface):

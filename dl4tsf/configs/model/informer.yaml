@@ -1,4 +1,4 @@
-model_name: Informer
+model_name: InformerForecaster
 model_config:
   input_size: 1
   prediction_length : 7

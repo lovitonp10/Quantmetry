@@ -1,4 +1,0 @@
-epochs: 1
-batch_size_train: 1
-nb_batch_per_epoch: 1
-batch_size_test : 10
