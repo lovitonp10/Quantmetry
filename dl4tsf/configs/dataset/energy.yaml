@@ -1,0 +1,11 @@
+dataset_name: energy
+load:
+  _target_: load.load_data.energy
+  path: data/energy/
+  target: consommation
+test_length: 31D
+freq: 15T
+feats:
+  num_feat_dynamic_real: 0
+  num_feat_static_cat: 0
+  num_feat_static_real: 0
