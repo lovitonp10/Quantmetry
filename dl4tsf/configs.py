@@ -6,7 +6,7 @@ from pydantic import BaseModel
 class Dataset(BaseModel):
     dataset_name: str
     load: Dict[str, Any]
-    test_length: str
+    test_length: Optional[str]
     freq: str
     feats: Dict[str, int]
 

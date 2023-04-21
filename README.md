@@ -106,6 +106,14 @@ Run the following command to train and forecast using TFT:
 python dl4tsf/train.py model=tft dataset=traffic
 # or
 python dl4tsf/train.py model=tft dataset=climate_delhi
+python dl4tsf/train.py model=tft dataset=energy
+```
+### PENDING
+
+```
+
+python dl4tsf/train.py model=informer dataset=energy
+python dl4tsf/train.py model=informer dataset=climate_delhi
 ```
 If you encountered a warning (and you have only a CPU), run this command (to fallback to CPU if no gpu is available):
 `export PYTORCH_ENABLE_MPS_FALLBACK=1`

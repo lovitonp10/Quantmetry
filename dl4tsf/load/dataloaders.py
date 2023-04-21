@@ -13,7 +13,6 @@ class CustomDataLoader:
         cfg_dataset: configs.Dataset,
         target: str,
         cfg_model: configs.Model,
-        test_length: str,
     ) -> None:
         self.tmp = hydra.utils.instantiate(cfg_dataset.load, _convert_="all")
         self.register_data()
@@ -31,7 +30,8 @@ class CustomDataLoader:
             self.df_huggingface = self.tmp
 
     def create_pandas_from_hugging_face(self):
-        pass
+        # to implement
+        self.df_huggingface = None  # to complete
 
     def create_gluonts_from_pandas(self):
         test_length_rows = get_test_length(self.freq, self.test_length)
@@ -54,7 +54,6 @@ class CustomDataLoader:
 
         self.df_gluonts = TrainDatasets(metadata=meta, train=train_data, test=test_data)
 
-        
     def get_pandas_format(self) -> pd.DataFrame:
         if self.df_pandas:
             return self.df_pandas
@@ -73,3 +72,10 @@ class CustomDataLoader:
     def get_huggingface_format(self):
         if hasattr(self, "df_huggingface") and (self.df_huggingface):
             return self.df_huggingface
+        elif hasattr(self, "df_pandas") and (self.df_pandas is not None):
+            self.create_huggingface_from_pandas()
+            return self.get_huggingface_format()
+        # not priority
+        # elif hasattr(self, "df_gluonts") and (self.df_gluonts is not None):
+        #     self.create_pandas_from_gluonts()
+        #     return self.get_huggingface_format()

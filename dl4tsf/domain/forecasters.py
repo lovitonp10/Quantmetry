@@ -11,8 +11,6 @@ from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
-from gluonts.evaluation import Evaluator, make_evaluation_predictions
-from gluonts.evaluation.backtest import backtest_metrics
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
@@ -152,19 +150,30 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = None
         self.model = super().train(training_data=input_data)
 
-    def predict(self, test_data: gluontsPandasDataset) -> Tuple[List[pd.Series], List[pd.Series]]:
-        forecast_it, ts_it = make_evaluation_predictions(dataset=test_data, predictor=self.model)
+    def predict(
+        self, test_dataset: gluontsPandasDataset
+    ) -> Tuple[List[pd.Series], List[pd.Series]]:
+        forecast_it, ts_it = make_evaluation_predictions(
+            dataset=test_dataset, predictor=self.model
+        )
         forecasts_df = []
         for forecast in forecast_it:
-            forecasts_df.append(utils_gluonts.sample_df(forecast))
+            forecasts_df.append(
+                utils_gluonts.sample_df(
+                    forecast.samples,
+                    periods=forecast.samples.shape[1],
+                    start_date=forecast.start_date,
+                    freq=forecast.freq,
+                )
+            )
         return list(ts_it), forecasts_df
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.callback.metrics["loss"][f"{type}_loss"]
 
-    def evaluate(self, input_data: gluontsPandasDataset) -> Dict[str, Any]:
+    def evaluate(self, test_dataset: gluontsPandasDataset) -> Dict[str, Any]:
         ev = Evaluator(num_workers=0)
-        agg_metrics, _ = backtest_metrics(input_data, self.model, evaluator=ev)
+        agg_metrics, _ = backtest_metrics(test_dataset, self.model, evaluator=ev)
         return agg_metrics
 
     def create_transformation(self) -> Transformation:
@@ -417,7 +426,7 @@ class InformerForecaster(Forecaster):
                     print(loss.item())
 
     def predict(
-        self, test_dataset: List[Dict[str, Any]]
+        self, test_dataset: List[Dict[str, Any]], transform_df=True
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
         self.get_test_dataloader(test_dataset)
         accelerator = Accelerator()
@@ -446,7 +455,21 @@ class InformerForecaster(Forecaster):
             i = i + 1
         forecasts = np.vstack(forecasts_)
         ts_it = np.vstack(ts_it_)
-        return ts_it, forecasts
+        if not transform_df:
+            return ts_it, forecasts
+        # periods = len(test_dataset[0]["target"])
+        df_ts = utils_gluonts.transform_huggingface_to_dict(test_dataset, freq=self.freq)
+        forecasts_df = {}
+
+        for i, forecast in enumerate(forecasts):
+            forecasts_df[i] = utils_gluonts.sample_df(
+                forecast,
+                periods=forecast.shape[1],
+                start_date=test_dataset[0]["start"],
+                freq=self.freq,
+            )
+
+        return df_ts, forecasts_df
 
     def get_callback_losses(self) -> Dict[str, Any]:
         return self.loss_history
@@ -455,7 +478,7 @@ class InformerForecaster(Forecaster):
         self, test_dataset: List[Dict[str, Any]], forecasts=[]
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
-            _, forecasts = self.predict(test_dataset)
+            _, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
         smape_metric = evaluate.load("evaluate-metric/smape")
