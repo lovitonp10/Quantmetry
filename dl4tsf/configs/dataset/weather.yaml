@@ -1,0 +1,11 @@
+dataset_name: weather_paris
+load:
+  _target_: load.load_data.add_meteo
+  path: data/all_weather
+  #target: meantemp -> pas de target
+test_length: 114D
+freq: 15T
+feats:
+  num_feat_dynamic_real: 3
+  num_feat_static_cat: 0
+  num_feat_static_real: 0
