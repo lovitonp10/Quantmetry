@@ -1,6 +1,7 @@
 import glob
 
 import pandas as pd
+import numpy as np
 from gluonts.dataset.common import TrainDatasets
 from gluonts.dataset.repository.datasets import get_dataset
 
@@ -9,11 +10,12 @@ from dateutil import relativedelta
 
 
 def add_meteo(
-    path: str = "../../data/all_weather/",
+    path: str = "data/all_weather/",
     start: str = "15-01-2022",
     end: str = "25-02-2022",
     features: list = ["t", "rr3", "pmer"],
     station: int = 7149,
+    target: str = "t",
 ) -> pd.DataFrame:
 
     start = datetime.strptime(start, "%d-%m-%Y")
@@ -30,12 +32,9 @@ def add_meteo(
         date = start + relativedelta.relativedelta(months=i)
 
         YM_str = date.strftime("%Y%m")
-        path = path + "synop." + YM_str + ".csv.gz"
+        path_ = path + "synop." + YM_str + ".csv.gz"
 
-        print(path)
-        print(type(path))
-
-        df2 = pd.read_csv(path, sep=";", compression="gzip")
+        df2 = pd.read_csv(path_, sep=";", compression="gzip")
 
         df2["date"] = df2["date"].apply(lambda x: datetime.strptime(str(x), "%Y%m%d%H%M%S"))
         df2 = df2[columns]
@@ -51,14 +50,16 @@ def add_meteo(
 
     df.drop(["numer_sta"], axis=1, inplace=True)
 
-    df[features] = df[features].fillna(0)
+    df[features] = df[features].fillna(np.median)
     df.set_index("date", inplace=True)
     df = df.resample("15T").ffill()
 
+    # df.index = df.index.map(lambda x: x.strftime("%d-%m-%Y-%H-%M"))
+    # df.reset_index(inplace=True)
+
     return df
 
-
-# add_meteo()
+    # return df[[target]]
 
 
 def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.DataFrame:
