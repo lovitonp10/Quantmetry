@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - dataset: climate_delhi
+  - dataset: weather
   - model: tft
   - train: dummy
 
