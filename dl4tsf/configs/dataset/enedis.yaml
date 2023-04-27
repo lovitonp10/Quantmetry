@@ -1,0 +1,11 @@
+dataset_name: enedis
+load:
+  _target_: load.load_data.enedis
+  path: data/enedis/
+  target: total_energy
+test_length: 2D
+freq: 30T
+feats:
+  num_feat_dynamic_real: 1
+  num_feat_static_cat: 2
+  num_feat_static_real: 0

@@ -24,19 +24,50 @@ def energy(path: str = "data/energy/", target: str = "consommation"):
     for file in list_csv:
         df_tmp = pd.read_csv(file, sep=";")
         df_energy = pd.concat([df_energy, df_tmp], axis=0)
-    df_energy.rename(
-        columns={"heure": "hour", "libelle_region": "variable", target: "value"}, inplace=True
-    )
-    df_energy = df_energy[["date", "hour", "variable", "value"]]
-    df_energy = df_energy[df_energy.variable != "Grand Est"]
-    df_energy["date"] = pd.to_datetime(
+    df_energy.rename(columns={"heure": "hour", "libelle_region": "region"}, inplace=True)
+    df_energy = df_energy[["date", "hour", "region", target]]
+    df_energy = df_energy[df_energy.region != "Grand Est"]
+    df_energy["date_hour"] = pd.to_datetime(
         df_energy.date + " " + df_energy.hour, format="%Y-%m-%d %H:%M"
     )
-    df_energy = df_energy.sort_values(by="date", ascending=True).reset_index(drop=True)
-    df_energy = pd.pivot_table(df_energy, values="value", index=["date"], columns=["variable"])
+    df_energy = df_energy.sort_values(by=["date_hour", "region"], ascending=True).reset_index(
+        drop=True
+    )
+    # df_energy.index = df_energy['date_hour']
+    # df_energy = df_energy[['region',target]]
+    df_energy = pd.pivot_table(df_energy, values=target, index=["date_hour"], columns=["region"])
     df_energy = df_energy.resample("15T").interpolate(method="linear")
 
-    return df_energy
+    dynamic_feat = []
+    static_feat = ["region"]
+    return df_energy, dynamic_feat, static_feat
+
+
+def enedis(path: str = "data/enedis/", target: str = "total_energy"):
+    list_csv = glob.glob(path + "*.csv")
+    df_enedis = pd.DataFrame()
+    for file in list_csv:
+        df_tmp = pd.read_csv(file, sep=";")
+        df_enedis = pd.concat([df_enedis, df_tmp], axis=0)
+    df_enedis.rename(
+        columns={"horodate": "date", "total_energie_soutiree_wh": target}, inplace=True
+    )
+    df_enedis = df_enedis.sort_values(by=["region", "profil", "date", "nb_points_soutirage"])
+    df_enedis.index = pd.to_datetime(df_enedis.date)
+    df_enedis = df_enedis[["region", "profil", target, "nb_points_soutirage"]]
+
+    # df_enedis['profil2'] = df_enedis['profil']
+    # df_enedis['soutirage2'] = df_enedis['nb_points_soutirage']
+    # df_enedis['soutirage3'] = df_enedis['nb_points_soutirage']
+    # df_enedis['static_real_1'] = np.repeat(np.random.randn(24), 416)
+    # df_enedis['static_real_2'] = np.repeat(np.random.randn(24), 416)
+    # df_enedis['static_real_3'] = np.repeat(np.random.randn(24), 416)
+
+    dynamic_real = ["nb_points_soutirage"]
+    static_cat = ["region", "profil"]
+    static_real = []
+
+    return df_enedis, dynamic_real, static_cat, static_real
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:

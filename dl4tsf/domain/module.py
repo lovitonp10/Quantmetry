@@ -86,7 +86,9 @@ class TFTModel(nn.Module):
 
         self.static_selection = VariableSelectionNetwork(
             d_hidden=self.model_config.variable_dim,
-            n_vars=2,  # cat, static_feat
+            n_vars=self.num_feat_static_cat + 1
+            if self.num_feat_static_cat > 1
+            else 2,  # 2,   cat, static_feat
             dropout=self.model_config.dropout,
         )
 
@@ -230,7 +232,7 @@ class TFTModel(nn.Module):
             reshaped_lagged_target,  # target
             time_feat,  # dynamic real covariates
             scale,  # scale
-            embedded_cat,  # static covariates
+            list(embedded_cat),  # static covariates
             static_feat,
         )
 
