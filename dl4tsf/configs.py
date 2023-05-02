@@ -8,7 +8,8 @@ class Dataset(BaseModel):
     load: Dict[str, Any]
     test_length: str
     freq: str
-    feats: Dict[str, int]
+    cardinality: Optional[List[int]]
+    name_feats: Dict[str, List[str]]
 
 
 class ModelConfig(BaseModel):

@@ -3,6 +3,7 @@ import hydra
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
 from utils.utils_gluonts import get_test_length, create_ts_with_features
+from typing import List
 
 
 class CustomDataLoader:
@@ -10,17 +11,19 @@ class CustomDataLoader:
         self,
         cfg_dataset: configs.Dataset,
         target: str,
+        feats: List[str],
         cfg_model: configs.Model,
         test_length: str,
     ) -> None:
-        self.tmp, self.dynamic_real, self.static_cat, self.static_real = hydra.utils.instantiate(
-            cfg_dataset.load, _convert_="all"
-        )
+        self.tmp = hydra.utils.instantiate(cfg_dataset.load, _convert_="all")
         self.register_data()
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
         self.target = target if target else "target"
-        self.test_length = cfg_dataset.test_length
+        self.dynamic_real = feats["feat_dynamic_real"]
+        self.static_cat = feats["feat_static_cat"]
+        self.static_real = feats["feat_static_real"]
+        self.test_length = test_length
         self.cardinality = cfg_model.model_config.cardinality
 
     def register_data(self):

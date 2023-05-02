@@ -98,9 +98,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = self.cfg_dataset.freq
-        self.num_feat_dynamic_real = self.cfg_dataset.feats["num_feat_dynamic_real"]
-        self.num_feat_static_cat = self.cfg_dataset.feats["num_feat_static_cat"]
-        self.num_feat_static_real = self.cfg_dataset.feats["num_feat_static_real"]
+        self.num_feat_dynamic_real = len(self.cfg_dataset.name_feats["feat_dynamic_real"])
+        self.num_feat_static_cat = len(self.cfg_dataset.name_feats["feat_static_cat"])
+        self.num_feat_static_real = len(self.cfg_dataset.name_feats["feat_static_real"])
 
         self.model_config.context_length = (
             self.model_config.context_length
