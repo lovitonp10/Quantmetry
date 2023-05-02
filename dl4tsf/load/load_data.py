@@ -54,12 +54,9 @@ def add_meteo(
     df.set_index("date", inplace=True)
     df = df.resample("15T").ffill()
 
-    # df.index = df.index.map(lambda x: x.strftime("%d-%m-%Y-%H-%M"))
-    # df.reset_index(inplace=True)
-
     return df
 
-    # return df[[target]]
+
 
 
 def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.DataFrame:
