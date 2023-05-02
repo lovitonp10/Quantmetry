@@ -54,6 +54,7 @@ The current data folders that must be available for a proper testing of the modu
 The current data needed are:
 - climate_delhi
 - energy
+- all_weather
 
 # Jupyter notebooks
 Make sure that code done in jupyter notebook are only for testing or visualization.
