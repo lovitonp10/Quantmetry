@@ -6,6 +6,8 @@ from gluonts.dataset.pandas import PandasDataset
 from utils.utils_gluonts import get_test_length
 from utils.custom_objects_pydantic import HuggingFaceDataset
 
+from datasets import Dataset
+
 
 class CustomDataLoader:
     def __init__(
@@ -33,6 +35,10 @@ class CustomDataLoader:
         # to implement
         self.df_huggingface = None  # to complete
 
+    def create_huggingface_from_pandas(self):
+        # Not yet ready for Informer model
+        self.df_huggingface = Dataset.from_pandas(self.df_pandas)
+
     def create_gluonts_from_pandas(self):
         test_length_rows = get_test_length(self.freq, self.test_length)
 
@@ -55,7 +61,10 @@ class CustomDataLoader:
         self.df_gluonts = TrainDatasets(metadata=meta, train=train_data, test=test_data)
 
     def get_pandas_format(self) -> pd.DataFrame:
-        if self.df_pandas:
+        # if self.df_pandas:
+        if (
+            self.df_pandas is not None and not self.df_pandas.empty
+        ):  # Modification car si on a plusieurs colonnes, ça ne marche pas
             return self.df_pandas
         # to implement
 
