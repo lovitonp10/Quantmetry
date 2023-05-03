@@ -58,12 +58,18 @@ def enedis(path: str = "data/enedis/", target: str = "total_energy") -> pd.DataF
     df_enedis = df_enedis.sort_values(by=["region", "profil", "power", "date"])
     df_enedis.index = pd.to_datetime(df_enedis.date)
     df_enedis = df_enedis[["region", "profil", "power", target, "soutirage"]]
-    df_enedis = df_enedis.dropna(subset=["total_energy"])
+
+    df_na = df_enedis[df_enedis.total_energy.isna()]
+    groups_with_nan = df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any())
+    groups_with_nan = groups_with_nan[groups_with_nan is True].index.tolist()
+    df_enedis = df_enedis[
+        ~df_enedis.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
+    ]
 
     df_enedis["power_min"] = df_enedis["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
     df_enedis["power_max"] = (
         df_enedis["power"]
-        .str.extract(r"\](\d+)")
+        .str.extract(r"\-(\d+)]")
         .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
         .astype(int)
     )
