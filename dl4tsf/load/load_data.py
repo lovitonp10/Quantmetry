@@ -60,8 +60,9 @@ def enedis(path: str = "data/enedis/", target: str = "total_energy") -> pd.DataF
     df_enedis = df_enedis[["region", "profil", "power", target, "soutirage"]]
 
     df_na = df_enedis[df_enedis.total_energy.isna()]
-    groups_with_nan = df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any())
-    groups_with_nan = groups_with_nan[groups_with_nan is True].index.tolist()
+    groups_with_nan = (
+        df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any()).index.tolist()
+    )
     df_enedis = df_enedis[
         ~df_enedis.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
     ]
