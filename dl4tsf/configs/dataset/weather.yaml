@@ -1,6 +1,6 @@
 dataset_name: weather_paris
 load:
-  _target_: load.load_data.add_meteo
+  _target_: load.load_exo_data.load_weather
   path: data/all_weather/
   target: t
 test_length: 7D
