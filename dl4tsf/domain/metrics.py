@@ -1,49 +1,83 @@
 import numpy as np
-from evaluate import load
 from gluonts.time_feature import get_seasonality
+from gluonts.evaluation import metrics
 
 
 def estimate_mae(cfg, forecasts, true_ts):
+
+    """
+    Compute the MAE metric:
+    .. math::
+        MAE = mean(|Y - hat{Y}|)
+    """
+
     pred_length = cfg.model.model_config.prediction_length
+
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
-        foracast_value = np.array(forecast.median(axis=1))
-        mae_metrics = (np.sum(np.abs(true_value - foracast_value))) / pred_length
+        forecast_value = np.array(forecast.median(axis=1))
+        mae_metrics = metrics.abs_error(true_value, forecast_value) / pred_length
+
     return mae_metrics
 
 
 def estimate_rmse(cfg, forecasts, true_ts):
-    pred_length = cfg.model.model_config.prediction_length
+
+    """
+    Compute the RMSE metric:
+    .. math::
+        rmse = sqrt(mean((Y - hat{Y})^2))
+    """
+
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
-        forecast_value = np.array(forecast.median(axis=1))
-        rmse_metrics = (np.sum((true_value - forecast_value) ** 2) / pred_length) ** (0.5)
+        forecast_value = np.array(forecast.mean(axis=1))
+        mse_metrics = metrics.mse(true_value, forecast_value)
+        rmse_metrics = mse_metrics ** (0.5)
+
     return rmse_metrics
 
 
 def estimate_mape(cfg, forecasts, true_ts):
-    pred_length = cfg.model.model_config.prediction_length
+
+    """
+    Compute the MAPE metric:
+    .. math::
+        mape = 100 * mean(|Y - hat{Y}| / |Y|))
+    """
+
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
         forecast_value = np.array(forecast.median(axis=1))
-        mape_metrics = (100 / pred_length) * np.sum(
-            np.abs((true_value - forecast_value) / true_value)
-        )
+        mape_metrics = 100 * metrics.mape(true_value, forecast_value)
+
     return mape_metrics
 
 
 def estimate_smape(cfg, forecasts, true_ts):
-    pred_length = cfg.model.model_config.prediction_length
+
+    """
+    Compute the SMAPE metric:
+    .. math::
+        smape = 200 * mean(|Y - hat{Y}| / (|Y| + |hat{Y}|))
+    """
+
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
         forecast_value = np.array(forecast.median(axis=1))
-        smape_metrics = (200 / pred_length) * np.sum(
-            np.abs(true_value - forecast_value) / (np.abs(true_value) + np.abs(forecast_value))
-        )
+        smape_metrics = 100 * metrics.smape(true_value, forecast_value)
+
     return smape_metrics
 
 
 def estimate_wmape(cfg, forecasts, true_ts):
+
+    """
+    Compute the WMAPE metric:
+    .. math::
+        smape = 100 * sum(|Y - hat{Y}|) / sum(|Y|)
+    """
+
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
         forecast_value = np.array(forecast.median(axis=1))
@@ -54,30 +88,21 @@ def estimate_wmape(cfg, forecasts, true_ts):
 
 
 def estimate_mase(cfg, forecasts, true_ts):
-    mase_metric = load("evaluate-metric/mase")
+
+    """
+    Compute the MASE metric:
+    .. math::
+        mase = mean(|Y - hat{Y}|) / seasonal_error
+    """
+
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
         forecast_value = np.array(forecast.median(axis=1))
-        mase = mase_metric.compute(
-            predictions=forecast_value,
-            references=true_value,
-            training=np.array(ts[idx]),
-            periodicity=get_seasonality(cfg.dataset.freq),
+        season_error = metrics.calculate_seasonal_error(
+            past_data=np.array(ts[: -cfg.model.model_config.prediction_length][idx]),
+            freq=cfg.dataset.freq,
+            seasonality=get_seasonality(cfg.dataset.freq),
         )
-        mase_metrics = mase["mase"]
+        mase_metrics = metrics.mase(true_value, forecast_value, season_error)
+
     return mase_metrics
-
-
-def estimate_mase2(cfg, forecasts, true_ts):
-    mae = estimate_mae(cfg=cfg, forecasts=forecasts, true_ts=true_ts)
-    pred_length = cfg.model.model_config.prediction_length
-    for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        freq = get_seasonality(cfg.dataset.freq)
-        true_value = np.array(ts[-cfg.model.model_config.prediction_length :][idx])
-        true_value_seasonal = np.array(ts[-cfg.model.model_config.prediction_length - freq :][idx])
-
-        mae_naive = (
-            1 / (pred_length - freq) * np.sum(true_value[freq:] - true_value_seasonal[-freq:])
-        )
-        mase2_metrics = mae / mae_naive
-    return mase2_metrics
