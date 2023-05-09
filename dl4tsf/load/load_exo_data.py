@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 from dateutil import relativedelta
 
 
-def get_station_id(path: str = "data/all_weather/", name: str = "ORLY") -> int:
-    df_stations = pd.read_csv(path + "stations.txt", sep=";")
+def get_station_id(path_weather: str = "data/all_weather/", name: str = "ORLY") -> int:
+    df_stations = pd.read_csv(path_weather + "stations.txt", sep=";")
 
     id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
 
@@ -13,7 +13,7 @@ def get_station_id(path: str = "data/all_weather/", name: str = "ORLY") -> int:
 
 
 def load_weather(
-    path: str = "data/all_weather/",
+    path_weather: str = "data/all_weather/",
     start: str = "30-01-2022",
     end: str = "1-02-2022",
     dyn_features: list = ["t", "rr3", "pmer"],
@@ -22,7 +22,7 @@ def load_weather(
     freq: str = "30T",
 ) -> pd.DataFrame:
 
-    station = get_station_id(path=path, name=station_name)
+    station = get_station_id(path_weather=path_weather, name=station_name)
 
     start = datetime.strptime(start, "%d-%m-%Y")
     end = datetime.strptime(end, "%d-%m-%Y") + timedelta(days=1)
@@ -42,7 +42,7 @@ def load_weather(
         date = start + relativedelta.relativedelta(months=i)
 
         YM_str = date.strftime("%Y%m")
-        path_ = path + "synop." + YM_str + ".csv.gz"
+        path_ = path_weather + "synop." + YM_str + ".csv.gz"
 
         df2 = pd.read_csv(path_, sep=";", compression="gzip")
 
@@ -71,7 +71,7 @@ def load_weather(
 
 def add_weather(
     df: pd.DataFrame,
-    path: str = "data/all_weather/",
+    path_weather: str = "data/all_weather/",
     dyn_features: list = ["t", "rr3", "pmer"],
     cat_features: list = ["cod_tend"],
     station_name: str = "ORLY",
@@ -88,7 +88,7 @@ def add_weather(
     frequence = pd.infer_freq(sorted_dates)
 
     weather = load_weather(
-        path="data/all_weather/",
+        path_weather=path_weather,
         start=first_date_str,
         end=last_date_str,
         dyn_features=["t", "rr3", "pmer"],
