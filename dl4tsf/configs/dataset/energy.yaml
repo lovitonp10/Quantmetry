@@ -3,6 +3,7 @@ load:
   _target_: load.load_data.energy
   path: data/energy/
   target: consommation
+  weather: False
 test_length: 31D
 freq: 15T
 feats:
