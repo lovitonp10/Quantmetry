@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import configs
 import hydra
+import numpy as np
 import pandas as pd
 import torch
 import domain.metrics
@@ -151,7 +152,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         return self.callback.metrics["loss"][f"{type}_loss"]
 
     def evaluate(
-        self, input_data: gluontsPandasDataset, prediction_length: float, freq: float
+        self,
+        input_data: gluontsPandasDataset,
+        prediction_length: float,
+        freq: float,
+        mean: bool = False,
     ) -> Dict[str, Any]:
         true_ts, forecasts = self.predict(input_data)
         agg_metrics = {
@@ -167,6 +172,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             agg_metrics[f"QuantileLoss[{i/10}]"] = domain.metrics.quantileloss(
                 forecasts, true_ts, prediction_length, i / 10
             )
+
+        if mean:
+            for name, value in agg_metrics.items():
+                agg_metrics[name] = np.mean(value)
 
         return agg_metrics
 
