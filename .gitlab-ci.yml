@@ -3,7 +3,7 @@ stages:
 
 image: alpine:latest
 
-deploy-job:  
+.deploy:
   stage: deploy
   tags: 
     - runner-qm
