@@ -23,6 +23,7 @@ class CustomDataLoader:
         self.dynamic_real = feats["feat_dynamic_real"]
         self.static_cat = feats["feat_static_cat"]
         self.static_real = feats["feat_static_real"]
+        self.past_dynamic_real = feats["past_feat_dynamic_real"]
         self.test_length = test_length
         self.cardinality = cfg_model.model_config.cardinality
 
@@ -46,6 +47,7 @@ class CustomDataLoader:
             self.dynamic_real,
             self.static_cat,
             self.static_real,
+            self.past_dynamic_real,
             self.freq,
             test_length_rows,
             self.cardinality,

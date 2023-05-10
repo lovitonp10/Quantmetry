@@ -25,6 +25,7 @@ class TFTModel(nn.Module):
         num_feat_dynamic_real: int,
         num_feat_static_real: int,
         num_feat_static_cat: int,
+        num_past_feat_dynamic_real: int,
         # univariate input
         distr_output: DistributionOutput = StudentTOutput(),
     ) -> None:
@@ -38,6 +39,7 @@ class TFTModel(nn.Module):
         self.num_feat_dynamic_real = num_feat_dynamic_real
         self.num_feat_static_cat = num_feat_static_cat
         self.num_feat_static_real = num_feat_static_real
+        self.num_past_feat_dynamic_real = num_past_feat_dynamic_real
 
         self.model_config.lags_sequence = (
             self.model_config.lags_sequence or get_lags_for_frequency(freq_str=freq)
@@ -64,6 +66,13 @@ class TFTModel(nn.Module):
             in_features=num_feat_dynamic_real, out_features=self.model_config.variable_dim
         )
 
+        if self.num_past_feat_dynamic_real > 0:
+            self.past_dynamic_proj = nn.Linear(
+                in_features=num_past_feat_dynamic_real, out_features=self.model_config.variable_dim
+            )
+        else:
+            self.past_dynamic_proj = None
+
         self.static_feat_proj = nn.Linear(
             in_features=num_feat_static_real + self.model_config.input_size,
             out_features=self.model_config.variable_dim,
@@ -72,7 +81,9 @@ class TFTModel(nn.Module):
         # variable selection networks
         self.past_selection = VariableSelectionNetwork(
             d_hidden=self.model_config.variable_dim,
-            n_vars=2,  # target and time features
+            n_vars=3
+            if self.num_past_feat_dynamic_real > 0
+            else 2,  # target, time features (and past_feat_dynamic_real)
             dropout=self.model_config.dropout,
             add_static=True,
         )
@@ -236,7 +247,7 @@ class TFTModel(nn.Module):
             static_feat,
         )
 
-    def output_params(self, target, time_feat, embedded_cat, static_feat):
+    def output_params(self, target, time_feat, embedded_cat, static_feat, past_feat_dynamic_real):
         target_proj = self.target_proj(target)
 
         past_target_proj = target_proj[:, : self.model_config.context_length, ...]
@@ -246,15 +257,20 @@ class TFTModel(nn.Module):
         past_time_feat_proj = time_feat_proj[:, : self.model_config.context_length, ...]
         future_time_feat_proj = time_feat_proj[:, self.model_config.context_length :, ...]
 
+        past_selection_list = [past_target_proj, past_time_feat_proj]
+        if self.past_dynamic_proj is not None:
+            past_dynamic_feat_projs = self.past_dynamic_proj(past_feat_dynamic_real)[
+                :, : self.model_config.context_length, ...
+            ]
+            past_selection_list.append(past_dynamic_feat_projs)
+
         static_feat_proj = self.static_feat_proj(static_feat)
 
         static_var, _ = self.static_selection(embedded_cat + [static_feat_proj])
         static_selection = self.selection(static_var).unsqueeze(1)
         static_enrichment = self.enrichment(static_var).unsqueeze(1)
 
-        past_selection, _ = self.past_selection(
-            [past_target_proj, past_time_feat_proj], static_selection
-        )
+        past_selection, _ = self.past_selection(past_selection_list, static_selection)
 
         future_selection, _ = self.future_selection(
             [future_target_proj, future_time_feat_proj], static_selection
@@ -288,6 +304,7 @@ class TFTModel(nn.Module):
         past_target: torch.Tensor,
         past_observed_values: torch.Tensor,
         future_time_feat: torch.Tensor,
+        past_dynamic_real: torch.Tensor,
         num_parallel_samples: Optional[int] = None,
     ) -> torch.Tensor:
         if num_parallel_samples is None:
@@ -310,9 +327,14 @@ class TFTModel(nn.Module):
         static_selection = self.selection(static_var).unsqueeze(1)
         static_enrichment = self.enrichment(static_var).unsqueeze(1)
 
-        past_selection, _ = self.past_selection(
-            [past_target_proj, past_time_feat_proj], static_selection
-        )
+        past_selection_list = [past_target_proj, past_time_feat_proj]
+        if self.past_dynamic_proj is not None:
+            past_dynamic_feat_projs = self.past_dynamic_proj(past_dynamic_real)[
+                :, : self.model_config.context_length, ...
+            ]
+            past_selection_list.append(past_dynamic_feat_projs)
+
+        past_selection, _ = self.past_selection(past_selection_list, static_selection)
 
         c_h = self.state_h(static_var)
         c_c = self.state_c(static_var)

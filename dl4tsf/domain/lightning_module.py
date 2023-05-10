@@ -53,6 +53,7 @@ class TFTLightningModule(pl.LightningModule):
         past_time_feat = batch["past_time_feat"]
         past_target = batch["past_target"]
         past_observed_values = batch["past_observed_values"]
+        past_feat_dynamic_real = batch["past_feat_dynamic_real"]
 
         future_time_feat = batch["future_time_feat"]
         future_target = batch["future_target"]
@@ -78,6 +79,7 @@ class TFTLightningModule(pl.LightningModule):
             time_feat=time_feat,
             embedded_cat=embedded_cat,
             static_feat=static_feat,
+            past_feat_dynamic_real=past_feat_dynamic_real,
         )
         distr = self.model.output_distribution(params, scale)
 
