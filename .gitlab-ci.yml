@@ -1,6 +1,8 @@
 stages:
   - deploy
 
+image: alpine:latest
+
 deploy-job:  
   stage: deploy
   script:
