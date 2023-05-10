@@ -7,5 +7,5 @@ deploy-job:
     - echo "Deploying application..."
     - echo "Application successfully deployed."
   tags: 
-    - runner-qm-s
+    - runner-qm
 
