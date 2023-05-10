@@ -4,6 +4,7 @@ import configs
 import hydra
 import pandas as pd
 import torch
+import domain.metrics
 from domain.lightning_module import TFTLightningModule
 from domain.module import TFTModel
 from gluonts.core.component import validated
@@ -149,7 +150,21 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.callback.metrics["loss"][f"{type}_loss"]
 
-    def evaluate(self, input_data: gluontsPandasDataset) -> Dict[str, Any]:
+    def evaluate(
+        self, input_data: gluontsPandasDataset, prediction_length: float, freq: float
+    ) -> Dict[str, Any]:
+        true_ts, forecasts = self.predict(input_data)
+        agg_metrics = {
+            "mae": domain.metrics.estimate_mae(forecasts, true_ts, prediction_length),
+            "rmse": domain.metrics.estimate_rmse(forecasts, true_ts, prediction_length),
+            "mape": domain.metrics.estimate_mape(forecasts, true_ts, prediction_length),
+            "smape": domain.metrics.estimate_smape(forecasts, true_ts, prediction_length),
+            "wmape": domain.metrics.estimate_wmape(forecasts, true_ts, prediction_length),
+            "mase": domain.metrics.estimate_mase(forecasts, true_ts, prediction_length, freq),
+        }
+        return agg_metrics
+
+    def evaluate_gluonts(self, input_data: gluontsPandasDataset) -> Dict[str, Any]:
         ev = Evaluator(num_workers=0)
         agg_metrics, _ = backtest_metrics(input_data, self.model, evaluator=ev)
         return agg_metrics
