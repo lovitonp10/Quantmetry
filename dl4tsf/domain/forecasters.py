@@ -161,34 +161,13 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             "smape": domain.metrics.estimate_smape(forecasts, true_ts, prediction_length),
             "wmape": domain.metrics.estimate_wmape(forecasts, true_ts, prediction_length),
             "mase": domain.metrics.estimate_mase(forecasts, true_ts, prediction_length, freq),
-            "QuantileLoss[0.1]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.1
-            ),
-            "QuantileLoss[0.2]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.2
-            ),
-            "QuantileLoss[0.3]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.3
-            ),
-            "QuantileLoss[0.4]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.4
-            ),
-            "QuantileLoss[0.5]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.5
-            ),
-            "QuantileLoss[0.6]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.6
-            ),
-            "QuantileLoss[0.7]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.7
-            ),
-            "QuantileLoss[0.8]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.8
-            ),
-            "QuantileLoss[0.9]": domain.metrics.quantileloss(
-                forecasts, true_ts, prediction_length, 0.9
-            ),
         }
+
+        for i in range(1, 10):
+            agg_metrics[f"QuantileLoss[{i/10}]"] = domain.metrics.quantileloss(
+                forecasts, true_ts, prediction_length, i / 10
+            )
+
         return agg_metrics
 
     def evaluate_gluonts(self, input_data: gluontsPandasDataset) -> Dict[str, Any]:
