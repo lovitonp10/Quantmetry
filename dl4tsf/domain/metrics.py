@@ -104,3 +104,21 @@ def estimate_mase(forecasts: list, true_ts: list, prediction_length: float, freq
         mase_metrics = metrics.mase(true_value, forecast_value, season_error)
 
     return mase_metrics
+
+
+def quantileloss(
+    forecasts: list, true_ts: list, prediction_length: float, quantile: float
+) -> float:
+
+    """
+    Compute the Quantile Loss metric:
+    .. math::
+        quantile_loss = 2 * sum(|(Y - hat{Y}) * (Y <= hat{Y}) - q|)
+    """
+
+    for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
+        true_value = np.array(ts[-prediction_length:][idx])
+        forecast_quantile = np.array(forecast[int(quantile * 100)])
+        quantile_loss_metrics = metrics.quantile_loss(true_value, forecast_quantile, quantile)
+
+    return quantile_loss_metrics
