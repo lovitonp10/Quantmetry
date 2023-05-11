@@ -9,6 +9,6 @@ deploy-job:
     - runner-qm
   script:
     - echo "Deploying application..."
-    - echo "Application successfully deployed."
+    - echo "Application successfully deployed.."
   
 
