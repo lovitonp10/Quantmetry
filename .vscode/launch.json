@@ -13,7 +13,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
-            "args": ["model=tft", "dataset=traffic"]
+            "args": ["model=tft", "dataset=enedis"]
 
         } ,
     ]
