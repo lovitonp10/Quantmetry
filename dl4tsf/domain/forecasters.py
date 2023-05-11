@@ -2,16 +2,17 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import configs
 import hydra
+import numpy as np
 import pandas as pd
 import torch
+import domain.metrics
 from domain.lightning_module import TFTLightningModule
 from domain.module import TFTModel
 from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
-from gluonts.evaluation import Evaluator, make_evaluation_predictions
-from gluonts.evaluation.backtest import backtest_metrics
+from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
@@ -149,9 +150,42 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.callback.metrics["loss"][f"{type}_loss"]
 
-    def evaluate(self, input_data: gluontsPandasDataset) -> Dict[str, Any]:
-        ev = Evaluator(num_workers=0)
-        agg_metrics, _ = backtest_metrics(input_data, self.model, evaluator=ev)
+    def evaluate(
+        self,
+        input_data: gluontsPandasDataset,
+        mean: bool = False,
+    ) -> Dict[str, Any]:
+        true_ts, forecasts = self.predict(input_data)
+        agg_metrics = {
+            "mae": domain.metrics.estimate_mae(
+                forecasts, true_ts, self.model_config.prediction_length
+            ),
+            "rmse": domain.metrics.estimate_rmse(
+                forecasts, true_ts, self.model_config.prediction_length
+            ),
+            "mape": domain.metrics.estimate_mape(
+                forecasts, true_ts, self.model_config.prediction_length
+            ),
+            "smape": domain.metrics.estimate_smape(
+                forecasts, true_ts, self.model_config.prediction_length
+            ),
+            "wmape": domain.metrics.estimate_wmape(
+                forecasts, true_ts, self.model_config.prediction_length
+            ),
+            "mase": domain.metrics.estimate_mase(
+                forecasts, true_ts, self.model_config.prediction_length, self.freq
+            ),
+        }
+
+        for i in range(1, 10):
+            agg_metrics[f"QuantileLoss[{i/10}]"] = domain.metrics.quantileloss(
+                forecasts, true_ts, self.model_config.prediction_length, i / 10
+            )
+
+        if mean:
+            for name, value in agg_metrics.items():
+                agg_metrics[name] = np.mean(value)
+
         return agg_metrics
 
     def create_transformation(self) -> Transformation:
