@@ -7,8 +7,9 @@ from typing import Dict
 
 def get_station_id(path_weather: str = "data/all_weather/", name: str = "ORLY") -> int:
     df_stations = pd.read_csv(path_weather + "stations.txt", sep=";")
-
-    id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
+    dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
+    id_station = dict_stations[name]
+    # id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
 
     return id_station
 
@@ -17,12 +18,11 @@ def load_weather(
     path_weather: str = "data/all_weather/",
     start: str = "30-01-2022",
     end: str = "1-02-2022",
-    dyn_features: list = ["t", "rr3", "pmer"],
+    dynamic_features: list = ["t", "rr3", "pmer"],
     cat_features: list = ["cod_tend"],
     station_name: str = "ORLY",
     freq: str = "30T",
 ) -> pd.DataFrame:
-
     station = get_station_id(path_weather=path_weather, name=station_name)
 
     start = datetime.strptime(start, "%d-%m-%Y")
@@ -31,7 +31,7 @@ def load_weather(
     start_start_month = start.replace(day=1)
     end_start_month = end.replace(day=1)
 
-    columns = ["numer_sta", "date"] + dyn_features + cat_features
+    columns = ["numer_sta", "date"] + dynamic_features + cat_features
 
     diff = relativedelta.relativedelta(end_start_month, start_start_month)
 
@@ -61,7 +61,7 @@ def load_weather(
 
     df.drop(["numer_sta"], axis=1, inplace=True)
 
-    df[dyn_features] = df[dyn_features].fillna(np.median)
+    df[dynamic_features] = df[dynamic_features].fillna(np.median)
     df[cat_features] = df[cat_features].fillna(method="ffill")
 
     df.rename(
@@ -84,14 +84,14 @@ def add_weather(
     df: pd.DataFrame,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dyn_features": ["t", "rr3", "pmer"],
+        "dynamic_features": ["t", "rr3", "pmer"],
         "cat_features": ["cod_tend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
 
     path_weather = weather["path_weather"]
-    dyn_features = weather["dyn_features"]
+    dynamic_features = weather["dynamic_features"]
     cat_features = weather["cat_features"]
     station_name = weather["station_name"]
 
@@ -109,7 +109,7 @@ def add_weather(
         path_weather=path_weather,
         start=first_date_str,
         end=last_date_str,
-        dyn_features=dyn_features,
+        dynamic_features=dynamic_features,
         cat_features=cat_features,
         station_name=station_name,
         freq=frequency,

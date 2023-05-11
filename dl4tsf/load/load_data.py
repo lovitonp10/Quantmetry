@@ -11,7 +11,7 @@ def climate(
     target: str = "mean_temp",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dyn_features": ["t", "rr3", "pmer"],
+        "dynamic_features": ["t", "rr3", "pmer"],
         "cat_features": ["cod_tend"],
         "station_name": "ORLY",
     },
@@ -36,7 +36,7 @@ def energy(
     target: str = "consommation",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dyn_features": ["t", "rr3", "pmer"],
+        "dynamic_features": ["t", "rr3", "pmer"],
         "cat_features": ["cod_tend"],
         "station_name": "ORLY",
     },
@@ -69,7 +69,7 @@ def enedis(
     target: str = "total_energy",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dyn_features": ["t", "rr3", "pmer"],
+        "dynamic_features": ["t", "rr3", "pmer"],
         "cat_features": ["cod_tend"],
         "station_name": "ORLY",
     },
