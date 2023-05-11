@@ -39,16 +39,6 @@ def load_weather(
 
     df = pd.DataFrame(columns=columns)
 
-    df.rename(
-        columns={
-            "t": "temperature",
-            "pmer": "pressure",
-            "cod_tend": "barometric_trend",
-            "rr3": "rainfall",
-        },
-        inplace=True,
-    )
-
     for i in range(month_difference + 1):
         date = start + relativedelta.relativedelta(months=i)
 
@@ -73,6 +63,16 @@ def load_weather(
 
     df[dyn_features] = df[dyn_features].fillna(np.median)
     df[cat_features] = df[cat_features].fillna(method="ffill")
+
+    df.rename(
+        columns={
+            "t": "temperature",
+            "pmer": "pressure",
+            "cod_tend": "barometric_trend",
+            "rr3": "rainfall",
+        },
+        inplace=True,
+    )
 
     df.set_index("date", inplace=True)
     df = df.resample(freq).ffill()
