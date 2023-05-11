@@ -3,12 +3,10 @@ stages:
 
 image: alpine:latest
 
-deploy-job:  
+deploy-job:
   stage: deploy
-  tags: 
+  tags:
     - runner-qm
   script:
     - echo "Deploying application..."
     - echo "Application successfully deployed.."
-  
-
