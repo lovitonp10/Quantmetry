@@ -3,7 +3,15 @@ load:
   _target_: load.load_data.energy
   path: data/energy/
   target: consommation
-  weather: False
+  weather:
+    path_weather: data/all_weather/
+    dyn_features:
+      - t
+      - rr3
+      - pmer
+    cat_features:
+      - cod_tend
+    station_name: ORLY
 test_length: 31D
 freq: 15T
 feats:
