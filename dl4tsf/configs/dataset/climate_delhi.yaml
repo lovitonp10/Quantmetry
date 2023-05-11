@@ -3,6 +3,7 @@ load:
   _target_: load.load_data.climate
   path: data/climate_delhi/
   target: meantemp
+  weather: null
 test_length: 114D
 freq: 1D
 feats:
