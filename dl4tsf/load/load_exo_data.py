@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from dateutil import relativedelta
+from typing import Dict
 
 
 def get_station_id(path_weather: str = "data/all_weather/", name: str = "ORLY") -> int:
@@ -38,6 +39,16 @@ def load_weather(
 
     df = pd.DataFrame(columns=columns)
 
+    df.rename(
+        columns={
+            "t": "temperature",
+            "pmer": "pressure",
+            "cod_tend": "barometric_trend",
+            "rr3": "rainfall",
+        },
+        inplace=True,
+    )
+
     for i in range(month_difference + 1):
         date = start + relativedelta.relativedelta(months=i)
 
@@ -71,11 +82,18 @@ def load_weather(
 
 def add_weather(
     df: pd.DataFrame,
-    path_weather: str = "data/all_weather/",
-    dyn_features: list = ["t", "rr3", "pmer"],
-    cat_features: list = ["cod_tend"],
-    station_name: str = "ORLY",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dyn_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
 ) -> pd.DataFrame:
+
+    path_weather = weather["path_weather"]
+    dyn_features = weather["dyn_features"]
+    cat_features = weather["cat_features"]
+    station_name = weather["station_name"]
 
     unique_dates = df.index.unique()
     sorted_dates = unique_dates.sort_values(ascending=True)
@@ -85,16 +103,16 @@ def add_weather(
     first_date_str = first_date.strftime("%d-%m-%Y")
     last_date_str = last_date.strftime("%d-%m-%Y")
 
-    frequence = pd.infer_freq(sorted_dates)
+    frequency = pd.infer_freq(sorted_dates)
 
     weather = load_weather(
         path_weather=path_weather,
         start=first_date_str,
         end=last_date_str,
-        dyn_features=["t", "rr3", "pmer"],
-        cat_features=["cod_tend"],
-        station_name="ORLY",
-        freq=frequence,
+        dyn_features=dyn_features,
+        cat_features=cat_features,
+        station_name=station_name,
+        freq=frequency,
     )
 
     df.index = df.index.tz_localize(None)
