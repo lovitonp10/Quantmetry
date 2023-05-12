@@ -1,11 +1,21 @@
 import glob
-
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
 from gluonts.dataset.repository.datasets import get_dataset
+from load.load_exo_data import add_weather
+from typing import Dict
 
 
-def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.DataFrame:
+def climate(
+    path: str = "data/climate_delhi/",
+    target: str = "mean_temp",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_climate = pd.DataFrame()
     for file in list_csv:
@@ -15,10 +25,22 @@ def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.
     df_climate.index = pd.to_datetime(df_climate.index)
     df_climate = df_climate[[target]]
 
+    if weather:
+        df_climate = add_weather(df_climate, weather)
+
     return df_climate
 
 
-def energy(path: str = "data/energy/", target: str = "consommation") -> pd.DataFrame:
+def energy(
+    path: str = "data/energy/",
+    target: str = "consommation",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_energy = pd.DataFrame()
     for file in list_csv:
@@ -36,10 +58,22 @@ def energy(path: str = "data/energy/", target: str = "consommation") -> pd.DataF
     df_energy.index = df_energy["date_hour"]
     df_energy = df_energy[["region", "consommation"]]
 
+    if weather:
+        df_energy = add_weather(df_energy, weather)
+
     return df_energy
 
 
-def enedis(path: str = "data/enedis/", target: str = "total_energy") -> pd.DataFrame:
+def enedis(
+    path: str = "data/enedis/",
+    target: str = "total_energy",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_enedis = pd.DataFrame()
     for file in list_csv:
@@ -74,6 +108,8 @@ def enedis(path: str = "data/enedis/", target: str = "total_energy") -> pd.DataF
         .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
         .astype(int)
     )
+    if weather:
+        df_enedis = add_weather(df_enedis, weather)
 
     # Dummy generated dynamic_cat
     # import numpy as np

@@ -55,6 +55,7 @@ The current data needed are:
 - climate_delhi
 - energy
 - enedis
+- all_weather (The mapping between the station name and the station number is available here: [posteSynop.csv](https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Synop/postesSynop).csv ))
 
 # Jupyter notebooks
 Make sure that code done in jupyter notebook are only for testing or visualization.

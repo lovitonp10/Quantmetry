@@ -1,3 +1,7 @@
+defaults:
+  - load: default
+  - _self_
+
 dataset_name: enedis
 load:
   _target_: load.load_data.enedis

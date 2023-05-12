@@ -1,0 +1,10 @@
+dataset_name: weather_paris
+load:
+  _target_: load.load_exo_data.load_weather
+  path: data/all_weather/
+test_length: 7D
+freq: 15T
+feats:
+  num_feat_dynamic_real: 2
+  num_feat_static_cat: 0
+  num_feat_static_real: 0

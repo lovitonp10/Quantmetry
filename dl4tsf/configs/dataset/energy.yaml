@@ -1,3 +1,7 @@
+defaults:
+  - load: default
+  - _self_
+
 dataset_name: energy
 load:
   _target_: load.load_data.energy
