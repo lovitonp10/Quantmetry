@@ -54,7 +54,10 @@ class TFTLightningModule(pl.LightningModule):
         past_target = batch["past_target"]
         past_observed_values = batch["past_observed_values"]
         past_feat_dynamic_real = batch["past_feat_dynamic_real"]
+        past_feat_dynamic_cat = batch["past_feat_dynamic_cat"]
+        # only_past_feat_dynamic_cat = batch["only_past_feat_dynamic_cat"]
 
+        future_feat_dynamic_cat = batch["future_feat_dynamic_cat"]
         future_time_feat = batch["future_time_feat"]
         future_target = batch["future_target"]
         future_observed_values = batch["future_observed_values"]
@@ -65,6 +68,7 @@ class TFTLightningModule(pl.LightningModule):
             scale,
             embedded_cat,
             static_feat,
+            feat_dynamic_cat,
         ) = self.model.create_network_inputs(
             feat_static_cat=feat_static_cat,
             feat_static_real=feat_static_real,
@@ -73,6 +77,8 @@ class TFTLightningModule(pl.LightningModule):
             past_observed_values=past_observed_values,
             future_time_feat=future_time_feat,
             future_target=future_target,
+            past_feat_dynamic_cat=past_feat_dynamic_cat,
+            future_feat_dynamic_cat=future_feat_dynamic_cat,
         )
         params = self.model.output_params(
             tft_target,
@@ -80,6 +86,7 @@ class TFTLightningModule(pl.LightningModule):
             embedded_cat=embedded_cat,
             static_feat=static_feat,
             past_feat_dynamic_real=past_feat_dynamic_real,
+            feat_dynamic_cat=feat_dynamic_cat,
         )
         distr = self.model.output_distribution(params, scale)
 

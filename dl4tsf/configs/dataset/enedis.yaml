@@ -5,9 +5,11 @@ load:
   target: total_energy
 test_length: 12D
 freq: 30T
-cardinality: [12, 2, 8]
+static_cardinality: [12, 2, 8]
+dynamic_cardinality: []
 name_feats:
   feat_dynamic_real: []
   feat_static_cat: ["region", "profil", "power"]
   feat_static_real: ['power_min', 'power_max']
   past_feat_dynamic_real: ["soutirage"]
+  feat_dynamic_cat : []

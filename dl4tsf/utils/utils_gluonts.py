@@ -44,6 +44,11 @@ def sample_df(forecast: Forecast) -> List[pd.DataFrame]:
     return pd.DataFrame(samples.T, index=dates)
 
 
+def get_ts_length(df_pandas: pd.DataFrame) -> int:
+    ts_length = df_pandas.shape[0]
+    return ts_length
+
+
 def get_test_length(freq: str, test_length: str) -> int:
     """Calculates the number of of rows for the test set give time frequency and test length.
 
@@ -72,15 +77,19 @@ def create_ts_with_features(
     static_cat: List[str],
     static_real: List[str],
     past_dynamic_real: List[str],
+    dynamic_cat: List[str],
     freq: str,
     prediction_length: int,
-    cardinality: List[int],
+    static_cardinality: List[int],
+    dynamic_cardinality: List[int],
 ) -> TrainDatasets:
     # static features
     df["item_id"], static_features_cat = utils_static_features(df, static_cat)
 
     # dynamic features
-    df_pivot = utils_dynamic_features(df, target, dynamic_real, past_dynamic_real, freq)
+    df_pivot = utils_dynamic_features(
+        df, target, dynamic_real, past_dynamic_real, dynamic_cat, freq
+    )
 
     train = train_test_split(
         "train",
@@ -92,6 +101,7 @@ def create_ts_with_features(
         static_cat,
         static_real,
         past_dynamic_real,
+        dynamic_cat,
         prediction_length,
     )
 
@@ -105,6 +115,7 @@ def create_ts_with_features(
         static_cat,
         static_real,
         past_dynamic_real,
+        dynamic_cat,
         prediction_length,
     )
 
@@ -119,10 +130,15 @@ def create_ts_with_features(
 
     meta.feat_static_cat = [
         CategoricalFeatureInfo(name=name, cardinality=str(cardinality))
-        for name, cardinality in zip(static_cat, cardinality)
+        for name, cardinality in zip(static_cat, static_cardinality)
     ]
 
     meta.feat_static_real = [BasicFeatureInfo(name=name) for name in static_real]
+
+    meta.feat_dynamic_cat = [
+        CategoricalFeatureInfo(name=name, cardinality=str(cardinality))
+        for name, cardinality in zip(dynamic_cat, dynamic_cardinality)
+    ]
 
     process = ProcessDataEntry(freq, one_dim_target=True, use_timestamp=False)
 
@@ -151,12 +167,17 @@ def utils_static_features(
 
 
 def utils_dynamic_features(
-    df: pd.DataFrame, target: str, dynamic_real: List[str], past_dynamic_real: List[str], freq: str
+    df: pd.DataFrame,
+    target: str,
+    dynamic_real: List[str],
+    past_dynamic_real: List[str],
+    dynamic_cat: List[str],
+    freq: str,
 ) -> pd.DataFrame:
     df_pivot = (
         pd.pivot_table(
             df,
-            values=[target] + dynamic_real + past_dynamic_real,
+            values=[target] + dynamic_real + past_dynamic_real + dynamic_cat,
             index=df.index,
             columns=["item_id"],
         )
@@ -179,6 +200,7 @@ def train_test_split(
     static_cat: List[str],
     static_real: List[str],
     past_dynamic_real: List[str],
+    dynamic_cat: List[str],
     prediction_length: int,
 ) -> List[Dict[str, Any]]:
     if part == "train":
@@ -217,6 +239,15 @@ def train_test_split(
                     )
                 }
                 if len(past_dynamic_real) != 0
+                else {}
+            ),
+            **(
+                {
+                    "feat_dynamic_cat": np.array(
+                        [df_pivot[dynamic_cat[j]][i].to_list() for j in range(len(dynamic_cat))]
+                    )
+                }
+                if len(dynamic_cat) != 0
                 else {}
             ),
             "item_id": str(i),

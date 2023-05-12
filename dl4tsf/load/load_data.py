@@ -75,6 +75,10 @@ def enedis(path: str = "data/enedis/", target: str = "total_energy") -> pd.DataF
         .astype(int)
     )
 
+    # Dummy generated dynamic_cat
+    # import numpy as np
+    # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
+
     return df_enedis
 
 
