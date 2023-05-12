@@ -1,9 +1,9 @@
 weather:
   path_weather: data/all_weather/
   dynamic_features:
-    - t
-    - rr3
-    - pmer
+    - temperature
+    - rainfall
+    - pressure
   cat_features:
-    - cod_tend
+    - barometric_trend
   station_name: ORLY

@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from datetime import datetime, timedelta
 from dateutil import relativedelta
 from typing import Dict
@@ -46,7 +45,15 @@ def load_weather(
         path_ = path_weather + "synop." + YM_str + ".csv.gz"
 
         df2 = pd.read_csv(path_, sep=";", compression="gzip")
-
+        df2.rename(
+            columns={
+                "t": "temperature",
+                "pmer": "pressure",
+                "cod_tend": "barometric_trend",
+                "rr3": "rainfall",
+            },
+            inplace=True,
+        )
         df2["date"] = df2["date"].apply(lambda x: datetime.strptime(str(x), "%Y%m%d%H%M%S"))
         df2 = df2[columns]
         df2 = df2[df2["numer_sta"] == station]
@@ -61,18 +68,9 @@ def load_weather(
 
     df.drop(["numer_sta"], axis=1, inplace=True)
 
-    df[dynamic_features] = df[dynamic_features].fillna(np.median)
-    df[cat_features] = df[cat_features].fillna(method="ffill")
-
-    df.rename(
-        columns={
-            "t": "temperature",
-            "pmer": "pressure",
-            "cod_tend": "barometric_trend",
-            "rr3": "rainfall",
-        },
-        inplace=True,
-    )
+    for feat in dynamic_features:
+        df[feat] = pd.to_numeric(df[feat], errors="coerce").fillna(method="ffill").astype(float)
+    df[cat_features] = df[cat_features].fillna(method="ffill").astype(int)
 
     df.set_index("date", inplace=True)
     df = df.resample(freq).ffill()
