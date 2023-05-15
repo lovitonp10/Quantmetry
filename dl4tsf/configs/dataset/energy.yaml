@@ -9,7 +9,11 @@ load:
   target: consommation
 test_length: 31D
 freq: 15T
-feats:
-  num_feat_dynamic_real: 0
-  num_feat_static_cat: 0
-  num_feat_static_real: 0
+static_cardinality: [11]
+dynamic_cardinality: []
+name_feats:
+  feat_dynamic_real: []
+  feat_static_cat: ["region"]
+  feat_static_real: []
+  past_feat_dynamic_real: []
+  feat_dynamic_cat : []

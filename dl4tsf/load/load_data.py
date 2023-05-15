@@ -111,6 +111,10 @@ def enedis(
     if weather:
         df_enedis = add_weather(df_enedis, weather)
 
+    # Dummy generated dynamic_cat
+    # import numpy as np
+    # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
+
     return df_enedis
 
 

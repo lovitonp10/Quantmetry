@@ -54,9 +54,8 @@ The current data folders that must be available for a proper testing of the modu
 The current data needed are:
 - climate_delhi
 - energy
+- enedis
 - all_weather (The mapping between the station name and the station number is available here: [posteSynop.csv](https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Synop/postesSynop).csv ))
-
-
 
 # Jupyter notebooks
 Make sure that code done in jupyter notebook are only for testing or visualization.
@@ -101,6 +100,12 @@ Currently the following datasets are implemented and tested:
 - traffic
 - climate_delhi
 - energy
+- enedis
+
+### Modification to make in .yaml files
+Dataset:
+- Modifiy the lists in 'name_feats' with the variables name corresponding to the different features
+
 
 ### Testing the train/forecast script:
 Run the following command to train and forecast using TFT:
@@ -109,6 +114,10 @@ Run the following command to train and forecast using TFT:
 python dl4tsf/train.py model=tft dataset=traffic
 # or
 python dl4tsf/train.py model=tft dataset=climate_delhi
+# or
+python dl4tsf/train.py model=tft dataset=energy
+# or
+python dl4tsf/train.py model=tft dataset=enedis
 ```
 ### Launching Tensorboard
 TensorBoard is a tool for providing the measurements and visualizations needed during the machine learning workflow. It enables tracking experiment metrics like loss and accuracy, visualizing the model graph, projecting embeddings to a lower dimensional space, and much more.

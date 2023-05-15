@@ -6,7 +6,11 @@ load:
   weather: null
 test_length: 114D
 freq: 1D
-feats:
-  num_feat_dynamic_real: 0
-  num_feat_static_cat: 0
-  num_feat_static_real: 0
+static_cardinality: []
+dynamic_cardinality: []
+name_feats:
+  feat_dynamic_real: []
+  feat_static_cat: []
+  feat_static_real: []
+  past_feat_dynamic_real: []
+  feat_dynamic_cat : []

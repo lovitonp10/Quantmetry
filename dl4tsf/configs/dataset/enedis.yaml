@@ -9,8 +9,11 @@ load:
   target: total_energy
 test_length: 12D
 freq: 30T
-cardinality: [12, 2, 8]
-feats:
-  num_feat_dynamic_real: 1
-  num_feat_static_cat: 3
-  num_feat_static_real: 2
+static_cardinality: [12, 2, 8]
+dynamic_cardinality: [9]
+name_feats:
+  feat_dynamic_real: ["temperature", "rainfall", "pressure"]
+  feat_static_cat: ["region", "profil", "power"]
+  feat_static_real: ['power_min', 'power_max']
+  past_feat_dynamic_real: ["soutirage"]
+  feat_dynamic_cat : ["barometric_trend"]

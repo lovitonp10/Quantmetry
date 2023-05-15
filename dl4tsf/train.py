@@ -25,6 +25,7 @@ def main(cfgHydra: DictConfig):
     loader_data = CustomDataLoader(
         cfg_dataset=cfg.dataset,
         target=cfg.dataset.load["target"],
+        feats=cfg.dataset.name_feats,
         cfg_model=cfg.model,
         test_length=cfg.dataset.test_length,
     )

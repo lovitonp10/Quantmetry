@@ -27,7 +27,6 @@ from gluonts.transform import (
     AsNumpyArray,
     Chain,
     ExpectedNumInstanceSampler,
-    InstanceSplitter,
     RemoveFields,
     SelectFields,
     SetField,
@@ -36,6 +35,7 @@ from gluonts.transform import (
     ValidationSplitSampler,
     VstackFeatures,
 )
+from utils.utils_gluonts import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
@@ -47,6 +47,9 @@ PREDICTION_INPUT_NAMES = [
     "past_target",
     "past_observed_values",
     "future_time_feat",
+    "past_feat_dynamic_real",
+    "past_feat_dynamic_cat",
+    "future_feat_dynamic_cat",
 ]
 
 TRAINING_INPUT_NAMES = PREDICTION_INPUT_NAMES + [
@@ -92,16 +95,23 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
         self.logger = TensorBoardLogger(
-            "tensorboard_logs", name=cfg_dataset.dataset_name, sub_dir="TFT", log_graph=True
+            "tensorboard_logs",
+            name=cfg_dataset.dataset_name,
+            sub_dir="TFT",
+            log_graph=True,
         )
         self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
         trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = self.cfg_dataset.freq
-        self.num_feat_dynamic_real = self.cfg_dataset.feats["num_feat_dynamic_real"]
-        self.num_feat_static_cat = self.cfg_dataset.feats["num_feat_static_cat"]
-        self.num_feat_static_real = self.cfg_dataset.feats["num_feat_static_real"]
+        self.num_feat_dynamic_real = len(self.cfg_dataset.name_feats["feat_dynamic_real"])
+        self.num_feat_static_cat = len(self.cfg_dataset.name_feats["feat_static_cat"])
+        self.num_feat_static_real = len(self.cfg_dataset.name_feats["feat_static_real"])
+        self.num_past_feat_dynamic_real = len(
+            self.cfg_dataset.name_feats["past_feat_dynamic_real"]
+        )
+        self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats["feat_dynamic_cat"])
 
         self.model_config.context_length = (
             self.model_config.context_length
@@ -115,11 +125,18 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model_config.variable_dim = (
             self.model_config.variable_dim or self.model_config.d_models
         )
-        self.model_config.cardinality = (
-            self.model_config.cardinality
-            if self.model_config.cardinality and self.num_feat_static_cat > 0
+        self.model_config.static_cardinality = (
+            self.model_config.static_cardinality
+            if self.model_config.static_cardinality and self.num_feat_static_cat > 0
             else [1]
         )
+
+        self.model_config.dynamic_cardinality = (
+            self.model_config.dynamic_cardinality
+            if self.model_config.dynamic_cardinality and self.num_feat_dynamic_cat > 0
+            else [1]
+        )
+
         self.time_features = (
             self.cfg_train.time_features
             if self.cfg_train.time_features is not None
@@ -194,6 +211,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             remove_field_names.append(FieldName.FEAT_STATIC_REAL)
         if self.num_feat_dynamic_real == 0:
             remove_field_names.append(FieldName.FEAT_DYNAMIC_REAL)
+        if self.num_past_feat_dynamic_real == 0:
+            remove_field_names.append(FieldName.PAST_FEAT_DYNAMIC_REAL)
+        if self.num_feat_dynamic_cat == 0:
+            remove_field_names.append(FieldName.FEAT_DYNAMIC_CAT)
 
         return Chain(
             [RemoveFields(field_names=remove_field_names)]
@@ -205,6 +226,21 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             + (
                 [SetField(output_field=FieldName.FEAT_STATIC_REAL, value=[0.0])]
                 if not self.num_feat_static_real > 0
+                else []
+            )
+            + (
+                [SetField(output_field=FieldName.PAST_FEAT_DYNAMIC_REAL, value=[0.0])]
+                if not self.num_past_feat_dynamic_real > 0
+                else []
+            )
+            + (
+                [
+                    SetField(
+                        output_field=FieldName.FEAT_DYNAMIC_CAT,
+                        value=np.zeros(self.cfg_dataset.ts_length, dtype=int),
+                    )
+                ]
+                if not self.num_feat_dynamic_cat > 0
                 else []
             )
             + [
@@ -256,18 +292,21 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             "test": TestSplitSampler(),
         }[mode]
 
-        return InstanceSplitter(
-            target_field=FieldName.TARGET,
-            is_pad_field=FieldName.IS_PAD,
-            start_field=FieldName.START,
-            forecast_start_field=FieldName.FORECAST_START,
+        ts_fields = [
+            FieldName.FEAT_TIME,
+            FieldName.FEAT_DYNAMIC_CAT,
+        ]
+
+        past_ts_fields = []
+        if self.num_past_feat_dynamic_real > 0:
+            past_ts_fields.append(FieldName.PAST_FEAT_DYNAMIC_REAL)
+
+        return CustomTFTInstanceSplitter(
             instance_sampler=instance_sampler,
             past_length=module.model._past_length,
             future_length=self.model_config.prediction_length,
-            time_series_fields=[
-                FieldName.FEAT_TIME,
-                FieldName.OBSERVED_VALUES,
-            ],
+            time_series_fields=ts_fields,
+            past_time_series_fields=past_ts_fields,
             dummy_value=self.distr_output.value_in_support,
         )
 
@@ -340,6 +379,8 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             num_feat_dynamic_real=1 + self.num_feat_dynamic_real + len(self.time_features),  # age
             num_feat_static_real=max(1, self.num_feat_static_real),
             num_feat_static_cat=max(1, self.num_feat_static_cat),
+            num_past_feat_dynamic_real=self.num_past_feat_dynamic_real,
+            num_feat_dynamic_cat=self.num_feat_dynamic_cat,
             distr_output=self.distr_output,
         )
 

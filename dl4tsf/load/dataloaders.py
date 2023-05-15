@@ -1,9 +1,9 @@
 import configs
 import hydra
 import pandas as pd
-from gluonts.dataset.common import MetaData, TrainDatasets
-from gluonts.dataset.pandas import PandasDataset
-from utils.utils_gluonts import get_test_length
+from gluonts.dataset.common import TrainDatasets
+from utils.utils_gluonts import get_test_length, get_ts_length, create_ts_with_features
+from typing import List
 
 
 class CustomDataLoader:
@@ -11,6 +11,7 @@ class CustomDataLoader:
         self,
         cfg_dataset: configs.Dataset,
         target: str,
+        feats: List[str],
         cfg_model: configs.Model,
         test_length: str,
     ) -> None:
@@ -18,8 +19,16 @@ class CustomDataLoader:
         self.register_data()
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
+        self.cfg_dataset = cfg_dataset
         self.target = target if target else "target"
-        self.test_length = cfg_dataset.test_length
+        self.dynamic_real = feats["feat_dynamic_real"]
+        self.static_cat = feats["feat_static_cat"]
+        self.static_real = feats["feat_static_real"]
+        self.past_dynamic_real = feats["past_feat_dynamic_real"]
+        self.dynamic_cat = feats["feat_dynamic_cat"]
+        self.test_length = test_length
+        self.static_cardinality = cfg_model.model_config.static_cardinality
+        self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
 
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):
@@ -34,24 +43,21 @@ class CustomDataLoader:
 
     def get_gluonts_format(self) -> TrainDatasets:
         test_length_rows = get_test_length(self.freq, self.test_length)
+        self.cfg_dataset.ts_length = get_ts_length(self.df_pandas)
 
-        train_df = pd.melt(self.df_pandas[:-(test_length_rows)], ignore_index=False)
-        test_df = pd.melt(self.df_pandas, ignore_index=False)
-
-        train_data = PandasDataset.from_long_dataframe(
-            train_df, target="value", item_id="variable", freq=self.freq
+        self.df_gluonts = create_ts_with_features(
+            self.df_pandas,
+            self.target,
+            self.dynamic_real,
+            self.static_cat,
+            self.static_real,
+            self.past_dynamic_real,
+            self.dynamic_cat,
+            self.freq,
+            test_length_rows,
+            self.static_cardinality,
+            self.dynamic_cardinality,
         )
-        test_data = PandasDataset.from_long_dataframe(
-            test_df, target="value", item_id="variable", freq=self.freq
-        )
-
-        meta = MetaData(
-            cardinality=len(self.df_pandas[:-(test_length_rows)]),
-            freq=self.freq,
-            prediction_length=self.prediction_length,
-        )
-
-        self.df_gluonts = TrainDatasets(metadata=meta, train=train_data, test=test_data)
 
         return self.df_gluonts
 
