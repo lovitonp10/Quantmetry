@@ -24,7 +24,6 @@ sys.path.append(os.path.join(os.getcwd(),"dl4tsf/"))
 ```python
 %matplotlib inline
 import hydra
-import pandas as pd
 from matplotlib import pyplot as plt
 import matplotlib.dates as mdates
 import numpy as np
@@ -41,7 +40,6 @@ from configs import Configs
 
 ```python
 pwd
-
 ```
 
 ```python
@@ -50,7 +48,7 @@ pwd
 ```
 
 ```python
-with hydra.initialize(version_base="1.3", config_path="configs"):
+with hydra.initialize(version_base="1.3", config_path="../dl4tsf/configs"):
     cfgHydra = hydra.compose(config_name="config")
 
 cfg = OmegaConf.to_object(cfgHydra)
@@ -59,10 +57,6 @@ cfg: Configs = Configs(**cfg)
 
 ```python
 cfg
-```
-
-```python
-cfg.dataset
 ```
 
 # TFT
@@ -74,34 +68,34 @@ cfg.model
 ```python
 loader_data = CustomDataLoader(
     cfg_dataset=cfg.dataset,
-    target=cfg.dataset.load['target'],
+    target=cfg.dataset.load["target"],
+    feats=cfg.dataset.name_feats,
     cfg_model=cfg.model,
-    test_length=5,
+    test_length=cfg.dataset.test_length,
 )
 data_gluonts = loader_data.get_gluonts_format()
 ```
 
 ```python
 estimator = TFTForecaster(
-        cfg_model = cfg.model,
-        cfg_train= cfg.train,
+    cfg_model = cfg.model,
+    cfg_train = cfg.train,
     cfg_dataset=cfg.dataset,
-)
+    )
 ```
 
-```python
+```python jupyter={"outputs_hidden": true}
 estimator.train(
     input_data = data_gluonts.train,
 )
 ```
 
 ```python
-true_ts, forecasts = estimator.predict(data_gluonts.test)
+estimator.evaluate(data_gluonts.train, mean=True)
 ```
 
 ```python
-metrics = estimator.evaluate(data_gluonts.test)
-metrics
+true_ts, forecasts = estimator.predict(data_gluonts.test)
 ```
 
 ## Plot
@@ -114,7 +108,7 @@ plt.rcParams.update({'font.size': 15})
 for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
     ts_plot = ts.copy()
     ts_plot.index = ts_plot.index.to_timestamp()
-    ax = plt.subplot(3, 3, idx+1)
+    ax = plt.subplot(12, 12, idx+1)
     plt.plot(ts_plot[-4 * cfg.model.model_config.prediction_length:][0], label="target", )
     forecast.median(axis=1).plot( color='g', label='forecast')
     q_05 = forecast.apply(lambda row: np.quantile(row, 0.025), axis=1)# for 0.5 confidence level
