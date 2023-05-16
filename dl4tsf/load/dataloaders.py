@@ -3,10 +3,10 @@ import hydra
 import pandas as pd
 from gluonts.dataset.common import MetaData, TrainDatasets
 from gluonts.dataset.pandas import PandasDataset
-from utils.utils_gluonts import get_test_length
+from utils.utils_gluonts import get_test_length, create_ts_with_features
 from utils.custom_objects_pydantic import HuggingFaceDataset
 
-from datasets import Dataset
+from typing import List
 
 
 class CustomDataLoader:
@@ -14,14 +14,24 @@ class CustomDataLoader:
         self,
         cfg_dataset: configs.Dataset,
         target: str,
+        feats: List[str],
         cfg_model: configs.Model,
+        test_length: str,
     ) -> None:
         self.tmp = hydra.utils.instantiate(cfg_dataset.load, _convert_="all")
         self.register_data()
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
+        self.cfg_dataset = cfg_dataset
         self.target = target if target else "target"
-        self.test_length = cfg_dataset.test_length
+        self.dynamic_real = feats["feat_dynamic_real"]
+        self.static_cat = feats["feat_static_cat"]
+        self.static_real = feats["feat_static_real"]
+        self.past_dynamic_real = feats["past_feat_dynamic_real"]
+        self.dynamic_cat = feats["feat_dynamic_cat"]
+        self.test_length = test_length
+        self.static_cardinality = cfg_model.model_config.static_cardinality
+        self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
 
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):
@@ -37,7 +47,24 @@ class CustomDataLoader:
 
     def create_huggingface_from_pandas(self):
         # Not yet ready for Informer model
-        self.df_huggingface = Dataset.from_pandas(self.df_pandas)
+        # self.df_huggingface = Dataset.from_pandas(self.df_pandas)
+        test_length_rows = get_test_length(self.freq, self.test_length)
+        # self.cfg_dataset.ts_length = get_ts_length(self.df_pandas)
+
+        self.df_huggingface = create_ts_with_features(
+            "hugging_face",
+            self.df_pandas,
+            self.target,
+            self.dynamic_real,
+            self.static_cat,
+            self.static_real,
+            self.past_dynamic_real,
+            self.dynamic_cat,
+            self.freq,
+            test_length_rows,
+            self.static_cardinality,
+            self.dynamic_cardinality,
+        )
 
     def create_gluonts_from_pandas(self):
         test_length_rows = get_test_length(self.freq, self.test_length)

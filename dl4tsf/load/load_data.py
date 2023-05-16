@@ -47,9 +47,57 @@ def gluonts_dataset(dataset_name: str) -> TrainDatasets:
     return get_gluonts_dataset(dataset_name)
 
 
-def huggingface_dataset(repository_name: str, dataset_name: str, freq: str) -> HuggingFaceDataset:
+def huggingface_dataset(
+    repository_name: str, dataset_name: str, freq: str, target: str
+) -> HuggingFaceDataset:
     dataset = get_huggingface_dataset(repository_name, dataset_name)
     dataset["train"].set_transform(partial(transform_start_field, freq=freq))
     dataset["test"].set_transform(partial(transform_start_field, freq=freq))
     dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
     return dataset
+
+
+def enedis(
+    path: str = "data/enedis/",
+    target: str = "total_energy",
+) -> pd.DataFrame:
+    list_csv = glob.glob(path + "*.csv")
+    df_enedis = pd.DataFrame()
+    for file in list_csv:
+        df_tmp = pd.read_csv(file)
+        df_enedis = pd.concat([df_enedis, df_tmp], axis=0)
+    df_enedis.rename(
+        columns={
+            "horodate": "date",
+            "nb_points_soutirage": "soutirage",
+            "total_energie_soutiree_wh": target,
+            "plage_de_puissance_souscrite": "power",
+        },
+        inplace=True,
+    )
+
+    df_enedis = df_enedis.sort_values(by=["region", "profil", "power", "date"])
+    df_enedis.index = pd.to_datetime(df_enedis.date)
+    df_enedis = df_enedis[["region", "profil", "power", target, "soutirage"]]
+
+    df_na = df_enedis[df_enedis.total_energy.isna()]
+    groups_with_nan = (
+        df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any()).index.tolist()
+    )
+    df_enedis = df_enedis[
+        ~df_enedis.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
+    ]
+
+    df_enedis["power_min"] = df_enedis["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
+    df_enedis["power_max"] = (
+        df_enedis["power"]
+        .str.extract(r"\-(\d+)]")
+        .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
+        .astype(int)
+    )
+
+    # Dummy generated dynamic_cat
+    # import numpy as np
+    # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
+
+    return df_enedis

@@ -8,7 +8,9 @@ class Dataset(BaseModel):
     load: Dict[str, Any]
     test_length: Optional[str]
     freq: str
-    feats: Dict[str, int]
+    static_cardinality: List[int]
+    dynamic_cardinality: List[int]
+    feats: Dict[str, List[str]]
 
 
 class ModelConfig(BaseModel):
@@ -22,7 +24,8 @@ class ModelConfig(BaseModel):
     encoder_layers: int
     decoder_layers: int
     d_models: int
-    cardinality: Optional[List[int]]
+    static_cardinality: Optional[List[int]]
+    dynamic_cardinality: Optional[List[int]]
     num_parallel_samples: int
     scaling: Union[str, bool]
 

@@ -25,8 +25,9 @@ def main(cfgHydra: DictConfig):
     logging.info("Prepare Data")
     loader_data = CustomDataLoader(
         cfg_dataset=cfg.dataset,
-        target=getattr(cfg.dataset.load, "target", None),
+        target=cfg.dataset.load["target"],
         cfg_model=cfg.model,
+        test_length=cfg.dataset.test_length,
     )
     # dataset = loader_data.get_gluonts_format()
     dataset = loader_data.get_huggingface_format()
