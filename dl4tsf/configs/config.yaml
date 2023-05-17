@@ -1,6 +1,6 @@
 defaults:
   - _self_
-  - dataset: enedis
+  - dataset: aifluence_public_vrf
   - model: tft
   - train: dummy
 
