@@ -161,6 +161,7 @@ def aifluence_public_histo_vrf(
         inplace=True,
     )
     df_load["cat_titre"] = df_load["cat_titre"].replace("?", "INCONNU")
+    df_load["date"] = pd.to_datetime(df_load["date"], dayfirst=True)
 
     df_validations = df_load.groupby(
         ["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
@@ -190,7 +191,7 @@ def aifluence_public_histo_vrf(
             how="left",
         )
 
-    df_aifluence.sort_values(by=["arret", "date"])
+    df_aifluence = df_aifluence.sort_values(by=["arret", "date"])
     df_aifluence.index = df_aifluence["date"]
     df_aifluence = df_aifluence.drop(["date"], axis=1)
 
