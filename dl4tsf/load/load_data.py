@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
 from gluonts.dataset.repository.datasets import get_dataset
-from load.load_data_aifluence import download_validations
+from load.load_data_aifluence import load_validations
 from load.load_exo_data import add_weather
 from typing import Dict
 
@@ -140,20 +140,13 @@ def aifluence_public_histo_vrf(
         df (DataFrame): public data frame from IDF-mobilités
     """
 
-    # PART 1 : Download data on the website "data.iledefrance-mobilites.fr"
-    df_download = download_validations(path)
-    df_download.replace(to_replace="Moins de 5", value=3, inplace=True)
-    df_download["NB_VALD"] = df_download["NB_VALD"].astype(int)
-    df_download = df_download[df_download["ID_REFA_LDA"] != "?"]
+    # PART 1 : Read data on the website "data.iledefrance-mobilites.fr"
+    df_load = load_validations(path)
+    df_load.replace(to_replace="Moins de 5", value=3, inplace=True)
+    df_load["NB_VALD"] = df_load["NB_VALD"].astype(int)
+    df_load = df_load[df_load["ID_REFA_LDA"] != "?"]
 
-    df_validations = df_download.groupby(["JOUR", "LIBELLE_ARRET"], as_index=False).agg(
-        {"NB_VALD": "sum"}
-    )
-    df_validations.rename(columns={"NB_VALD": "NB_VALD_TOTAL"}, inplace=True)
-    df_aifluence = df_download.merge(df_validations, on=["JOUR", "LIBELLE_ARRET"], how="left")
-
-    # PART 3 : Modification on the final DataFrame
-    df_aifluence.rename(
+    df_load.rename(
         columns={
             "LIBELLE_ARRET": "arret",
             "JOUR": "date",
@@ -167,40 +160,42 @@ def aifluence_public_histo_vrf(
         },
         inplace=True,
     )
+    df_load["cat_titre"] = df_load["cat_titre"].replace("?", "INCONNU")
 
-    df_aifluence.index = pd.to_datetime(df_aifluence.date, dayfirst=True)
-    df_aifluence = df_aifluence[
-        [
-            "arret",
-            "code_transport",
-            "code_reseau",
-            "code_arret",
-            "id_arret",
-            "cat_titre",
-            "nb_vald",
-            "nb_vald_total",
-        ]
-    ]
+    df_validations = df_load.groupby(
+        ["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
+        as_index=False,
+    ).agg({"nb_vald": "sum"})
+    df_validations.rename(columns={"nb_vald": "nb_vald_total"}, inplace=True)
 
-    df_na = df_aifluence[df_aifluence.nb_vald_total.isna()]
-    groups_with_nan = (
-        df_na.groupby(
-            ["arret", "code_transport", "code_reseau", "code_arret", "id_arret", "cat_titre"],
-            group_keys=False,
+    df_aifluence = df_validations.copy()
+
+    for titre in df_load["cat_titre"].unique():
+        df_temp = df_load[df_load["cat_titre"] == titre].rename(
+            columns={"nb_vald": "nb_vald_" + str(titre)}
         )
-        .apply(lambda x: x.any())
-        .index.tolist()
-    )
-    df_aifluence = df_aifluence[
-        ~df_aifluence.set_index(
-            ["arret", "code_transport", "code_reseau", "code_arret", "id_arret", "cat_titre"]
-        ).index.isin(groups_with_nan)
-    ]
-    df_aifluence["cat_titre"] = df_aifluence["cat_titre"].replace("?", "INCONNU")
-    df_aifluence = df_aifluence.sort_values(by=["arret", "cat_titre", "date"])
+        df_aifluence = df_aifluence.merge(
+            df_temp[
+                [
+                    "date",
+                    "arret",
+                    "code_transport",
+                    "code_reseau",
+                    "code_arret",
+                    "id_arret",
+                    "nb_vald_" + str(titre),
+                ]
+            ],
+            on=["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
+            how="left",
+        )
 
-    if weather:
-        df_aifluence = add_weather(df_aifluence, weather)
+    df_aifluence.sort_values(by=["arret", "date"])
+    df_aifluence.index = df_aifluence["date"]
+    df_aifluence = df_aifluence.drop(["date"], axis=1)
+
+    # if weather:
+    #     df_aifluence = add_weather(df_aifluence, weather)
 
     return df_aifluence
 
