@@ -130,10 +130,10 @@ def aifluence_public_histo_vrf(
     },
 ) -> pd.DataFrame:
 
-    """load a json file for download data from url and save it to local
+    """Read a folder for load data from file and save it to a DataFrame
 
     Args:
-        path (path of json file): loaded json
+        path (path of Folder): loaded files
         target: target features
         weather: weather feature for the dataset
     Returns:
@@ -163,15 +163,19 @@ def aifluence_public_histo_vrf(
     df_load["cat_titre"] = df_load["cat_titre"].replace("?", "INCONNU")
     df_load["date"] = pd.to_datetime(df_load["date"], dayfirst=True)
 
+    # PART 2 : Compute the total number of validations by grouping the DataFrame by station
+
     df_validations = df_load.groupby(
         ["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
         as_index=False,
     ).agg({"nb_vald": "sum"})
     df_validations.rename(columns={"nb_vald": "nb_vald_total"}, inplace=True)
 
-    df_aifluence = df_validations.copy()
+    # PART 3 : Compute the number of validations for each categories tickets
+    # and merges the result with the previous dataset
 
-    for titre in df_load["cat_titre"].unique():
+    df_aifluence = df_validations.copy()
+    for titre in df_load["cat_titre"].unique():  # For each cat_titre we merge the
         df_temp = df_load[df_load["cat_titre"] == titre].rename(
             columns={"nb_vald": "nb_vald_" + str(titre)}
         )
@@ -190,13 +194,27 @@ def aifluence_public_histo_vrf(
             on=["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
             how="left",
         )
-
+    # PART 4 : Sorts and replaces NaN by 0 for the validation
+    # of the number of tickets by categories.
     df_aifluence = df_aifluence.sort_values(by=["arret", "date"])
     df_aifluence.index = df_aifluence["date"]
     df_aifluence = df_aifluence.drop(["date"], axis=1)
 
-    # if weather:
-    #     df_aifluence = add_weather(df_aifluence, weather)
+    cat_titre = [
+        "nb_vald_AMETHYSTE",
+        "nb_vald_AUTRE TITRE",
+        "nb_vald_FGT",
+        "nb_vald_IMAGINE R",
+        "nb_vald_NAVIGO",
+        "nb_vald_TST",
+        "nb_vald_NON DEFINI",
+        "nb_vald_INCONNU",
+        "nb_vald_NAVIGO JOUR",
+    ]
+    df_aifluence[cat_titre] = df_aifluence[cat_titre].fillna(0)
+
+    if weather:
+        df_aifluence = add_weather(df_aifluence, weather)
 
     return df_aifluence
 
