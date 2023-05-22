@@ -261,3 +261,38 @@ def create_test_dataloader(
 
     # This returns a Dataloader which will go over the dataset once.
     return DataLoader(IterableDataset(testing_instances), batch_size=batch_size, **kwargs)
+
+
+def create_validation_dataloader(
+    config: PretrainedConfig,
+    freq,
+    data,
+    batch_size: int,
+    **kwargs,
+):
+    PREDICTION_INPUT_NAMES = [
+        "past_time_features",
+        "past_values",
+        "past_observed_mask",
+        "future_time_features",
+    ]
+    if config.num_static_categorical_features > 0:
+        PREDICTION_INPUT_NAMES.append("static_categorical_features")
+
+    if config.num_static_real_features > 0:
+        PREDICTION_INPUT_NAMES.append("static_real_features")
+
+    transformation = create_transformation(freq, config)
+    transformed_data = transformation.apply(data, is_train=True)
+
+    # we create a Test Instance splitter which will sample the very last
+    # context window seen during training only for the encoder.
+    instance_sampler = create_instance_splitter(config, "validation") + SelectFields(
+        PREDICTION_INPUT_NAMES
+    )
+
+    # we apply the transformations in test mode
+    testing_instances = instance_sampler.apply(transformed_data, is_train=True)
+
+    # This returns a Dataloader which will go over the dataset once.
+    return DataLoader(IterableDataset(testing_instances), batch_size=batch_size, **kwargs)

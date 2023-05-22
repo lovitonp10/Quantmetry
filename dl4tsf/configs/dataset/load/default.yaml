@@ -1,0 +1,9 @@
+weather:
+  path_weather: data/all_weather/
+  dynamic_features:
+    - temperature
+    - rainfall
+    - pressure
+  cat_features:
+    - barometric_trend
+  station_name: ORLY

@@ -25,6 +25,8 @@ class TFTModel(nn.Module):
         num_feat_dynamic_real: int,
         num_feat_static_real: int,
         num_feat_static_cat: int,
+        num_past_feat_dynamic_real: int,
+        num_feat_dynamic_cat: int,
         # univariate input
         distr_output: DistributionOutput = StudentTOutput(),
     ) -> None:
@@ -38,6 +40,8 @@ class TFTModel(nn.Module):
         self.num_feat_dynamic_real = num_feat_dynamic_real
         self.num_feat_static_cat = num_feat_static_cat
         self.num_feat_static_real = num_feat_static_real
+        self.num_past_feat_dynamic_real = num_past_feat_dynamic_real
+        self.num_feat_dynamic_cat = num_feat_dynamic_cat
 
         self.model_config.lags_sequence = (
             self.model_config.lags_sequence or get_lags_for_frequency(freq_str=freq)
@@ -45,10 +49,19 @@ class TFTModel(nn.Module):
         self.history_length = self.model_config.context_length + max(
             self.model_config.lags_sequence
         )
-        self.embedder = FeatureEmbedder(
-            cardinalities=self.model_config.cardinality,
+        self.static_embedder = FeatureEmbedder(
+            cardinalities=self.model_config.static_cardinality,
             embedding_dims=[self.model_config.variable_dim] * num_feat_static_cat,
         )
+
+        if self.num_feat_dynamic_cat > 0:
+            self.dynamic_embedder = FeatureEmbedder(
+                cardinalities=self.model_config.dynamic_cardinality,
+                embedding_dims=[self.model_config.variable_dim] * self.num_feat_dynamic_cat,
+            )
+        else:
+            self.dynamic_embedder = None
+
         if self.model_config.scaling:
             self.scaler = MeanScaler(dim=1, keepdim=True)
         else:
@@ -64,6 +77,13 @@ class TFTModel(nn.Module):
             in_features=num_feat_dynamic_real, out_features=self.model_config.variable_dim
         )
 
+        if self.num_past_feat_dynamic_real > 0:
+            self.past_dynamic_proj = nn.Linear(
+                in_features=num_past_feat_dynamic_real, out_features=self.model_config.variable_dim
+            )
+        else:
+            self.past_dynamic_proj = None
+
         self.static_feat_proj = nn.Linear(
             in_features=num_feat_static_real + self.model_config.input_size,
             out_features=self.model_config.variable_dim,
@@ -72,21 +92,26 @@ class TFTModel(nn.Module):
         # variable selection networks
         self.past_selection = VariableSelectionNetwork(
             d_hidden=self.model_config.variable_dim,
-            n_vars=2,  # target and time features
+            # target, time features, dynamic cat (and past_dynamic_real)
+            n_vars=2
+            + (0 if self.num_past_feat_dynamic_real == 0 else 1)
+            + self.num_feat_dynamic_cat,
             dropout=self.model_config.dropout,
             add_static=True,
         )
 
         self.future_selection = VariableSelectionNetwork(
             d_hidden=self.model_config.variable_dim,
-            n_vars=2,  # target and time features
+            n_vars=2 + self.num_feat_dynamic_cat,  # target, time features, num_dynamic cat
             dropout=self.model_config.dropout,
             add_static=True,
         )
 
         self.static_selection = VariableSelectionNetwork(
             d_hidden=self.model_config.variable_dim,
-            n_vars=2,  # cat, static_feat
+            n_vars=self.num_feat_static_cat + 1
+            if self.num_feat_static_cat > 1
+            else 2,  # 2,   cat, static_feat
             dropout=self.model_config.dropout,
         )
 
@@ -179,6 +204,8 @@ class TFTModel(nn.Module):
         past_observed_values: torch.Tensor,
         future_time_feat: Optional[torch.Tensor] = None,
         future_target: Optional[torch.Tensor] = None,
+        past_feat_dynamic_cat: Optional[torch.Tensor] = None,
+        future_feat_dynamic_cat: Optional[torch.Tensor] = None,
     ):
         # time feature
         time_feat = (
@@ -191,6 +218,17 @@ class TFTModel(nn.Module):
             )
             if future_target is not None
             else past_time_feat[:, self._past_length - self.model_config.context_length :, ...]
+        )
+
+        # dynamic cat features
+        feat_dynamic_cat = torch.cat(
+            (
+                past_feat_dynamic_cat[
+                    :, self._past_length - self.model_config.context_length :, ...
+                ],
+                future_feat_dynamic_cat,
+            ),
+            dim=1,
         )
 
         # calculate scale
@@ -218,7 +256,7 @@ class TFTModel(nn.Module):
         reshaped_lagged_target = lagged_target.reshape(lags_shape[0], lags_shape[1], -1)
 
         # embeddings
-        embedded_cat = self.embedder(feat_static_cat)
+        embedded_cat = self.static_embedder(feat_static_cat)
         log_scale = scale.log() if self.model_config.input_size == 1 else scale.squeeze(1).log()
         static_feat = torch.cat(
             (feat_static_real, log_scale),
@@ -228,13 +266,22 @@ class TFTModel(nn.Module):
         # return the network inputs
         return (
             reshaped_lagged_target,  # target
-            time_feat,  # dynamic real covariates
+            time_feat,  # dynamic real covariates + time features
             scale,  # scale
-            embedded_cat,  # static covariates
-            static_feat,
+            list(embedded_cat),  # static covariates cat
+            static_feat,  # static real
+            feat_dynamic_cat,  # dynamic cat features
         )
 
-    def output_params(self, target, time_feat, embedded_cat, static_feat):
+    def output_params(
+        self,
+        target,
+        time_feat,
+        embedded_cat,
+        static_feat,
+        past_feat_dynamic_real,
+        feat_dynamic_cat,
+    ):
         target_proj = self.target_proj(target)
 
         past_target_proj = target_proj[:, : self.model_config.context_length, ...]
@@ -244,19 +291,34 @@ class TFTModel(nn.Module):
         past_time_feat_proj = time_feat_proj[:, : self.model_config.context_length, ...]
         future_time_feat_proj = time_feat_proj[:, self.model_config.context_length :, ...]
 
+        past_selection_list = [past_target_proj, past_time_feat_proj]
+        future_selection_list = [future_target_proj, future_time_feat_proj]
+
+        if self.past_dynamic_proj is not None:
+            past_dynamic_feat_projs = self.past_dynamic_proj(past_feat_dynamic_real)[
+                :, : self.model_config.context_length, ...
+            ]
+            past_selection_list.append(past_dynamic_feat_projs)
+
+        if self.dynamic_embedder is not None:
+            dynamic_cat_embedder = self.dynamic_embedder(
+                feat_dynamic_cat
+            )  # list(self.dynamic_embedder(feat_dynamic_cat))
+            for emb in dynamic_cat_embedder:
+                past_feat_dynamic_cat = emb[:, : self.model_config.context_length, ...]
+                future_feat_dynamic_cat = emb[:, self.model_config.context_length :, ...]
+                past_selection_list.append(past_feat_dynamic_cat)
+                future_selection_list.append(future_feat_dynamic_cat)
+
         static_feat_proj = self.static_feat_proj(static_feat)
 
         static_var, _ = self.static_selection(embedded_cat + [static_feat_proj])
         static_selection = self.selection(static_var).unsqueeze(1)
         static_enrichment = self.enrichment(static_var).unsqueeze(1)
 
-        past_selection, _ = self.past_selection(
-            [past_target_proj, past_time_feat_proj], static_selection
-        )
+        past_selection, _ = self.past_selection(past_selection_list, static_selection)
 
-        future_selection, _ = self.future_selection(
-            [future_target_proj, future_time_feat_proj], static_selection
-        )
+        future_selection, _ = self.future_selection(future_selection_list, static_selection)
 
         c_h = self.state_h(static_var)
         c_c = self.state_c(static_var)
@@ -286,17 +348,29 @@ class TFTModel(nn.Module):
         past_target: torch.Tensor,
         past_observed_values: torch.Tensor,
         future_time_feat: torch.Tensor,
+        past_dynamic_real: torch.Tensor,
+        past_feat_dynamic_cat: torch.Tensor,
+        future_feat_dynamic_cat: torch.Tensor,
         num_parallel_samples: Optional[int] = None,
     ) -> torch.Tensor:
         if num_parallel_samples is None:
             num_parallel_samples = self.model_config.num_parallel_samples
 
-        (target, time_feat, scale, embedded_cat, static_feat,) = self.create_network_inputs(
+        (
+            target,
+            time_feat,
+            scale,
+            embedded_cat,
+            static_feat,
+            feat_dynamic_cat,
+        ) = self.create_network_inputs(
             feat_static_cat=feat_static_cat,
             feat_static_real=feat_static_real,
             past_time_feat=past_time_feat,
             past_target=past_target,
             past_observed_values=past_observed_values,
+            past_feat_dynamic_cat=past_feat_dynamic_cat,
+            future_feat_dynamic_cat=future_feat_dynamic_cat,
         )
 
         past_target_proj = self.target_proj(target)
@@ -308,9 +382,28 @@ class TFTModel(nn.Module):
         static_selection = self.selection(static_var).unsqueeze(1)
         static_enrichment = self.enrichment(static_var).unsqueeze(1)
 
-        past_selection, _ = self.past_selection(
-            [past_target_proj, past_time_feat_proj], static_selection
-        )
+        past_selection_list = [past_target_proj, past_time_feat_proj]
+
+        if self.past_dynamic_proj is not None:
+            past_dynamic_feat_projs = self.past_dynamic_proj(past_dynamic_real)[
+                :, : self.model_config.context_length, ...
+            ]
+            past_selection_list.append(past_dynamic_feat_projs)
+
+        if self.dynamic_embedder is not None:
+            dynamic_cat_embedder = self.dynamic_embedder(feat_dynamic_cat)
+            repeated_future_feat_dynamic_cat = []
+            for emb in dynamic_cat_embedder:
+                past_feat_dynamic_cat = emb[:, : self.model_config.context_length, ...]
+                future_feat_dynamic_cat = emb[:, self.model_config.context_length :, ...]
+                past_selection_list.append(past_feat_dynamic_cat)
+                repeated_future_feat_dynamic_cat.append(
+                    future_feat_dynamic_cat.repeat_interleave(
+                        repeats=self.model_config.num_parallel_samples, dim=0
+                    )
+                )
+
+        past_selection, _ = self.past_selection(past_selection_list, static_selection)
 
         c_h = self.state_h(static_var)
         c_c = self.state_c(static_var)
@@ -354,8 +447,16 @@ class TFTModel(nn.Module):
             reshaped_lagged_sequence_proj = self.target_proj(reshaped_lagged_sequence)
 
             next_time_feat_proj = repeated_time_feat_proj[:, : k + 1]
+
+            future_selection_list = [reshaped_lagged_sequence_proj, next_time_feat_proj]
+
+            if self.dynamic_embedder is not None:
+                for repeated in repeated_future_feat_dynamic_cat:
+                    next_future_feat_dynamic_cat = repeated[:, : k + 1]
+                    future_selection_list.append(next_future_feat_dynamic_cat)
+
             future_selection, _ = self.future_selection(
-                [reshaped_lagged_sequence_proj, next_time_feat_proj],
+                future_selection_list,
                 repeated_static_selection,
             )
             enc_out = self.temporal_encoder(

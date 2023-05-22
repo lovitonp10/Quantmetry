@@ -14,7 +14,8 @@ model_config:
   d_models: 64
   scaling: mean
   num_parallel_samples: 100
-  cardinality: [1]
+  static_cardinality: ${dataset.static_cardinality}
+  dynamic_cardinality: ${dataset.dynamic_cardinality}
 optimizer_config:
   lr: 0.0006
   betas: [0.9, 0.95]

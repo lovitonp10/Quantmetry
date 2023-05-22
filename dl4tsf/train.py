@@ -26,6 +26,7 @@ def main(cfgHydra: DictConfig):
     loader_data = CustomDataLoader(
         cfg_dataset=cfg.dataset,
         target=cfg.dataset.load["target"],
+        feats=cfg.dataset.name_feats,
         cfg_model=cfg.model,
         test_length=cfg.dataset.test_length,
     )
@@ -37,12 +38,21 @@ def main(cfgHydra: DictConfig):
     forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
 
     forecaster.train(input_data=dataset.train)
-    logging.info(forecaster.get_callback_losses())
+    losses = forecaster.get_callback_losses(type="train")
+    logging.info("first 10 losses")
+    logging.info(losses[:10])
 
     ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test)
 
+    """# TFT
+    logging.info(ts_it[0].head())
+    logging.info(forecast_it[0].head())"""
+
+    # Infomer
     # logging.info(ts_it[:10])
     # logging.info(forecast_it.shape)
+    logging.info(ts_it[0].tail())
+    logging.info(forecast_it[0].head())
     metrics = forecaster.evaluate(test_dataset=dataset.test)
     logging.info(metrics)
 

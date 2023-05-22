@@ -6,11 +6,12 @@ from pydantic import BaseModel
 class Dataset(BaseModel):
     dataset_name: str
     load: Dict[str, Any]
-    test_length: Optional[str]
+    test_length: str
+    ts_length: Optional[int]
     freq: str
-    static_cardinality: List[int]
-    dynamic_cardinality: List[int]
-    feats: Dict[str, List[str]]
+    static_cardinality: Optional[List[int]]
+    dynamic_cardinality: Optional[List[int]]
+    name_feats: Dict[str, List[str]]
 
 
 class ModelConfig(BaseModel):

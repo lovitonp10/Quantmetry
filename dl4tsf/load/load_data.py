@@ -1,5 +1,4 @@
 import glob
-
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
 from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
@@ -7,9 +6,20 @@ from datasets import load_dataset as get_huggingface_dataset
 from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
+from load.load_exo_data import add_weather
+from typing import Dict
 
 
-def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.DataFrame:
+def climate(
+    path: str = "data/climate_delhi/",
+    target: str = "mean_temp",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_climate = pd.DataFrame()
     for file in list_csv:
@@ -19,47 +29,54 @@ def climate(path: str = "data/climate_delhi/", target: str = "mean_temp") -> pd.
     df_climate.index = pd.to_datetime(df_climate.index)
     df_climate = df_climate[[target]]
 
+    if weather:
+        df_climate = add_weather(df_climate, weather)
+
     return df_climate
 
 
-def energy(path: str = "data/energy/", target: str = "consommation"):
+def energy(
+    path: str = "data/energy/",
+    target: str = "consommation",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_energy = pd.DataFrame()
     for file in list_csv:
         df_tmp = pd.read_csv(file, sep=";")
         df_energy = pd.concat([df_energy, df_tmp], axis=0)
-    df_energy.rename(
-        columns={"heure": "hour", "libelle_region": "variable", target: "value"}, inplace=True
-    )
-    df_energy = df_energy[["date", "hour", "variable", "value"]]
-    df_energy = df_energy[df_energy.variable != "Grand Est"]
-    df_energy["date"] = pd.to_datetime(
+    df_energy.rename(columns={"heure": "hour", "libelle_region": "region"}, inplace=True)
+    df_energy = df_energy[["date", "hour", "region", target]]
+    df_energy = df_energy[df_energy.region != "Grand Est"]
+    df_energy["date_hour"] = pd.to_datetime(
         df_energy.date + " " + df_energy.hour, format="%Y-%m-%d %H:%M"
     )
-    df_energy = df_energy.sort_values(by="date", ascending=True).reset_index(drop=True)
-    df_energy = pd.pivot_table(df_energy, values="value", index=["date"], columns=["variable"])
-    df_energy = df_energy.resample("15T").interpolate(method="linear")
+    df_energy = df_energy.sort_values(by=["region", "date_hour"], ascending=True).reset_index(
+        drop=True
+    )
+    df_energy.index = df_energy["date_hour"]
+    df_energy = df_energy[["region", "consommation"]]
+
+    if weather:
+        df_energy = add_weather(df_energy, weather)
 
     return df_energy
-
-
-def gluonts_dataset(dataset_name: str) -> TrainDatasets:
-    return get_gluonts_dataset(dataset_name)
-
-
-def huggingface_dataset(
-    repository_name: str, dataset_name: str, freq: str, target: str
-) -> HuggingFaceDataset:
-    dataset = get_huggingface_dataset(repository_name, dataset_name)
-    dataset["train"].set_transform(partial(transform_start_field, freq=freq))
-    dataset["test"].set_transform(partial(transform_start_field, freq=freq))
-    dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
-    return dataset
 
 
 def enedis(
     path: str = "data/enedis/",
     target: str = "total_energy",
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["t", "rr3", "pmer"],
+        "cat_features": ["cod_tend"],
+        "station_name": "ORLY",
+    },
 ) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
     df_enedis = pd.DataFrame()
@@ -95,9 +112,36 @@ def enedis(
         .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
         .astype(int)
     )
+    if weather:
+        df_enedis = add_weather(df_enedis, weather)
 
     # Dummy generated dynamic_cat
     # import numpy as np
     # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
+    df_enedis["soutirage1"] = df_enedis["soutirage"]
+    df_enedis["soutirage2"] = df_enedis["soutirage"]
+    df_enedis["soutirage3"] = df_enedis["soutirage"]
 
     return df_enedis
+
+
+def gluonts_dataset(dataset_name: str) -> TrainDatasets:
+    return get_gluonts_dataset(dataset_name)
+
+
+def huggingface_dataset(
+    repository_name: str,
+    dataset_name: str,
+    freq: str,
+    target: str,
+    weather=None,
+) -> HuggingFaceDataset:
+    dataset = get_huggingface_dataset(repository_name, dataset_name)
+    dataset["train"].set_transform(partial(transform_start_field, freq=freq))
+    dataset["test"].set_transform(partial(transform_start_field, freq=freq))
+    dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
+
+    if weather:
+        dataset = add_weather(dataset, weather)
+
+    return dataset
