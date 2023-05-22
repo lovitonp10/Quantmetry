@@ -21,6 +21,7 @@ class CustomDataLoader:
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
         self.cfg_dataset = cfg_dataset
+        self.cfg_dataset = cfg_dataset
         self.target = target if target else "target"
         self.dynamic_real = feats["feat_dynamic_real"]
         self.static_cat = feats["feat_static_cat"]

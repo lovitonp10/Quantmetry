@@ -32,6 +32,9 @@ def climate(
     if weather:
         df_climate = add_weather(df_climate, weather)
 
+    if weather:
+        df_climate = add_weather(df_climate, weather)
+
     return df_climate
 
 
