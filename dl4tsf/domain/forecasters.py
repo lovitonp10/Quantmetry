@@ -1,5 +1,5 @@
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-
+from gluonts.evaluation import make_evaluation_predictions
 import configs
 import hydra
 import numpy as np
@@ -12,7 +12,6 @@ from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
-from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
 from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
@@ -39,6 +38,21 @@ from utils.utils_gluonts import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
+
+import logging
+
+from accelerate import Accelerator
+from torch.optim import AdamW
+from transformers import InformerConfig, InformerForPrediction
+from domain.transformations import (
+    create_test_dataloader,
+    create_train_dataloader,
+    create_validation_dataloader,
+)
+from gluonts.time_feature import get_seasonality
+
+import evaluate
+
 
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
@@ -157,11 +171,24 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = None
         self.model = super().train(training_data=input_data)
 
-    def predict(self, test_data: gluontsPandasDataset) -> Tuple[List[pd.Series], List[pd.Series]]:
-        forecast_it, ts_it = make_evaluation_predictions(dataset=test_data, predictor=self.model)
+    def predict(
+        self, test_dataset: gluontsPandasDataset
+    ) -> Tuple[List[pd.Series], List[pd.Series]]:
+        forecast_it, ts_it = make_evaluation_predictions(
+            dataset=test_dataset, predictor=self.model
+        )
         forecasts_df = []
         for forecast in forecast_it:
-            forecasts_df.append(utils_gluonts.sample_df(forecast))
+            forecasts_df.append(
+                utils_gluonts.sample_df(
+                    forecast.samples,
+                    periods=forecast.samples.shape[1],
+                    start_date=forecast.start_date,
+                    freq=forecast.freq,
+                    ts_length=0,
+                    pred_length=0,
+                )
+            )
         return list(ts_it), forecasts_df
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
@@ -385,3 +412,198 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
 
         return TFTLightningModule(model=model, loss=self.loss)
+
+
+class InformerForecaster(Forecaster):
+    def __init__(
+        self,
+        cfg_model: configs.Model,
+        cfg_train: configs.Train,
+        cfg_dataset: configs.Dataset,
+        from_pretrained: str = None,
+    ) -> None:
+        Forecaster.__init__(
+            self,
+            cfg_model=cfg_model,
+            cfg_train=cfg_train,
+            cfg_dataset=cfg_dataset,
+            from_pretrained=from_pretrained,
+        )
+        self.freq = self.cfg_dataset.freq
+        time_features = time_features_from_frequency_str(self.freq)
+        self.model_config_informer = InformerConfig(
+            num_time_features=len(time_features) + 1,
+            cardinality=self.model_config.static_cardinality,
+            num_dynamic_real_features=len(self.cfg_dataset.name_feats["feat_dynamic_real"]),
+            num_static_categorical_features=len(self.cfg_dataset.name_feats["feat_static_cat"]),
+            num_static_real_features=len(self.cfg_dataset.name_feats["feat_static_real"]),
+            **self.model_config.dict(),
+        )
+        if self.from_pretrained:
+            self.model = InformerForPrediction.from_pretrained(self.from_pretrained)
+        else:
+            self.model = InformerForPrediction(self.model_config_informer)
+
+    def get_train_dataloader(self, train_dataset: List[Dict[str, Any]]):
+        logging.info("Create train dataloader")
+        self.train_dataloader = create_train_dataloader(
+            config=self.model_config_informer,
+            freq=self.freq,
+            data=train_dataset,
+            batch_size=self.cfg_train.batch_size_train,
+            num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
+            num_workers=2,
+        )
+
+    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]]):
+        logging.info("Create test dataloader")
+        self.test_dataloader = create_test_dataloader(
+            config=self.model_config_informer,
+            freq=self.freq,
+            data=test_dataset,
+            batch_size=self.cfg_train.batch_size_test,
+        )
+        self.test_dataloader = create_validation_dataloader(
+            config=self.model_config_informer,
+            freq=self.freq,
+            data=test_dataset,
+            batch_size=self.cfg_train.batch_size_test,
+        )
+
+    def train(self, input_data: List[Dict[str, Any]]):
+        if self.from_pretrained:
+            logging.error("Model already trained, cannot be retrained from scratch")
+            return
+        self.get_train_dataloader(input_data)
+        accelerator = Accelerator()
+        device = accelerator.device
+        self.model.to(device)
+        optimizer = AdamW(self.model.parameters(), **self.optimizer_config)
+
+        self.model, optimizer, self.train_dataloader = accelerator.prepare(
+            self.model,
+            optimizer,
+            self.train_dataloader,
+        )
+
+        self.loss_history = []
+        self.model.train()
+
+        for epoch in range(self.cfg_train.epochs):
+            for idx, batch in enumerate(self.train_dataloader):
+                optimizer.zero_grad()
+                outputs = self.model(
+                    static_categorical_features=batch["static_categorical_features"].to(device)
+                    if self.model_config_informer.num_static_categorical_features > 0
+                    else None,
+                    static_real_features=batch["static_real_features"].to(device)
+                    if self.model_config_informer.num_static_real_features > 0
+                    else None,
+                    past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+                    if device.type == "mps"
+                    else batch["past_time_features"].to(device),
+                    past_values=batch["past_values"].to(device),
+                    future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+                    if device.type == "mps"
+                    else batch["future_time_features"].to(device),
+                    future_values=batch["future_values"].to(device),
+                    past_observed_mask=batch["past_observed_mask"].to(device),
+                    future_observed_mask=batch["future_observed_mask"].to(device),
+                )
+                loss = outputs.loss
+
+                # Backpropagation
+                accelerator.backward(loss)
+                optimizer.step()
+
+                self.loss_history.append(loss.item())
+                if idx % 100 == 0:
+                    print(loss.item())
+
+    def predict(
+        self, test_dataset: List[Dict[str, Any]], transform_df=True
+    ) -> Tuple[List[pd.Series], List[pd.Series]]:
+        self.get_test_dataloader(test_dataset)
+        accelerator = Accelerator()
+        device = accelerator.device
+
+        self.model.to(device)
+        self.model.eval()
+        forecasts_ = []
+        ts_it_ = []
+        i = 0
+        for batch in self.test_dataloader:
+            outputs = self.model.generate(
+                static_categorical_features=batch["static_categorical_features"].to(device)
+                if self.model_config_informer.num_static_categorical_features > 0
+                else None,
+                static_real_features=batch["static_real_features"].to(device)
+                if self.model_config_informer.num_static_real_features > 0
+                else None,
+                past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+                if device.type == "mps"
+                else batch["past_time_features"].to(device),
+                past_values=batch["past_values"].to(device),
+                future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+                if device.type == "mps"
+                else batch["future_time_features"].to(device),
+                past_observed_mask=batch["past_observed_mask"].to(device),
+            )
+            forecasts_.append(outputs.sequences.cpu().numpy())
+            ts_it_.append(batch["past_values"].numpy())
+            i = i + 1
+        forecasts = np.vstack(forecasts_)
+        ts_it = np.vstack(ts_it_)
+        if not transform_df:
+            return ts_it, forecasts
+        # periods = len(test_dataset[0]["target"])
+        df_ts = utils_gluonts.transform_huggingface_to_dict(test_dataset, freq=self.freq)
+        forecasts_df = {}
+
+        for i, forecast in enumerate(forecasts):
+            forecasts_df[i] = utils_gluonts.sample_df(
+                forecast,
+                periods=forecast.shape[1],
+                start_date=test_dataset[0]["start"],
+                freq=self.freq,
+                ts_length=len(test_dataset[0]["target"]),
+                pred_length=self.model_config.prediction_length,
+            )
+
+        return df_ts, forecasts_df
+
+    def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
+        return self.loss_history
+
+    def evaluate(
+        self, test_dataset: List[Dict[str, Any]], forecasts=[]
+    ) -> Tuple[Dict[str, Any], List[float]]:
+        if len(forecasts) == 0:
+            _, forecasts = self.predict(test_dataset, transform_df=False)
+        forecast_median = np.median(forecasts, 1)
+        mase_metric = evaluate.load("evaluate-metric/mase")
+        smape_metric = evaluate.load("evaluate-metric/smape")
+        mase_metrics = []
+        smape_metrics = []
+
+        for item_id, ts in enumerate(test_dataset):
+            training_data = ts["target"][: -self.model_config.prediction_length]
+            ground_truth = ts["target"][-self.model_config.prediction_length :]
+            mase = mase_metric.compute(
+                predictions=forecast_median[item_id],
+                references=np.array(ground_truth),
+                training=np.array(training_data),
+                periodicity=get_seasonality(self.freq),
+            )
+            mase_metrics.append(mase["mase"])
+
+            smape = smape_metric.compute(
+                predictions=forecast_median[item_id],
+                references=np.array(ground_truth),
+            )
+            smape_metrics.append(smape["smape"])
+
+        metrics = {}
+        metrics["smape"] = smape_metrics
+        metrics["mase"] = mase_metrics
+        return metrics

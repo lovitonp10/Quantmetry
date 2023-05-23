@@ -119,6 +119,16 @@ python dl4tsf/train.py model=tft dataset=energy
 # or
 python dl4tsf/train.py model=tft dataset=enedis
 ```
+### PENDING
+
+```
+python dl4tsf/train.py model=informer dataset=energy
+# or
+python dl4tsf/train.py model=informer dataset=climate_delhi
+```
+If you encountered a warning (and you have only a CPU), run this command (to fallback to CPU if no gpu is available):
+`export PYTORCH_ENABLE_MPS_FALLBACK=1`
+
 ### Launching Tensorboard
 TensorBoard is a tool for providing the measurements and visualizations needed during the machine learning workflow. It enables tracking experiment metrics like loss and accuracy, visualizing the model graph, projecting embeddings to a lower dimensional space, and much more.
 
