@@ -21,7 +21,6 @@ class CustomDataLoader:
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
         self.cfg_dataset = cfg_dataset
-        self.cfg_dataset = cfg_dataset
         self.target = target if target else "target"
         self.dynamic_real = feats["feat_dynamic_real"]
         self.static_cat = feats["feat_static_cat"]
@@ -31,6 +30,7 @@ class CustomDataLoader:
         self.test_length = test_length
         self.static_cardinality = cfg_model.model_config.static_cardinality
         self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
+        self.model_name = cfg_model.model_name
 
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):
@@ -84,13 +84,11 @@ class CustomDataLoader:
             self.dynamic_cardinality,
         )
 
-    def get_pandas_format(self) -> pd.DataFrame:
-        # if self.df_pandas:
-        if (
-            self.df_pandas is not None and not self.df_pandas.empty
-        ):  # Modification car si on a plusieurs colonnes, ça ne marche pas
-            return self.df_pandas
-        # to implement
+    def get_dataset(self):
+        if self.model_name == "TFTForecaster":
+            return self.get_gluonts_format()
+        elif self.model_name == "InformerForecaster":
+            return self.get_huggingface_format()
 
     def get_gluonts_format(self) -> TrainDatasets:
         if hasattr(self, "df_gluonts") and (self.df_gluonts is not None):

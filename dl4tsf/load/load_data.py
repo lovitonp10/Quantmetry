@@ -32,9 +32,6 @@ def climate(
     if weather:
         df_climate = add_weather(df_climate, weather)
 
-    if weather:
-        df_climate = add_weather(df_climate, weather)
-
     return df_climate
 
 
@@ -121,9 +118,6 @@ def enedis(
     # Dummy generated dynamic_cat
     # import numpy as np
     # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
-    df_enedis["soutirage1"] = df_enedis["soutirage"]
-    df_enedis["soutirage2"] = df_enedis["soutirage"]
-    df_enedis["soutirage3"] = df_enedis["soutirage"]
 
     return df_enedis
 

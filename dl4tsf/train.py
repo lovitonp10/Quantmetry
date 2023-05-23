@@ -30,8 +30,7 @@ def main(cfgHydra: DictConfig):
         cfg_model=cfg.model,
         test_length=cfg.dataset.test_length,
     )
-    # dataset = loader_data.get_gluonts_format()
-    dataset = loader_data.get_huggingface_format()
+    dataset = loader_data.get_dataset()
 
     logging.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
@@ -44,17 +43,13 @@ def main(cfgHydra: DictConfig):
 
     ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test)
 
-    """# TFT
-    logging.info(ts_it[0].head())
-    logging.info(forecast_it[0].head())"""
-
-    # Infomer
     # logging.info(ts_it[:10])
     # logging.info(forecast_it.shape)
     logging.info(ts_it[0].tail())
     logging.info(forecast_it[0].head())
-    metrics = forecaster.evaluate(test_dataset=dataset.test)
-    logging.info(metrics)
+
+    # metrics = forecaster.evaluate(test_dataset=dataset.test)
+    # logging.info(metrics)
 
     # logging.info("Plot first TS predictions")
     # plot_timeseries(

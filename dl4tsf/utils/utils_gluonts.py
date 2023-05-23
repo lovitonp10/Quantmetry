@@ -90,42 +90,10 @@ def transform_huggingface_to_pandas(gluonts_dataset, freq: str):
     return df_pandas
 
 
-def transform_huggingface_to_dict(gluonts_dataset, freq: str):
-    """periods = len(gluonts_dataset[0]["target"])
-    i = 0"""
-
+def transform_huggingface_to_dict(dataset, freq: str):
     list_dataset = []
-    for item in list(gluonts_dataset):
+    for item in list(dataset):
         list_dataset.append(pd.DataFrame(item["target"]))
-
-    # for item in list(gluonts_dataset)[:10]:
-    """print(i)
-        i = i + 1
-        df_tmp = pd.DataFrame()
-        df_tmp["target"] = item["target"]
-        df_tmp["date"] = pd.date_range(
-            start=item["start"].to_timestamp(), periods=periods, freq=freq
-        )
-        df_tmp["item_id"] = item["item_id"]
-        if "feat_static_cat" in gluonts_dataset.features:
-            df_tmp["feat_static_cat"] = (
-                item["feat_static_cat"][0]
-                if isinstance(item["feat_static_cat"], list) and len(item["feat_static_cat"]) == 1
-                else item["feat_static_cat"]
-            )
-
-        if "feat_dynamic_real" in gluonts_dataset.features:
-            df_tmp["feat_dynamic_real"] = (
-                item["feat_dynamic_real"][0]
-                if isinstance(item["feat_dynamic_real"], list)
-                and len(item["feat_dynamic_real"]) == 1
-                else item["feat_dynamic_real"]
-            )
-        dict_dataset = {}
-        dict_dataset["item_id"] = item["item_id"]
-        dict_dataset["df"] = df_tmp.copy()
-
-        list_dataset.append(copy.deepcopy(dict_dataset))"""
     return list_dataset
 
 
@@ -202,46 +170,84 @@ def create_ts_with_features(
 
     if dataset_type == "gluonts":
         # gluonts dataset format
-        meta = MetaData(
+        dataset = gluonts_format(
+            train=train,
+            test=test,
+            dynamic_real=dynamic_real,
+            past_dynamic_real=past_dynamic_real,
+            static_cat=static_cat,
+            static_cardinality=static_cardinality,
+            static_real=static_real,
+            dynamic_cat=dynamic_cat,
+            dynamic_cardinality=dynamic_cardinality,
             freq=freq,
             prediction_length=prediction_length,
         )
 
-        meta.feat_dynamic_real = [BasicFeatureInfo(name=name) for name in dynamic_real]
-        meta.past_feat_dynamic_real = [BasicFeatureInfo(name=name) for name in past_dynamic_real]
-
-        meta.feat_static_cat = [
-            CategoricalFeatureInfo(name=name, cardinality=str(cardinality))
-            for name, cardinality in zip(static_cat, static_cardinality)
-        ]
-
-        meta.feat_static_real = [BasicFeatureInfo(name=name) for name in static_real]
-
-        meta.feat_dynamic_cat = [
-            CategoricalFeatureInfo(name=name, cardinality=str(cardinality))
-            for name, cardinality in zip(dynamic_cat, dynamic_cardinality)
-        ]
-
-        process = ProcessDataEntry(freq, one_dim_target=True, use_timestamp=False)
-        train_df = cast(Dataset, Map(process, train))
-        test_df = cast(Dataset, Map(process, test))
-
-        dataset = TrainDatasets(metadata=meta, train=train_df, test=test_df)
-
     elif dataset_type == "hugging_face":
-        train_df = pd.DataFrame(train)
-        test_df = pd.DataFrame(test)
+        dataset = hugging_face_format(
+            train=train,
+            test=test,
+            freq=freq,
+        )
 
-        train_dataset = datasets.Dataset.from_dict(train_df)
-        test_dataset = datasets.Dataset.from_dict(test_df)
-        # dataset = datasets.DatasetDict({"train":train_dataset,"test":test_dataset})
+    return dataset
 
-        train_dataset.set_transform(partial(transform_start_field, freq="30T"))
-        test_dataset.set_transform(partial(transform_start_field, freq="30T"))
-        dataset = HuggingFaceDataset
-        dataset.train = train_dataset
-        dataset.test = test_dataset
 
+def gluonts_format(
+    train,
+    test,
+    dynamic_real,
+    past_dynamic_real,
+    static_cat,
+    static_cardinality,
+    static_real,
+    dynamic_cat,
+    dynamic_cardinality,
+    freq,
+    prediction_length,
+):
+    meta = MetaData(
+        freq=freq,
+        prediction_length=prediction_length,
+    )
+
+    meta.feat_dynamic_real = [BasicFeatureInfo(name=name) for name in dynamic_real]
+    meta.past_feat_dynamic_real = [BasicFeatureInfo(name=name) for name in past_dynamic_real]
+
+    meta.feat_static_cat = [
+        CategoricalFeatureInfo(name=name, cardinality=str(cardinality))
+        for name, cardinality in zip(static_cat, static_cardinality)
+    ]
+
+    meta.feat_static_real = [BasicFeatureInfo(name=name) for name in static_real]
+
+    meta.feat_dynamic_cat = [
+        CategoricalFeatureInfo(name=name, cardinality=str(cardinality))
+        for name, cardinality in zip(dynamic_cat, dynamic_cardinality)
+    ]
+
+    process = ProcessDataEntry(freq, one_dim_target=True, use_timestamp=False)
+    train_df = cast(Dataset, Map(process, train))
+    test_df = cast(Dataset, Map(process, test))
+
+    dataset = TrainDatasets(metadata=meta, train=train_df, test=test_df)
+    return dataset
+
+
+def hugging_face_format(train, test, freq):
+    train_df = pd.DataFrame(train)
+    test_df = pd.DataFrame(test)
+
+    train_dataset = datasets.Dataset.from_dict(train_df)
+    test_dataset = datasets.Dataset.from_dict(test_df)
+    # dataset = datasets.DatasetDict({"train":train_dataset,"test":test_dataset})
+
+    train_dataset.set_transform(partial(transform_start_field, freq=freq))
+    test_dataset.set_transform(partial(transform_start_field, freq=freq))
+    dataset = HuggingFaceDataset
+    dataset.train = train_dataset
+    dataset.test = test_dataset
     return dataset
 
 
