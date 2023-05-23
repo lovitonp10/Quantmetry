@@ -40,10 +40,6 @@ class CustomDataLoader:
         if isinstance(self.tmp, HuggingFaceDataset):
             self.df_huggingface = self.tmp
 
-    def create_pandas_from_hugging_face(self):
-        # to implement
-        self.df_huggingface = None  # to complete
-
     def create_huggingface_from_pandas(self):
         # Not yet ready for Informer model
         # self.df_huggingface = Dataset.from_pandas(self.df_pandas)
@@ -89,6 +85,10 @@ class CustomDataLoader:
             return self.get_gluonts_format()
         elif self.model_name == "InformerForecaster":
             return self.get_huggingface_format()
+
+    def get_pandas_format(self) -> pd.DataFrame:
+        if self.df_pandas:
+            return self.df_pandas
 
     def get_gluonts_format(self) -> TrainDatasets:
         if hasattr(self, "df_gluonts") and (self.df_gluonts is not None):
