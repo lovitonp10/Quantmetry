@@ -9,4 +9,5 @@ class BaseModel(PydanticBaseModel):
 
 class HuggingFaceDataset(BaseModel):
     train: Dataset
+    validation: Dataset
     test: Dataset

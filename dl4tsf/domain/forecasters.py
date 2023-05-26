@@ -172,7 +172,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = super().train(training_data=input_data)
 
     def predict(
-        self, test_dataset: gluontsPandasDataset
+        self, test_dataset: gluontsPandasDataset, test_step
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
         forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_dataset, predictor=self.model
@@ -185,11 +185,19 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                     periods=forecast.samples.shape[1],
                     start_date=forecast.start_date,
                     freq=forecast.freq,
-                    ts_length=0,
-                    pred_length=0,
+                    ts_length=0,  # forecast.samples.shape[1],
+                    pred_length=0,  # forecast.samples.shape[1],
+                    test_step=test_step,
                 )
             )
-        return list(ts_it), forecasts_df
+        if test_step is True:
+            list_it = []
+            for ls in list(ts_it):
+                list_it.append(ls[: -self.model_config.prediction_length])
+        else:
+            list_it = list(ts_it)
+
+        return list_it, forecasts_df
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.callback.metrics["loss"][f"{type}_loss"]
@@ -455,20 +463,22 @@ class InformerForecaster(Forecaster):
             num_workers=2,
         )
 
-    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]]):
+    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], test_step=False):
         logging.info("Create test dataloader")
-        self.test_dataloader = create_test_dataloader(
-            config=self.model_config_informer,
-            freq=self.freq,
-            data=test_dataset,
-            batch_size=self.cfg_train.batch_size_test,
-        )
-        self.test_dataloader = create_validation_dataloader(
-            config=self.model_config_informer,
-            freq=self.freq,
-            data=test_dataset,
-            batch_size=self.cfg_train.batch_size_test,
-        )
+        if test_step is False:
+            self.test_dataloader = create_validation_dataloader(
+                config=self.model_config_informer,
+                freq=self.freq,
+                data=test_dataset,
+                batch_size=self.cfg_train.batch_size_test,
+            )
+        else:
+            self.test_dataloader = create_test_dataloader(
+                config=self.model_config_informer,
+                freq=self.freq,
+                data=test_dataset,
+                batch_size=self.cfg_train.batch_size_test,
+            )
 
     def train(self, input_data: List[Dict[str, Any]]):
         if self.from_pretrained:
@@ -521,9 +531,12 @@ class InformerForecaster(Forecaster):
                     print(loss.item())
 
     def predict(
-        self, test_dataset: List[Dict[str, Any]], transform_df=True
+        self,
+        test_dataset: List[Dict[str, Any]],
+        transform_df=True,
+        test_step=False,
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
-        self.get_test_dataloader(test_dataset)
+        self.get_test_dataloader(test_dataset, test_step)
         accelerator = Accelerator()
         device = accelerator.device
 
@@ -568,6 +581,7 @@ class InformerForecaster(Forecaster):
                 freq=self.freq,
                 ts_length=len(test_dataset[0]["target"]),
                 pred_length=self.model_config.prediction_length,
+                test_step=test_step,
             )
 
         return df_ts, forecasts_df

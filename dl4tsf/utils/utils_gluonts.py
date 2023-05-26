@@ -1,15 +1,18 @@
-from typing import List, Tuple, Dict, Any, Optional, Iterator
+from typing import List, Tuple, Dict, Any, Optional, Iterator, NamedTuple
 from utils.custom_objects_pydantic import HuggingFaceDataset
 import pandas as pd
 from pandas import Period
 import numpy as np
 
 from gluonts.itertools import Map
-from gluonts.dataset import Dataset
+from pathlib import Path
+import shutil
+from gluonts import json
+from gluonts.dataset import Dataset, DatasetWriter
 import datasets
 from gluonts.dataset.common import (
     ProcessDataEntry,
-    TrainDatasets,
+    # TrainDatasets,
     CategoricalFeatureInfo,
     BasicFeatureInfo,
 )
@@ -17,6 +20,7 @@ from gluonts.dataset.common import (
 from typing import cast
 import pydantic
 from functools import partial
+from itertools import repeat
 
 from gluonts.transform import InstanceSplitter
 from gluonts.transform.sampler import InstanceSampler
@@ -41,14 +45,70 @@ class MetaData(pydantic.BaseModel):
         allow_population_by_field_name = True
 
 
+class TrainDatasets(NamedTuple):
+    """
+    A dataset containing two subsets, one to be used for training purposes, and
+    the other for testing purposes, as well as metadata.
+    """
+
+    metadata: MetaData
+    train: Dataset
+    validation: Optional[Dataset] = None
+    test: Optional[Dataset] = None
+
+    def save(
+        self,
+        path_str: str,
+        writer: DatasetWriter,
+        overwrite=False,
+    ) -> None:
+        """
+        Saves an TrainDatasets object to a JSON Lines file.
+
+        Parameters
+        ----------
+        path_str
+            Where to save the dataset.
+        overwrite
+            Whether to delete previous version in this folder.
+        """
+        path = Path(path_str)
+
+        if overwrite:
+            shutil.rmtree(path, ignore_errors=True)
+
+        path.mkdir(parents=True)
+        with open(path / "metadata.json", "wb") as out_file:
+            json.bdump(self.metadata.dict(), out_file, nl=True)
+
+        train = path / "train"
+        train.mkdir(parents=True)
+        writer.write_to_folder(self.train, train)
+
+        if self.validation is not None:
+            validation = path / "validation"
+            validation.mkdir(parents=True)
+            writer.write_to_folder(self.validation, validation)
+
+        if self.test is not None:
+            test = path / "test"
+            test.mkdir(parents=True)
+            writer.write_to_folder(self.test, test)
+
+
 def sample_df(
-    samples: np.ndarray, start_date: Period, periods, freq, ts_length, pred_length
+    samples: np.ndarray, start_date: Period, periods, freq, ts_length, pred_length, test_step
 ) -> List[pd.DataFrame]:
     # samples = forecast.samples
     # ns, h = samples.shape
-    dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
-        ts_length - pred_length
-    )
+    if test_step is True:
+        dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
+            ts_length
+        )
+    else:
+        dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
+            ts_length - pred_length
+        )
     return pd.DataFrame(samples.T, index=dates)
 
 
@@ -128,9 +188,11 @@ def create_ts_with_features(
     past_dynamic_real: List[str],
     dynamic_cat: List[str],
     freq: str,
+    test_length_rows: int,
     prediction_length: int,
     static_cardinality: List[int],
     dynamic_cardinality: List[int],
+    weather_forecast: pd.DataFrame,
 ) -> TrainDatasets:
     # static features
     df["item_id"], static_features_cat = utils_static_features(df, static_cat)
@@ -140,22 +202,19 @@ def create_ts_with_features(
         df, target, dynamic_real, past_dynamic_real, dynamic_cat, freq
     )
 
-    train = train_test_split(
-        "train",
-        df,
+    df_pivot, dynamic_feat_forecast = add_dynamic_forecast(
         df_pivot,
+        weather_forecast,
         target,
         dynamic_real,
-        static_features_cat,
-        static_cat,
-        static_real,
         past_dynamic_real,
         dynamic_cat,
         prediction_length,
     )
 
-    test = train_test_split(
-        "test",
+    train = train_val_test_split(
+        "train",
+        dataset_type,
         df,
         df_pivot,
         target,
@@ -165,13 +224,50 @@ def create_ts_with_features(
         static_real,
         past_dynamic_real,
         dynamic_cat,
+        test_length_rows,
         prediction_length,
+        dynamic_feat_forecast,
+    )
+
+    validation = train_val_test_split(
+        "validation",
+        dataset_type,
+        df,
+        df_pivot,
+        target,
+        dynamic_real,
+        static_features_cat,
+        static_cat,
+        static_real,
+        past_dynamic_real,
+        dynamic_cat,
+        test_length_rows,
+        prediction_length,
+        dynamic_feat_forecast,
+    )
+
+    test = train_val_test_split(
+        "test",
+        dataset_type,
+        df,
+        df_pivot,
+        target,
+        dynamic_real,
+        static_features_cat,
+        static_cat,
+        static_real,
+        past_dynamic_real,
+        dynamic_cat,
+        test_length_rows,
+        prediction_length,
+        dynamic_feat_forecast,
     )
 
     if dataset_type == "gluonts":
         # gluonts dataset format
         dataset = gluonts_format(
             train=train,
+            validation=validation,
             test=test,
             dynamic_real=dynamic_real,
             past_dynamic_real=past_dynamic_real,
@@ -187,6 +283,7 @@ def create_ts_with_features(
     elif dataset_type == "hugging_face":
         dataset = hugging_face_format(
             train=train,
+            validation=validation,
             test=test,
             freq=freq,
         )
@@ -196,6 +293,7 @@ def create_ts_with_features(
 
 def gluonts_format(
     train,
+    validation,
     test,
     dynamic_real,
     past_dynamic_real,
@@ -229,24 +327,29 @@ def gluonts_format(
 
     process = ProcessDataEntry(freq, one_dim_target=True, use_timestamp=False)
     train_df = cast(Dataset, Map(process, train))
+    validation_df = cast(Dataset, Map(process, validation))
     test_df = cast(Dataset, Map(process, test))
 
-    dataset = TrainDatasets(metadata=meta, train=train_df, test=test_df)
+    dataset = TrainDatasets(metadata=meta, train=train_df, validation=validation_df, test=test_df)
     return dataset
 
 
-def hugging_face_format(train, test, freq):
+def hugging_face_format(train, validation, test, freq):
     train_df = pd.DataFrame(train)
+    validation_df = pd.DataFrame(validation)
     test_df = pd.DataFrame(test)
 
     train_dataset = datasets.Dataset.from_dict(train_df)
+    validation_dataset = datasets.Dataset.from_dict(validation_df)
     test_dataset = datasets.Dataset.from_dict(test_df)
     # dataset = datasets.DatasetDict({"train":train_dataset,"test":test_dataset})
 
     train_dataset.set_transform(partial(transform_start_field, freq=freq))
+    validation_dataset.set_transform(partial(transform_start_field, freq=freq))
     test_dataset.set_transform(partial(transform_start_field, freq=freq))
     dataset = HuggingFaceDataset
     dataset.train = train_dataset
+    dataset.validation = validation_dataset
     dataset.test = test_dataset
     return dataset
 
@@ -299,8 +402,9 @@ def utils_dynamic_features(
     return df_pivot
 
 
-def train_test_split(
+def train_val_test_split(
     part: str,
+    dataset_type: str,
     df: pd.DataFrame,
     df_pivot: pd.DataFrame,
     target: str,
@@ -310,19 +414,71 @@ def train_test_split(
     static_real: List[str],
     past_dynamic_real: List[str],
     dynamic_cat: List[str],
+    test_length_rows: int,
     prediction_length: int,
+    dynamic_feat_forecast: pd.DataFrame,
 ) -> List[Dict[str, Any]]:
     if part == "train":
-        df_pivot = df_pivot[:-prediction_length]
+        df_pivot = df_pivot[: -test_length_rows * 2]
+        feat_dynamic_real = df_pivot[dynamic_real]
+        feat_dynamic_cat = df_pivot[dynamic_cat]
+        target = df_pivot[target]
+        df_past_feat_dynamic_real = df_pivot[past_dynamic_real]
+
+    if part == "validation":
+        df_pivot = df_pivot[:-test_length_rows]
+        feat_dynamic_real = df_pivot[dynamic_real]
+        feat_dynamic_cat = df_pivot[dynamic_cat]
+        target = df_pivot[target]
+        df_past_feat_dynamic_real = df_pivot[past_dynamic_real]
+
+    if part == "test" and dataset_type == "hugging_face":
+        feat_dynamic_real = pd.concat(
+            [df_pivot[dynamic_real], dynamic_feat_forecast[dynamic_real]], axis=0
+        )
+        feat_dynamic_cat = pd.concat(
+            [df_pivot[dynamic_cat], dynamic_feat_forecast[dynamic_cat]], axis=0
+        )
+        target = df_pivot[target]
+        df_past_feat_dynamic_real = df_pivot[past_dynamic_real]
+
+    if part == "test" and dataset_type == "gluonts":
+        feat_dynamic_real = pd.concat(
+            [df_pivot[dynamic_real], dynamic_feat_forecast[dynamic_real]], axis=0
+        )
+        feat_dynamic_cat = pd.concat(
+            [df_pivot[dynamic_cat], dynamic_feat_forecast[dynamic_cat]], axis=0
+        )
+        target_forecast = add_target_forecast(
+            df_pivot,
+            target,
+            dynamic_real,
+            past_dynamic_real,
+            dynamic_cat,
+            prediction_length,
+        )
+        target = pd.concat([df_pivot[target], target_forecast], axis=0)
+        past_forecast = add_past_forecast(
+            df_pivot,
+            target,
+            dynamic_real,
+            past_dynamic_real,
+            dynamic_cat,
+            prediction_length,
+        )
+        df_past_feat_dynamic_real = pd.concat([df_pivot[past_dynamic_real], past_forecast], axis=0)
 
     data = [
         {
-            "target": np.array(df_pivot[target][i].to_list()),
+            "target": np.array(target[i].to_list()),
             "start": df_pivot.index[0],
             **(
                 {
                     "feat_dynamic_real": np.array(
-                        [df_pivot[dynamic_real[j]][i].to_list() for j in range(len(dynamic_real))]
+                        [
+                            feat_dynamic_real[dynamic_real[j]][i].to_list()
+                            for j in range(len(dynamic_real))
+                        ]
                     )
                 }
                 if len(dynamic_real) != 0
@@ -342,7 +498,7 @@ def train_test_split(
                 {
                     "past_feat_dynamic_real": np.array(
                         [
-                            df_pivot[past_dynamic_real[j]][i].to_list()
+                            df_past_feat_dynamic_real[past_dynamic_real[j]][i].to_list()
                             for j in range(len(past_dynamic_real))
                         ]
                     )
@@ -353,7 +509,10 @@ def train_test_split(
             **(
                 {
                     "feat_dynamic_cat": np.array(
-                        [df_pivot[dynamic_cat[j]][i].to_list() for j in range(len(dynamic_cat))]
+                        [
+                            feat_dynamic_cat[dynamic_cat[j]][i].to_list()
+                            for j in range(len(dynamic_cat))
+                        ]
                     )
                 }
                 if len(dynamic_cat) != 0
@@ -365,6 +524,91 @@ def train_test_split(
     ]
 
     return data
+
+
+def add_dynamic_forecast(
+    df_pivot,
+    weather_forecast,
+    target,
+    dynamic_real,
+    past_dynamic_real,
+    dynamic_cat,
+    prediction_length,
+):
+    dynamic_feat_forecast = pd.DataFrame()
+    if weather_forecast is not None:
+        weather_dynamic_feat_real = ["temperature", "rainfall", "pressure"]
+        weather_dynamic_feat_cat = ["barometric_trend"]
+        original_dynamic_real = [x for x in dynamic_real if x not in weather_dynamic_feat_real]
+        original_dynamic_cat = [x for x in dynamic_cat if x not in weather_dynamic_feat_cat]
+        num_item_id = int(
+            df_pivot.shape[1] / len([target] + dynamic_real + past_dynamic_real + dynamic_cat)
+        )
+        for feat in weather_dynamic_feat_real + weather_dynamic_feat_cat:
+            index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
+            weather_data = np.array(
+                list(repeat(weather_forecast[feat], num_item_id))
+            ).T  # np.tile(weather_forecast[feat], (1, num_item_id))
+            weather_data = pd.DataFrame(weather_data, columns=index)
+            dynamic_feat_forecast = pd.concat([dynamic_feat_forecast, weather_data], axis=1)
+        if len(original_dynamic_real) > 0 or len(original_dynamic_cat) > 0:
+            original_data = df_pivot[original_dynamic_real + original_dynamic_cat][
+                -prediction_length:
+            ]
+            df_pivot = df_pivot[:-prediction_length]
+            dynamic_feat_forecast = pd.concat([original_data, dynamic_feat_forecast], axis=1)
+
+    elif weather_forecast is None and len(dynamic_real) > 0 or len(dynamic_cat) > 0:
+        dynamic_feat_forecast = df_pivot[dynamic_real + dynamic_real][-prediction_length:]
+        df_pivot = df_pivot[:-prediction_length]
+
+    return df_pivot, dynamic_feat_forecast
+
+
+def add_target_forecast(
+    df_pivot,
+    target,
+    dynamic_real,
+    past_dynamic_real,
+    dynamic_cat,
+    prediction_length,
+):
+    target_forecast = pd.DataFrame()
+    num_item_id = int(
+        df_pivot.shape[1] / len([target] + dynamic_real + past_dynamic_real + dynamic_cat)
+    )
+    for feat in [target]:
+        index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
+        target_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
+        target_data = pd.DataFrame(
+            np.zeros((prediction_length, df_pivot[feat].shape[1])), columns=index
+        )
+        target_forecast = pd.concat([target_forecast, target_data], axis=1)
+
+    return target_forecast
+
+
+def add_past_forecast(
+    df_pivot,
+    target,
+    dynamic_real,
+    past_dynamic_real,
+    dynamic_cat,
+    prediction_length,
+):
+    target_forecast = pd.DataFrame()
+    num_item_id = int(
+        df_pivot.shape[1] / len([target] + dynamic_real + past_dynamic_real + dynamic_cat)
+    )
+    for feat in past_dynamic_real:
+        index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
+        past_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
+        past_data = pd.DataFrame(
+            np.zeros((prediction_length, df_pivot[feat].shape[1])), columns=index
+        )
+        past_forecast = pd.concat([target_forecast, past_data], axis=1)
+
+    return past_forecast
 
 
 class CustomTFTInstanceSplitter(InstanceSplitter):

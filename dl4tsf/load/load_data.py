@@ -71,6 +71,7 @@ def energy(
 def enedis(
     path: str = "data/enedis/",
     target: str = "total_energy",
+    prediction_length: int = 7,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["t", "rr3", "pmer"],
@@ -112,14 +113,16 @@ def enedis(
         .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
         .astype(int)
     )
+
     if weather:
-        df_enedis = add_weather(df_enedis, weather)
+        df_enedis, weather_forecast = add_weather(df_enedis, weather, prediction_length)
+        return df_enedis, weather_forecast
 
     # Dummy generated dynamic_cat
     # import numpy as np
     # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
 
-    return df_enedis
+    return df_enedis, None
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:

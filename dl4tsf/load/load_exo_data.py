@@ -2,6 +2,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from dateutil import relativedelta
 from typing import Dict
+import math
 
 
 def get_station_id(path_weather: str = "data/all_weather/", name: str = "ORLY") -> int:
@@ -21,11 +22,14 @@ def load_weather(
     cat_features: list = ["cod_tend"],
     station_name: str = "ORLY",
     freq: str = "30T",
+    prediction_length: int = 7,
 ) -> pd.DataFrame:
     station = get_station_id(path_weather=path_weather, name=station_name)
 
+    forecast_days = count_days_for_pred(freq=freq, pred_length=prediction_length)
+
     start = datetime.strptime(start, "%d-%m-%Y")
-    end = datetime.strptime(end, "%d-%m-%Y") + timedelta(days=1)
+    end = datetime.strptime(end, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
 
     start_start_month = start.replace(day=1)
     end_start_month = end.replace(day=1)
@@ -86,6 +90,7 @@ def add_weather(
         "cat_features": ["cod_tend"],
         "station_name": "ORLY",
     },
+    prediction_length: int = 7,
 ) -> pd.DataFrame:
 
     path_weather = weather["path_weather"]
@@ -111,11 +116,26 @@ def add_weather(
         cat_features=cat_features,
         station_name=station_name,
         freq=frequency,
+        prediction_length=prediction_length,
     )
 
     df.index = df.index.tz_localize(None)
     weather.index = weather.index.tz_localize(None)
 
+    forecast_date_range = pd.date_range(
+        start=last_date, periods=prediction_length + 1, freq=frequency
+    )[1:].tz_localize(None)
+    weather_forecast = weather.loc[forecast_date_range][dynamic_features + cat_features]
+
     merge = pd.merge(df, weather, left_index=True, right_index=True, how="left")
 
-    return merge
+    return merge, weather_forecast
+
+
+def count_days_for_pred(freq, pred_length):
+    freq = pd.Timedelta(freq)
+    # Calculer la durée totale en minutes
+    total_minutes = freq.total_seconds() / 60 * pred_length
+    # Calculer le nombre de jours
+    days = math.ceil(total_minutes / (24 * 60))
+    return days
