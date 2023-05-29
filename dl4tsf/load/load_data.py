@@ -3,7 +3,13 @@ import logging
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
 from gluonts.dataset.repository.datasets import get_dataset
-from load.load_data_aifluence import load_validations
+from load.load_data_aifluence import (
+    load_validations,
+    change_column_validations,
+    unstack_validation,
+    fusion_validation,
+    preprocess_station,
+)
 from load.load_exo_data import add_weather
 from typing import Dict
 
@@ -121,7 +127,7 @@ def enedis(
 
 def aifluence_public_histo_vrf(
     path: str = "data/idf_mobilites/",
-    target: str = "nb_vald_total",
+    target: str = "VALD_TOTAL",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
@@ -129,92 +135,44 @@ def aifluence_public_histo_vrf(
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
+    """Read a folder for load data from file and save it to a fataframe
 
-    """Read a folder for load data from file and save it to a DataFrame
+    Parameters
+    ----------
+    path : str, optional
+        loaded files, by default "data/idf_mobilites/"
+    target : str, optional
+        target features, by default "VALD_TOTAL"
+    weather : Dict[str, any], optional
+        weather feature for the dataset, by default {
+            "path_weather": "data/all_weather/",
+            "dynamic_features": ["temperature", "rainfall", "pressure"],
+            "cat_features": ["barometric_trend"], "station_name": "ORLY", }
 
-    Args:
-        path (path of Folder): loaded files
-        target: target features
-        weather: weather feature for the dataset
-    Returns:
-        df (DataFrame): public data frame from IDF-mobilités
+    Returns
+    -------
+    pd.DataFrame
+        public data frame from IDF-mobilités
     """
 
-    # PART 1 : Read data on the website "data.iledefrance-mobilites.fr"
     df_load = load_validations(path)
-    df_load.replace(to_replace="Moins de 5", value=3, inplace=True)
-    df_load["NB_VALD"] = df_load["NB_VALD"].astype(int)
-    df_load = df_load[df_load["ID_REFA_LDA"] != "?"]
-
-    df_load.rename(
-        columns={
-            "LIBELLE_ARRET": "arret",
-            "JOUR": "date",
-            "CODE_STIF_TRNS": "code_transport",
-            "CODE_STIF_RES": "code_reseau",
-            "CODE_STIF_ARRET": "code_arret",
-            "ID_REFA_LDA": "id_arret",
-            "CATEGORIE_TITRE": "cat_titre",
-            "NB_VALD": "nb_vald",
-            "NB_VALD_TOTAL": "nb_vald_total",
-        },
-        inplace=True,
+    df_load_mod = change_column_validations(df_load)
+    df_temp = df_load_mod.drop(
+        columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
     )
-    df_load["cat_titre"] = df_load["cat_titre"].replace("?", "INCONNU")
-    df_load["date"] = pd.to_datetime(df_load["date"], dayfirst=True)
+    df_unstack = unstack_validation(df_temp)
 
-    # PART 2 : Compute the total number of validations by grouping the DataFrame by station
-
-    df_validations = df_load.groupby(
-        ["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
-        as_index=False,
-    ).agg({"nb_vald": "sum"})
-    df_validations.rename(columns={"nb_vald": "nb_vald_total"}, inplace=True)
-
-    # PART 3 : Compute the number of validations for each categories tickets
-    # and merges the result with the previous dataset
-
-    df_aifluence = df_validations.copy()
-    for titre in df_load["cat_titre"].unique():  # For each cat_titre we merge the
-        df_temp = df_load[df_load["cat_titre"] == titre].rename(
-            columns={"nb_vald": "nb_vald_" + str(titre)}
-        )
-        df_aifluence = df_aifluence.merge(
-            df_temp[
-                [
-                    "date",
-                    "arret",
-                    "code_transport",
-                    "code_reseau",
-                    "code_arret",
-                    "id_arret",
-                    "nb_vald_" + str(titre),
-                ]
-            ],
-            on=["date", "arret", "code_transport", "code_reseau", "code_arret", "id_arret"],
-            how="left",
-        )
-    # PART 4 : Sorts and replaces NaN by 0 for the validation
-    # of the number of tickets by categories.
-    df_aifluence = df_aifluence.sort_values(by=["arret", "date"])
-    df_aifluence.index = df_aifluence["date"]
-    df_aifluence = df_aifluence.drop(["date"], axis=1)
-
-    cat_titre = [
-        "nb_vald_AMETHYSTE",
-        "nb_vald_AUTRE TITRE",
-        "nb_vald_FGT",
-        "nb_vald_IMAGINE R",
-        "nb_vald_NAVIGO",
-        "nb_vald_TST",
-        "nb_vald_NON DEFINI",
-        "nb_vald_INCONNU",
-        "nb_vald_NAVIGO JOUR",
-    ]
-    df_aifluence[cat_titre] = df_aifluence[cat_titre].fillna(0)
+    df_unstack_index = df_unstack.reset_index(level=["STATION", "DATE"])
+    df_unstack_index.index = df_unstack_index["DATE"]
+    df_fusion = fusion_validation(df_unstack_index)
+    df_aifluence = preprocess_station(df_fusion)
 
     if weather:
         df_aifluence = add_weather(df_aifluence, weather)
+
+    df_rename = df_aifluence.rename_axis("DATE")
+    df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
+    df_aifluence = df_aifluence.rename_axis(None)
 
     return df_aifluence
 

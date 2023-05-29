@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from datetime import datetime, timedelta
 from dateutil import relativedelta
 from typing import Dict
@@ -70,10 +71,15 @@ def load_weather(
 
     for feat in dynamic_features:
         df[feat] = pd.to_numeric(df[feat], errors="coerce").fillna(method="ffill").astype(float)
+    df.replace("mq", np.nan, inplace=True)
     df[cat_features] = df[cat_features].fillna(method="ffill").astype(int)
 
     df.set_index("date", inplace=True)
-    df = df.resample(freq).ffill()
+
+    duplicates = df.index.duplicated()
+    df = df[~duplicates].copy()
+    df = df.resample(freq)
+    df = df.ffill()
 
     return df
 
