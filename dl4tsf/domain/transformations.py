@@ -12,7 +12,6 @@ from gluonts.transform import (
     AsNumpyArray,
     Chain,
     ExpectedNumInstanceSampler,
-    InstanceSplitter,
     RemoveFields,
     RenameFields,
     SelectFields,
@@ -25,6 +24,8 @@ from gluonts.transform.sampler import InstanceSampler
 from torch.utils.data import DataLoader
 from transformers import PretrainedConfig
 
+from utils.utils_informer.split import CustomInformerInstanceSplitter
+
 
 def UnivariateGrouper(input_dataset) -> Dict[str, Any]:
     output_dataset = []
@@ -34,6 +35,7 @@ def UnivariateGrouper(input_dataset) -> Dict[str, Any]:
         feat_dynamic_real = input_dataset[i].get("feat_dynamic_real", None)
         feat_static_cat = input_dataset[i].get("feat_static_cat", None)
         feat_static_real = input_dataset[i].get("feat_static_real", None)
+        past_feat_dynamic_real = input_dataset[i].get("past_feat_dynamic_real", None)
 
         output_dataset.append(
             {
@@ -42,6 +44,7 @@ def UnivariateGrouper(input_dataset) -> Dict[str, Any]:
                 FieldName.FEAT_DYNAMIC_REAL: feat_dynamic_real,
                 FieldName.FEAT_STATIC_CAT: feat_static_cat,
                 FieldName.FEAT_STATIC_REAL: feat_static_real,
+                FieldName.FEAT_STATIC_REAL: past_feat_dynamic_real,
             }
         )
     return output_dataset
@@ -56,6 +59,8 @@ def create_transformation(freq: str, config: PretrainedConfig) -> Transformation
         remove_field_names.append(FieldName.FEAT_DYNAMIC_REAL)
     if config.num_static_categorical_features == 0:
         remove_field_names.append(FieldName.FEAT_STATIC_CAT)
+    if config.num_past_dynamic_real_features == 0:
+        remove_field_names.append(FieldName.PAST_FEAT_DYNAMIC_REAL)
 
     return Chain(
         # step 1: remove static/dynamic fields if not specified
@@ -80,6 +85,16 @@ def create_transformation(freq: str, config: PretrainedConfig) -> Transformation
                 )
             ]
             if config.num_static_real_features > 0
+            else []
+        )
+        + (
+            [
+                AsNumpyArray(
+                    field=FieldName.PAST_FEAT_DYNAMIC_REAL,
+                    expected_ndim=2,
+                )
+            ]
+            if config.num_past_dynamic_real_features > 0
             else []
         )
         + [
@@ -129,6 +144,7 @@ def create_transformation(freq: str, config: PretrainedConfig) -> Transformation
                     FieldName.FEAT_TIME: "time_features",
                     FieldName.TARGET: "values",
                     FieldName.OBSERVED_VALUES: "observed_mask",
+                    FieldName.PAST_FEAT_DYNAMIC_REAL: "past_dynamic_real_features",
                 }
             ),
         ]
@@ -151,7 +167,11 @@ def create_instance_splitter(
         "test": TestSplitSampler(),
     }[mode]
 
-    return InstanceSplitter(
+    past_ts_fields = []
+    if config.num_past_dynamic_real_features > 0:
+        past_ts_fields.append("past_dynamic_real_features")
+
+    return CustomInformerInstanceSplitter(
         target_field="values",
         is_pad_field=FieldName.IS_PAD,
         start_field=FieldName.START,
@@ -160,6 +180,7 @@ def create_instance_splitter(
         past_length=config.context_length + max(config.lags_sequence),
         future_length=config.prediction_length,
         time_series_fields=["time_features", "observed_mask"],
+        past_time_series_fields=past_ts_fields,
     )
 
 
@@ -184,6 +205,9 @@ def create_train_dataloader(
 
     if config.num_static_real_features > 0:
         PREDICTION_INPUT_NAMES.append("static_real_features")
+
+    if config.num_past_dynamic_real_features > 0:
+        PREDICTION_INPUT_NAMES.append("past_dynamic_real_features")
 
     TRAINING_INPUT_NAMES = PREDICTION_INPUT_NAMES + [
         "future_values",
@@ -247,6 +271,9 @@ def create_test_dataloader(
     if config.num_static_real_features > 0:
         PREDICTION_INPUT_NAMES.append("static_real_features")
 
+    if config.num_past_dynamic_real_features > 0:
+        PREDICTION_INPUT_NAMES.append("past_dynamic_real_features")
+
     transformation = create_transformation(freq, config)
     transformed_data = transformation.apply(data, is_train=False)
 
@@ -281,6 +308,9 @@ def create_validation_dataloader(
 
     if config.num_static_real_features > 0:
         PREDICTION_INPUT_NAMES.append("static_real_features")
+
+    if config.num_past_dynamic_real_features > 0:
+        PREDICTION_INPUT_NAMES.append("past_dynamic_real_features")
 
     transformation = create_transformation(freq, config)
     transformed_data = transformation.apply(data, is_train=True)
