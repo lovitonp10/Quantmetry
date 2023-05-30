@@ -52,10 +52,8 @@ from gluonts.time_feature import get_seasonality
 
 import evaluate
 
-from utils.utils_informer import (
-    CustomInformerConfig,
-    CustomInformerForPrediction,
-)
+from utils.utils_informer.configuration_informer import CustomInformerConfig
+from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 
 
 PREDICTION_INPUT_NAMES = [

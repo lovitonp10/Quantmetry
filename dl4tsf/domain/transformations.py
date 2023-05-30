@@ -24,7 +24,7 @@ from gluonts.transform.sampler import InstanceSampler
 from torch.utils.data import DataLoader
 from transformers import PretrainedConfig
 
-from utils.utils_informer import CustomInformerInstanceSplitter
+from utils.utils_informer.split import CustomInformerInstanceSplitter
 
 
 def UnivariateGrouper(input_dataset) -> Dict[str, Any]:
