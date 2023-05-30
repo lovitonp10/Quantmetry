@@ -6,9 +6,10 @@ import numpy as np
 
 
 """
-Description: This file is a modified version of split.py from gluonts that creates
-an Instance Splitter class for data.
-Original File: gluonts/transfom/split.py
+Description: This file is a modified version of split.py from gluonts that add
+the support of past features split.
+Original File:
+https://github.com/awslabs/gluonts/blob/dev/src/gluonts/transform/split.py
 """
 
 

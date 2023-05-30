@@ -34,7 +34,7 @@ from gluonts.transform import (
     ValidationSplitSampler,
     VstackFeatures,
 )
-from utils.utils_gluonts import CustomTFTInstanceSplitter
+from utils.utils_tft.split import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts

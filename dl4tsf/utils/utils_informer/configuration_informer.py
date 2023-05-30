@@ -3,8 +3,9 @@ from transformers import PretrainedConfig
 
 """
 Description: This file is a modified version of configuration_informer.py that
-creates a configuration class to store the configuration of an Informer model.
-Original File: transformers/models/informer/configuration_informer.py
+add the past features to the configuration of the Informer mode.
+Original File:
+https://github.com/huggingface/transformers/tree/main/src/transformers/models/informer/configuration_informer.py
 """
 
 

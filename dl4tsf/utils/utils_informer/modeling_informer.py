@@ -31,8 +31,9 @@ from utils.utils_informer.configuration_informer import CustomInformerConfig
 
 """
 Description: This file is a modified version of modeling_informer.py
-that creates the Informer model and its encoder and decoder module.
-Original File: transformers/models/informer/modeling_informer.py
+that allows Informer model to support past features.
+Original File:
+https://github.com/huggingface/transformers/tree/main/src/transformers/models/informer/modeling_informer.py
 """
 
 
