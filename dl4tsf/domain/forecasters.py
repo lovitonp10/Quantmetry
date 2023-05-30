@@ -34,7 +34,7 @@ from gluonts.transform import (
     ValidationSplitSampler,
     VstackFeatures,
 )
-from utils.utils_gluonts import CustomTFTInstanceSplitter
+from utils.utils_tft.split import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
@@ -43,7 +43,6 @@ import logging
 
 from accelerate import Accelerator
 from torch.optim import AdamW
-from transformers import InformerConfig, InformerForPrediction
 from domain.transformations import (
     create_test_dataloader,
     create_train_dataloader,
@@ -52,6 +51,9 @@ from domain.transformations import (
 from gluonts.time_feature import get_seasonality
 
 import evaluate
+
+from utils.utils_informer.configuration_informer import CustomInformerConfig
+from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 
 
 PREDICTION_INPUT_NAMES = [
@@ -439,18 +441,21 @@ class InformerForecaster(Forecaster):
         )
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
-        self.model_config_informer = InformerConfig(
+        self.model_config_informer = CustomInformerConfig(
             num_time_features=len(time_features) + 1,
             cardinality=self.model_config.static_cardinality,
             num_dynamic_real_features=len(self.cfg_dataset.name_feats["feat_dynamic_real"]),
             num_static_categorical_features=len(self.cfg_dataset.name_feats["feat_static_cat"]),
             num_static_real_features=len(self.cfg_dataset.name_feats["feat_static_real"]),
+            num_past_dynamic_real_features=len(
+                self.cfg_dataset.name_feats["past_feat_dynamic_real"]
+            ),
             **self.model_config.dict(),
         )
         if self.from_pretrained:
-            self.model = InformerForPrediction.from_pretrained(self.from_pretrained)
+            self.model = CustomInformerForPrediction.from_pretrained(self.from_pretrained)
         else:
-            self.model = InformerForPrediction(self.model_config_informer)
+            self.model = CustomInformerForPrediction(self.model_config_informer)
 
     def get_train_dataloader(self, train_dataset: List[Dict[str, Any]]):
         logging.info("Create train dataloader")
@@ -519,6 +524,11 @@ class InformerForecaster(Forecaster):
                     future_values=batch["future_values"].to(device),
                     past_observed_mask=batch["past_observed_mask"].to(device),
                     future_observed_mask=batch["future_observed_mask"].to(device),
+                    past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+                    if self.model_config_informer.num_past_dynamic_real_features > 0
+                    # if device.type == "mps"
+                    # else batch["past_dynamic_real_features"].to(device),
+                    else None,
                 )
                 loss = outputs.loss
 
@@ -561,6 +571,11 @@ class InformerForecaster(Forecaster):
                 if device.type == "mps"
                 else batch["future_time_features"].to(device),
                 past_observed_mask=batch["past_observed_mask"].to(device),
+                past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+                if self.model_config_informer.num_past_dynamic_real_features > 0
+                else None,
+                # if device.type == "mps"
+                # else batch["past_dynamic_real_features"].to(device),
             )
             forecasts_.append(outputs.sequences.cpu().numpy())
             ts_it_.append(batch["past_values"].numpy())
