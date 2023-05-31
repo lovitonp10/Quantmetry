@@ -6,8 +6,7 @@ from gluonts.dataset.repository.datasets import get_dataset
 from load.load_data_aifluence import (
     load_validations,
     change_column_validations,
-    unstack_validation,
-    fusion_validation,
+    process_validation_titre,
     preprocess_station,
 )
 from load.load_exo_data import add_weather
@@ -128,6 +127,7 @@ def enedis(
 def aifluence_public_histo_vrf(
     path: str = "data/idf_mobilites/",
     target: str = "VALD_TOTAL",
+    p_data_station: float = 0.9,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
@@ -143,6 +143,8 @@ def aifluence_public_histo_vrf(
         loaded files, by default "data/idf_mobilites/"
     target : str, optional
         target features, by default "VALD_TOTAL"
+    p_data_station : float
+        proportion of data for each station, by default 90%
     weather : Dict[str, any], optional
         weather feature for the dataset, by default {
             "path_weather": "data/all_weather/",
@@ -160,12 +162,9 @@ def aifluence_public_histo_vrf(
     df_temp = df_load_mod.drop(
         columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
     )
-    df_unstack = unstack_validation(df_temp)
 
-    df_unstack_index = df_unstack.reset_index(level=["STATION", "DATE"])
-    df_unstack_index.index = df_unstack_index["DATE"]
-    df_fusion = fusion_validation(df_unstack_index)
-    df_aifluence = preprocess_station(df_fusion)
+    df_fusion = process_validation_titre(df_temp)
+    df_aifluence = preprocess_station(df_fusion, p_data_station)
 
     if weather:
         df_aifluence = add_weather(df_aifluence, weather)

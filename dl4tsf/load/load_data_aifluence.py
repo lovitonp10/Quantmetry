@@ -70,67 +70,59 @@ def change_column_validations(
     return df_copy
 
 
-def unstack_validation(df: pd.DataFrame) -> pd.DataFrame:
-    """Unstack the validations categories of aifluence dataframe
-
-    Parameters
-    ----------
-    df_unstack : pd.DataFrame
-        the validation dataset preprocess of aifluence
-
-    Returns
-    -------
-    pd.DataFrame
-        the validation dataset unstack by validations categories
-    """
-
-    indexes = ["DATE", "STATION", "CATEGORIE_TITRE"]
-    df_group = df.groupby(indexes).sum()
-    df_unstack = df_group.unstack(["CATEGORIE_TITRE"])
-    new_columns = ["".join(map(str, col)) for col in df_unstack.columns.get_level_values(1)]
-    df_unstack.columns = new_columns
-    df_unstack = df_unstack.fillna(0)
-
-    return df_unstack
-
-
-def fusion_validation(df: pd.DataFrame) -> pd.DataFrame:
-    """Fusion the validations categories and compute the total validation
+def process_validation_titre(df: pd.DataFrame) -> pd.DataFrame:
+    """Unstack and fusion the validations categories of aifluence dataframe
 
     Parameters
     ----------
     df : pd.DataFrame
-        validation dataframe with all validations categories
+        the validation dataset preprocess of aifluence
 
     Returns
     -------
     pd.DataFrame
         a sample validation dataframe with 7 validations categories and the total validation
     """
-    df_aifluence = df.copy()
-    df_aifluence["AUTRE"] = (
-        df_aifluence["AUTRE TITRE"] + df_aifluence["INCONNU"] + df_aifluence["NON DEFINI"]
+
+    indexes = ["DATE", "STATION", "CATEGORIE_TITRE"]
+    df_group = df.groupby(indexes).sum()
+    df_unstack = df_group.unstack(["CATEGORIE_TITRE"])
+    new_columns = df_unstack.columns.map("_".join)
+    df_unstack.columns = new_columns
+    df_unstack = df_unstack.fillna(0)
+
+    df_unstack_index = df_unstack.reset_index(level=["STATION", "DATE"])
+    df_unstack_index.index = df_unstack_index["DATE"]
+
+    df_unstack_index["NB_VALD_AUTRE"] = (
+        df_unstack_index["NB_VALD_AUTRE TITRE"]
+        + df_unstack_index["NB_VALD_INCONNU"]
+        + df_unstack_index["NB_VALD_NON DEFINI"]
     )
-    df_aifluence = df_aifluence.drop(columns=["DATE", "INCONNU", "AUTRE TITRE", "NON DEFINI"])
-    df_aifluence.rename(
+    df_unstack_drop = df_unstack_index.drop(
+        columns=["DATE", "NB_VALD_INCONNU", "NB_VALD_AUTRE TITRE", "NB_VALD_NON DEFINI"]
+    )
+    df_unstack_drop.rename(
         columns={
-            "IMAGINE R": "IMAGINE_R",
-            "NAVIGO JOUR": "NAVIGO_JOUR",
+            "NB_VALD_IMAGINE R": "NB_VALD_IMAGINE_R",
+            "NB_VALD_NAVIGO JOUR": "NB_VALD_NAVIGO_JOUR",
         },
         inplace=True,
     )
-    df_aifluence["VALD_TOTAL"] = df_aifluence.sum(numeric_only=True, axis=1)
+    df_unstack_drop["VALD_TOTAL"] = df_unstack_drop.sum(numeric_only=True, axis=1)
 
-    return df_aifluence
+    return df_unstack_drop
 
 
-def preprocess_station(df: pd.DataFrame) -> pd.DataFrame:
+def preprocess_station(df: pd.DataFrame, p_data_station: float) -> pd.DataFrame:
     """Preprocess the time series by station
 
     Parameters
     ----------
     df : pd.DataFrame
         validation dataframe for each station
+    p_data_station : float
+        proportion of data for each station
 
     Returns
     -------
@@ -141,7 +133,13 @@ def preprocess_station(df: pd.DataFrame) -> pd.DataFrame:
     df_aifluence = df.copy()
     df_aifluence["STATION"] = df_aifluence["STATION"].str.strip(" ")
     group_station = df_aifluence.groupby(["STATION"]).size()
-    select_station = group_station[group_station < 2300].index
+
+    time = df_aifluence.index
+    size_time = max(time) - min(time)
+    size_time_int = size_time.days + 1
+    n_data_station = int(p_data_station * size_time_int)
+
+    select_station = group_station[group_station < n_data_station].index
     df_aifluence = df_aifluence[~df_aifluence["STATION"].isin(select_station)]
     df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum(numeric_only=True)
     df_aifluence = df_resampled.reset_index(level="STATION")
