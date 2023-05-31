@@ -2,13 +2,17 @@ import glob
 import logging
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
-from gluonts.dataset.repository.datasets import get_dataset
 from load.load_data_aifluence import (
     load_validations,
     change_column_validations,
     process_validation_titre,
     preprocess_station,
 )
+from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
+from datasets import load_dataset as get_huggingface_dataset
+from functools import partial
+from utils.custom_objects_pydantic import HuggingFaceDataset
+from domain.transformations_pd import transform_start_field
 from load.load_exo_data import add_weather
 from typing import Dict
 
@@ -177,4 +181,22 @@ def aifluence_public_histo_vrf(
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:
-    return get_dataset(dataset_name)
+    return get_gluonts_dataset(dataset_name)
+
+
+def huggingface_dataset(
+    repository_name: str,
+    dataset_name: str,
+    freq: str,
+    target: str,
+    weather=None,
+) -> HuggingFaceDataset:
+    dataset = get_huggingface_dataset(repository_name, dataset_name)
+    dataset["train"].set_transform(partial(transform_start_field, freq=freq))
+    dataset["test"].set_transform(partial(transform_start_field, freq=freq))
+    dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
+
+    if weather:
+        dataset = add_weather(dataset, weather)
+
+    return dataset

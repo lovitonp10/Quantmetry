@@ -41,6 +41,7 @@ class Train(BaseModel):
     epochs: int
     batch_size_train: int
     nb_batch_per_epoch: int
+    batch_size_test: int
     train_sampler: Any
     validation_sampler: Any
     time_features: Any

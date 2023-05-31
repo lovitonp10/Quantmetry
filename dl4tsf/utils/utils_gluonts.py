@@ -1,24 +1,22 @@
-from typing import List, Tuple, Dict, Any, Optional, Iterator
-
+from typing import List, Tuple, Dict, Any, Optional
+from utils.custom_objects_pydantic import HuggingFaceDataset
 import pandas as pd
-from gluonts.model.forecast import Forecast
+from pandas import Period
+import numpy as np
+
 from gluonts.itertools import Map
 from gluonts.dataset import Dataset
+import datasets
 from gluonts.dataset.common import (
     ProcessDataEntry,
     TrainDatasets,
     CategoricalFeatureInfo,
     BasicFeatureInfo,
 )
-from gluonts.transform import InstanceSplitter
-from gluonts.transform.sampler import InstanceSampler
-from gluonts.core.component import validated
-from gluonts.dataset.common import DataEntry
-from gluonts.dataset.field_names import FieldName
 
 from typing import cast
-import numpy as np
 import pydantic
+from functools import partial
 
 
 class MetaData(pydantic.BaseModel):
@@ -37,16 +35,60 @@ class MetaData(pydantic.BaseModel):
         allow_population_by_field_name = True
 
 
-def sample_df(forecast: Forecast) -> List[pd.DataFrame]:
-    samples = forecast.samples
-    ns, h = samples.shape
-    dates = pd.date_range(forecast.start_date.to_timestamp(), freq=forecast.freq, periods=h)
+def sample_df(
+    samples: np.ndarray, start_date: Period, periods, freq, ts_length, pred_length
+) -> List[pd.DataFrame]:
+    # samples = forecast.samples
+    # ns, h = samples.shape
+    dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
+        ts_length - pred_length
+    )
     return pd.DataFrame(samples.T, index=dates)
 
 
 def get_ts_length(df_pandas: pd.DataFrame) -> int:
     ts_length = df_pandas.shape[0]
     return ts_length
+
+
+def transform_huggingface_to_pandas(gluonts_dataset, freq: str):
+    df_pandas = pd.DataFrame()
+    periods = len(gluonts_dataset[0]["target"])
+    i = 0
+
+    for item in list(gluonts_dataset)[:10]:
+        print(i)
+        i = i + 1
+        df_tmp = pd.DataFrame()
+
+        df_tmp["target"] = item["target"]
+        df_tmp["date"] = pd.date_range(
+            start=item["start"].to_timestamp(), periods=periods, freq=freq
+        )
+        df_tmp["item_id"] = item["item_id"]
+
+        if "feat_static_cat" in gluonts_dataset.features:
+            df_tmp["feat_static_cat"] = (
+                item["feat_static_cat"][0]
+                if isinstance(item["feat_static_cat"], list) and len(item["feat_static_cat"]) == 1
+                else item["feat_static_cat"]
+            )
+        if "feat_dynamic_real" in gluonts_dataset.features:
+            df_tmp["feat_dynamic_real"] = (
+                item["feat_dynamic_real"][0]
+                if isinstance(item["feat_dynamic_real"], list)
+                and len(item["feat_dynamic_real"]) == 1
+                else item["feat_dynamic_real"]
+            )
+        df_pandas = pd.concat([df_pandas, df_tmp], axis=0)
+    return df_pandas
+
+
+def transform_huggingface_to_dict(dataset, freq: str):
+    list_dataset = []
+    for item in list(dataset):
+        list_dataset.append(pd.DataFrame(item["target"]))
+    return list_dataset
 
 
 def get_test_length(freq: str, test_length: str) -> int:
@@ -71,6 +113,7 @@ def get_test_length(freq: str, test_length: str) -> int:
 
 
 def create_ts_with_features(
+    dataset_type: str,
     df: pd.DataFrame,
     target: str,
     dynamic_real: List[str],
@@ -119,7 +162,45 @@ def create_ts_with_features(
         prediction_length,
     )
 
-    # gluonts dataset format
+    if dataset_type == "gluonts":
+        # gluonts dataset format
+        dataset = gluonts_format(
+            train=train,
+            test=test,
+            dynamic_real=dynamic_real,
+            past_dynamic_real=past_dynamic_real,
+            static_cat=static_cat,
+            static_cardinality=static_cardinality,
+            static_real=static_real,
+            dynamic_cat=dynamic_cat,
+            dynamic_cardinality=dynamic_cardinality,
+            freq=freq,
+            prediction_length=prediction_length,
+        )
+
+    elif dataset_type == "hugging_face":
+        dataset = hugging_face_format(
+            train=train,
+            test=test,
+            freq=freq,
+        )
+
+    return dataset
+
+
+def gluonts_format(
+    train,
+    test,
+    dynamic_real,
+    past_dynamic_real,
+    static_cat,
+    static_cardinality,
+    static_real,
+    dynamic_cat,
+    dynamic_cardinality,
+    freq,
+    prediction_length,
+):
     meta = MetaData(
         freq=freq,
         prediction_length=prediction_length,
@@ -141,13 +222,32 @@ def create_ts_with_features(
     ]
 
     process = ProcessDataEntry(freq, one_dim_target=True, use_timestamp=False)
-
     train_df = cast(Dataset, Map(process, train))
     test_df = cast(Dataset, Map(process, test))
 
     dataset = TrainDatasets(metadata=meta, train=train_df, test=test_df)
-
     return dataset
+
+
+def hugging_face_format(train, test, freq):
+    train_df = pd.DataFrame(train)
+    test_df = pd.DataFrame(test)
+
+    train_dataset = datasets.Dataset.from_dict(train_df)
+    test_dataset = datasets.Dataset.from_dict(test_df)
+    # dataset = datasets.DatasetDict({"train":train_dataset,"test":test_dataset})
+
+    train_dataset.set_transform(partial(transform_start_field, freq=freq))
+    test_dataset.set_transform(partial(transform_start_field, freq=freq))
+    dataset = HuggingFaceDataset
+    dataset.train = train_dataset
+    dataset.test = test_dataset
+    return dataset
+
+
+def transform_start_field(batch, freq):
+    batch["start"] = [pd.Period(date, freq) for date in batch["start"]]
+    return batch
 
 
 def utils_static_features(
@@ -186,6 +286,9 @@ def utils_dynamic_features(
     )
     if df_pivot.iloc[0].isna().any():
         df_pivot = df_pivot.drop(labels=df_pivot.index[0], axis=0)
+
+    for feat in dynamic_cat:
+        df_pivot[feat] = df_pivot[feat].astype(int)
 
     return df_pivot
 
@@ -256,91 +359,3 @@ def train_test_split(
     ]
 
     return data
-
-
-class CustomTFTInstanceSplitter(InstanceSplitter):
-    """Instance splitter used by the Temporal Fusion Transformer model.
-
-    Unlike ``InstanceSplitter``, this class returns known dynamic features as
-    a single tensor of shape [..., context_length + prediction_length, ...]
-    without splitting it into past & future parts. Moreover, this class supports
-    dynamic features that are known in the past.
-    """
-
-    @validated()
-    def __init__(
-        self,
-        instance_sampler: InstanceSampler,
-        past_length: int,
-        future_length: int,
-        target_field: str = FieldName.TARGET,
-        is_pad_field: str = FieldName.IS_PAD,
-        start_field: str = FieldName.START,
-        forecast_start_field: str = FieldName.FORECAST_START,
-        observed_value_field: str = FieldName.OBSERVED_VALUES,
-        lead_time: int = 0,
-        output_NTC: bool = True,
-        time_series_fields: List[str] = [],
-        past_time_series_fields: List[str] = [],
-        dummy_value: float = 0.0,
-    ) -> None:
-        super().__init__(
-            target_field=target_field,
-            is_pad_field=is_pad_field,
-            start_field=start_field,
-            forecast_start_field=forecast_start_field,
-            instance_sampler=instance_sampler,
-            past_length=past_length,
-            future_length=future_length,
-            lead_time=lead_time,
-            output_NTC=output_NTC,
-            time_series_fields=time_series_fields,
-            dummy_value=dummy_value,
-        )
-
-        assert past_length > 0, "The value of `past_length` should be > 0"
-
-        self.observed_value_field = observed_value_field
-        self.past_ts_fields = past_time_series_fields
-
-    def flatmap_transform(self, data: DataEntry, is_train: bool) -> Iterator[DataEntry]:
-        pl = self.future_length
-        lt = self.lead_time
-        target = data[self.target_field]
-
-        sampled_indices = self.instance_sampler(target)
-
-        slice_cols = (
-            self.ts_fields + self.past_ts_fields + [self.target_field, self.observed_value_field]
-        )
-        for i in sampled_indices:
-            pad_length = max(self.past_length - i, 0)
-            d = data.copy()
-
-            for field in slice_cols:
-                if i >= self.past_length:
-                    past_piece = d[field][..., i - self.past_length : i]
-                else:
-                    pad_block = np.full(
-                        shape=d[field].shape[:-1] + (pad_length,),
-                        fill_value=self.dummy_value,
-                        dtype=d[field].dtype,
-                    )
-                    past_piece = np.concatenate([pad_block, d[field][..., :i]], axis=-1)
-                future_piece = d[field][..., (i + lt) : (i + lt + pl)]
-                if self.output_NTC:
-                    past_piece = past_piece.transpose()
-                    future_piece = future_piece.transpose()
-                if field not in self.past_ts_fields:
-                    d[self._past(field)] = past_piece
-                    d[self._future(field)] = future_piece
-                    del d[field]
-                else:
-                    d[field] = past_piece
-            pad_indicator = np.zeros(self.past_length)
-            if pad_length > 0:
-                pad_indicator[:pad_length] = 1
-            d[self._past(self.is_pad_field)] = pad_indicator
-            d[self.forecast_start_field] = d[self.start_field] + i + lt
-
-            yield d

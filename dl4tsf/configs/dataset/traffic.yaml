@@ -1,6 +1,8 @@
+dataset_name: traffic
 load:
   _target_: load.load_data.gluonts_dataset
   dataset_name: traffic
+  freq: ${dataset.freq}
 freq: 1H
 feats:
   num_feat_dynamic_real: 0
