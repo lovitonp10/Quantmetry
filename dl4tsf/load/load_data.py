@@ -114,9 +114,14 @@ def enedis(
         .astype(int)
     )
 
+    # si vous avez des dynamic features:
+    # df_forecast = pd.concat([forecast_dynamic_feat, weather_forecast])
+
     if weather:
-        df_enedis, weather_forecast = add_weather(df_enedis, weather, prediction_length)
-        return df_enedis, weather_forecast
+        df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length)
+        # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
+        # left_index=True, right_index=True, how="left")
+        return df_enedis, df_forecast
 
     # Dummy generated dynamic_cat
     # import numpy as np

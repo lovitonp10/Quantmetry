@@ -15,6 +15,6 @@ dynamic_cardinality: [9]
 name_feats:
   feat_dynamic_real: ["temperature", "rainfall", "pressure"]
   feat_static_cat: ["region", "profil", "power"]
-  feat_static_real: ['power_min', 'power_max']
+  feat_static_real: ["power_min", "power_max"]
   past_feat_dynamic_real: ["soutirage"]
   feat_dynamic_cat : ["barometric_trend"]

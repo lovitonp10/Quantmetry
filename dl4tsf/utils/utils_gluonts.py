@@ -91,11 +91,11 @@ class TrainDatasets(NamedTuple):
 
 
 def sample_df(
-    samples: np.ndarray, start_date: Period, periods, freq, ts_length, pred_length, test_step
+    samples: np.ndarray, start_date: Period, periods, freq, ts_length, pred_length, validation
 ) -> List[pd.DataFrame]:
     # samples = forecast.samples
     # ns, h = samples.shape
-    if test_step is True:
+    if validation is False:
         dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
             ts_length
         )
@@ -186,24 +186,21 @@ def create_ts_with_features(
     prediction_length: int,
     static_cardinality: List[int],
     dynamic_cardinality: List[int],
-    weather_forecast: pd.DataFrame,
+    df_forecast: pd.DataFrame,
 ) -> TrainDatasets:
     # static features
-    df["item_id"], static_features_cat = utils_static_features(df, static_cat)
+    df["item_id"], static_features_df = utils_static_features(df, static_cat, static_real)
 
     # dynamic features
     df_pivot = utils_dynamic_features(
         df, target, dynamic_real, past_dynamic_real, dynamic_cat, freq
     )
 
-    df_pivot, dynamic_feat_forecast = add_dynamic_forecast(
-        df_pivot,
-        weather_forecast,
-        target,
+    dynamic_feat_forecast = create_df_dynamic_forecast(
+        df_forecast,
         dynamic_real,
-        past_dynamic_real,
         dynamic_cat,
-        prediction_length,
+        df["item_id"],
     )
 
     train = train_val_test_split(
@@ -213,7 +210,7 @@ def create_ts_with_features(
         df_pivot,
         target,
         dynamic_real,
-        static_features_cat,
+        static_features_df,
         static_cat,
         static_real,
         past_dynamic_real,
@@ -230,7 +227,7 @@ def create_ts_with_features(
         df_pivot,
         target,
         dynamic_real,
-        static_features_cat,
+        static_features_df,
         static_cat,
         static_real,
         past_dynamic_real,
@@ -247,7 +244,7 @@ def create_ts_with_features(
         df_pivot,
         target,
         dynamic_real,
-        static_features_cat,
+        static_features_df,
         static_cat,
         static_real,
         past_dynamic_real,
@@ -354,19 +351,31 @@ def transform_start_field(batch, freq):
 
 
 def utils_static_features(
-    df: pd.DataFrame, static_cat: List[str]
+    df: pd.DataFrame,
+    static_cat: List[str],
+    static_real: List[str],
 ) -> Tuple[pd.Series, pd.DataFrame]:
     if len(static_cat) != 0:
-        lst_item = df[static_cat].apply(lambda x: "_".join(x.astype(str)), axis=1)
+        static_feat = static_cat
+        if len(static_real) != 0:
+            static_feat = static_feat + static_real
+        lst_item = df[static_feat].apply(lambda x: "_".join(x.astype(str)), axis=1)
         lst_item = lst_item.astype("category").cat.codes
-        static_features_cat = df.groupby(static_cat).sum().reset_index()[static_cat]
-        for col in static_features_cat:
-            static_features_cat[col] = static_features_cat[col].astype("category").cat.codes
+        static_features_df = df.groupby(static_feat).sum().reset_index()[static_feat]
+        for col in static_features_df[static_cat]:
+            static_features_df[col] = static_features_df[col].astype("category").cat.codes
+
+    elif len(static_real) != 0:
+        static_feat = static_real
+        lst_item = df[static_feat].apply(lambda x: "_".join(x.astype(str)), axis=1)
+        lst_item = lst_item.astype("category").cat.codes
+        static_features_df = df.groupby(static_feat).sum().reset_index()[static_feat]
+
     else:
         lst_item = 0
-        static_features_cat = pd.DataFrame()
+        static_features_df = pd.DataFrame()
 
-    return lst_item, static_features_cat
+    return lst_item, static_features_df
 
 
 def utils_dynamic_features(
@@ -387,8 +396,13 @@ def utils_dynamic_features(
         .resample(freq)
         .interpolate(method="linear")
     )
-    if df_pivot.iloc[0].isna().any():
-        df_pivot = df_pivot.drop(labels=df_pivot.index[0], axis=0)
+
+    # The method interpolate doesn't fillna on the first row
+    # We use Backward Fill to fill the NaN values with the next valid observation
+    df_pivot.fillna(method="bfill", inplace=True)
+
+    """if df_pivot.iloc[0].isna().any():
+        df_pivot = df_pivot.drop(labels=df_pivot.index[0], axis=0)"""
 
     for feat in dynamic_cat:
         df_pivot[feat] = df_pivot[feat].astype(int)
@@ -403,7 +417,7 @@ def train_val_test_split(
     df_pivot: pd.DataFrame,
     target: str,
     dynamic_real: List[str],
-    static_features_cat: pd.DataFrame,
+    static_features_df: pd.DataFrame,
     static_cat: List[str],
     static_real: List[str],
     past_dynamic_real: List[str],
@@ -443,24 +457,18 @@ def train_val_test_split(
         feat_dynamic_cat = pd.concat(
             [df_pivot[dynamic_cat], dynamic_feat_forecast[dynamic_cat]], axis=0
         )
-        target_forecast = add_target_forecast(
+        target = add_target_forecast(
             df_pivot,
             target,
-            dynamic_real,
-            past_dynamic_real,
-            dynamic_cat,
             prediction_length,
+            df["item_id"],
         )
-        target = pd.concat([df_pivot[target], target_forecast], axis=0)
-        past_forecast = add_past_forecast(
+        df_past_feat_dynamic_real = add_past_forecast(
             df_pivot,
-            target,
-            dynamic_real,
             past_dynamic_real,
-            dynamic_cat,
             prediction_length,
+            df["item_id"],
         )
-        df_past_feat_dynamic_real = pd.concat([df_pivot[past_dynamic_real], past_forecast], axis=0)
 
     data = [
         {
@@ -479,12 +487,14 @@ def train_val_test_split(
                 else {}
             ),
             **(
-                {"feat_static_cat": np.array(static_features_cat)[i]}
+                {"feat_static_cat": np.array(static_features_df[static_cat])[i]}
                 if len(static_cat) != 0
                 else {}
             ),
             **(
-                {"feat_static_real": np.array(df[df["item_id"] == i][static_real].iloc[0])}
+                {
+                    "feat_static_real": np.array(static_features_df[static_real])[i]
+                }  # np.array(df[df["item_id"] == i][static_real].iloc[0])}
                 if len(static_real) != 0
                 else {}
             ),
@@ -520,57 +530,79 @@ def train_val_test_split(
     return data
 
 
-def add_dynamic_forecast(
-    df_pivot,
-    weather_forecast,
-    target,
+def create_df_dynamic_forecast(
+    df_forecast,
     dynamic_real,
-    past_dynamic_real,
     dynamic_cat,
-    prediction_length,
+    item_id,
 ):
+    """Create a DataFrame for dynamic forecast data with MultiIndex.
+
+    Parameters
+    ----------
+    df_forecast : DataFrame
+        The forecast DataFrame containing the data.
+    dynamic_real : list
+        List of names of dynamic real variables.
+    dynamic_cat : list
+        List of names of dynamic categorical variables.
+    item_id : Series
+        Series containing the item IDs.
+
+    Returns
+    -------
+    DataFrame
+        The DataFrame with the added dynamic forecast data.
+    """
+
     dynamic_feat_forecast = pd.DataFrame()
-    if weather_forecast is not None:
+    if df_forecast is not None:
         weather_dynamic_feat_real = ["temperature", "rainfall", "pressure"]
         weather_dynamic_feat_cat = ["barometric_trend"]
         original_dynamic_real = [x for x in dynamic_real if x not in weather_dynamic_feat_real]
         original_dynamic_cat = [x for x in dynamic_cat if x not in weather_dynamic_feat_cat]
-        num_item_id = int(
-            df_pivot.shape[1] / len([target] + dynamic_real + past_dynamic_real + dynamic_cat)
-        )
-        for feat in weather_dynamic_feat_real + weather_dynamic_feat_cat:
-            index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
-            weather_data = np.array(
-                list(repeat(weather_forecast[feat], num_item_id))
-            ).T  # np.tile(weather_forecast[feat], (1, num_item_id))
-            weather_data = pd.DataFrame(weather_data, columns=index)
-            dynamic_feat_forecast = pd.concat([dynamic_feat_forecast, weather_data], axis=1)
+        num_item_id = len(item_id.unique())
         if len(original_dynamic_real) > 0 or len(original_dynamic_cat) > 0:
-            original_data = df_pivot[original_dynamic_real + original_dynamic_cat][
-                -prediction_length:
-            ]
-            df_pivot = df_pivot[:-prediction_length]
-            dynamic_feat_forecast = pd.concat([original_data, dynamic_feat_forecast], axis=1)
+            dynamic_feat_forecast = df_forecast
+        else:
+            for feat in weather_dynamic_feat_real + weather_dynamic_feat_cat:
+                index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
+                weather_data = np.array(
+                    list(repeat(df_forecast[feat], num_item_id))
+                ).T  # np.tile(weather_forecast[feat], (1, num_item_id))
+                weather_data = pd.DataFrame(weather_data, columns=index)
+                dynamic_feat_forecast = pd.concat([dynamic_feat_forecast, weather_data], axis=1)
 
-    elif weather_forecast is None and len(dynamic_real) > 0 or len(dynamic_cat) > 0:
-        dynamic_feat_forecast = df_pivot[dynamic_real + dynamic_real][-prediction_length:]
-        df_pivot = df_pivot[:-prediction_length]
-
-    return df_pivot, dynamic_feat_forecast
+    return dynamic_feat_forecast
 
 
 def add_target_forecast(
     df_pivot,
     target,
-    dynamic_real,
-    past_dynamic_real,
-    dynamic_cat,
     prediction_length,
+    item_id,
 ):
+    """Add 0 to target for prediction length forecast.
+
+    Parameters
+    ----------
+    df_pivot : DataFrame
+        The pivot DataFrame containing the data.
+    target : str
+        The name of the target variable.
+    prediction_length : int
+        The length of the forecast.
+    item_id : Series
+        Series containing the item IDs.
+
+    Returns
+    -------
+    DataFrame
+        The DataFrame with the added 0 to target.
+    """
+
     target_forecast = pd.DataFrame()
-    num_item_id = int(
-        df_pivot.shape[1] / len([target] + dynamic_real + past_dynamic_real + dynamic_cat)
-    )
+    num_item_id = len(item_id.unique())
     for feat in [target]:
         index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
         target_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
@@ -579,21 +611,44 @@ def add_target_forecast(
         )
         target_forecast = pd.concat([target_forecast, target_data], axis=1)
 
-    return target_forecast
+    target = pd.concat([df_pivot[target], target_forecast], axis=0)
+
+    return target
 
 
 def add_past_forecast(
     df_pivot,
-    target,
-    dynamic_real,
     past_dynamic_real,
-    dynamic_cat,
     prediction_length,
+    item_id,
 ):
+    """Add 0 to past_dynamic_real for prediction length forecast.
+
+    Parameters
+    ----------
+    df_pivot : DataFrame
+        The pivot DataFrame containing the data.
+    target : str
+        The name of the target variable.
+    dynamic_real : list
+        List of names of dynamic real variables.
+    past_dynamic_real : list
+        List of names of past dynamic real variables.
+    dynamic_cat : list
+        List of names of dynamic categorical variables.
+    prediction_length : int
+        The length of the forecast.
+    item_id : Series
+        Series containing the item IDs.
+
+    Returns
+    -------
+    DataFrame
+        The DataFrame with the added 0 to past_dynamic_real.
+    """
+
     target_forecast = pd.DataFrame()
-    num_item_id = int(
-        df_pivot.shape[1] / len([target] + dynamic_real + past_dynamic_real + dynamic_cat)
-    )
+    num_item_id = len(item_id.unique())
     for feat in past_dynamic_real:
         index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
         past_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
@@ -602,4 +657,6 @@ def add_past_forecast(
         )
         past_forecast = pd.concat([target_forecast, past_data], axis=1)
 
-    return past_forecast
+    df_past_feat_dynamic_real = pd.concat([df_pivot[past_dynamic_real], past_forecast], axis=0)
+
+    return df_past_feat_dynamic_real

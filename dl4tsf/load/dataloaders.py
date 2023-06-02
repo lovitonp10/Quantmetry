@@ -16,9 +16,7 @@ class CustomDataLoader:
         cfg_model: configs.Model,
         test_length: str,
     ) -> None:
-        self.tmp, self.weather_forecast = hydra.utils.instantiate(
-            cfg_dataset.load, _convert_="all"
-        )
+        self.tmp, self.df_forecast = hydra.utils.instantiate(cfg_dataset.load, _convert_="all")
         self.register_data()
         self.prediction_length = cfg_model.model_config.prediction_length
         self.freq = cfg_dataset.freq
@@ -62,7 +60,7 @@ class CustomDataLoader:
             self.prediction_length,
             self.static_cardinality,
             self.dynamic_cardinality,
-            self.weather_forecast,
+            self.df_forecast,
         )
 
     def create_gluonts_from_pandas(self):
@@ -83,7 +81,7 @@ class CustomDataLoader:
             self.prediction_length,
             self.static_cardinality,
             self.dynamic_cardinality,
-            self.weather_forecast,
+            self.df_forecast,
         )
 
     def get_dataset(self):

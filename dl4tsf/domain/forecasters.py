@@ -174,7 +174,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = super().train(training_data=input_data)
 
     def predict(
-        self, test_dataset: gluontsPandasDataset, test_step
+        self, test_dataset: gluontsPandasDataset, validation
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
         forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_dataset, predictor=self.model
@@ -189,10 +189,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                     freq=forecast.freq,
                     ts_length=0,  # forecast.samples.shape[1],
                     pred_length=0,  # forecast.samples.shape[1],
-                    test_step=test_step,
+                    validation=validation,
                 )
             )
-        if test_step is True:
+        if validation is False:
             list_it = []
             for ls in list(ts_it):
                 list_it.append(ls[: -self.model_config.prediction_length])
@@ -468,9 +468,9 @@ class InformerForecaster(Forecaster):
             num_workers=2,
         )
 
-    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], test_step=False):
+    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
         logging.info("Create test dataloader")
-        if test_step is False:
+        if validation is True:
             self.test_dataloader = create_validation_dataloader(
                 config=self.model_config_informer,
                 freq=self.freq,
@@ -544,9 +544,9 @@ class InformerForecaster(Forecaster):
         self,
         test_dataset: List[Dict[str, Any]],
         transform_df=True,
-        test_step=False,
+        validation=True,
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
-        self.get_test_dataloader(test_dataset, test_step)
+        self.get_test_dataloader(test_dataset, validation)
         accelerator = Accelerator()
         device = accelerator.device
 
@@ -596,7 +596,7 @@ class InformerForecaster(Forecaster):
                 freq=self.freq,
                 ts_length=len(test_dataset[0]["target"]),
                 pred_length=self.model_config.prediction_length,
-                test_step=test_step,
+                validation=validation,
             )
 
         return df_ts, forecasts_df

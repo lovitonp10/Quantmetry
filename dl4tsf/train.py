@@ -42,7 +42,7 @@ def main(cfgHydra: DictConfig):
     logging.info(losses[:10])
 
     logging.info("Validation")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, test_step=False)
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
 
     # logging.info(ts_it[:10])
     # logging.info(forecast_it.shape)
@@ -50,7 +50,7 @@ def main(cfgHydra: DictConfig):
     logging.info(forecast_it[0].head())
 
     logging.info("Test")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, test_step=True)
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
 
     # logging.info(ts_it[:10])
     # logging.info(forecast_it.shape)
