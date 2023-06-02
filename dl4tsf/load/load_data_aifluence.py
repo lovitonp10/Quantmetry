@@ -145,3 +145,26 @@ def preprocess_station(df: pd.DataFrame, p_data_station: float) -> pd.DataFrame:
     df_aifluence = df_resampled.reset_index(level="STATION")
 
     return df_aifluence
+
+
+def cut_start_end_ts(df: pd.DataFrame) -> pd.DataFrame:
+    """Cuts the start and end of the time series
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        validation dataframe preprocess for each station
+
+    Returns
+    -------
+    pd.DataFrame
+        validation dataframe preprocess for each station
+        with the same start and end time for each station
+    """
+
+    df_tmp = df.copy()
+    df_tmp["DATE"] = df_tmp.index
+    start_date = max(df_tmp.groupby(["STATION"]).min(numeric_only=False).reset_index()["DATE"])
+    end_date = min(df_tmp.groupby(["STATION"]).max(numeric_only=False).reset_index()["DATE"])
+    df_aifluence = df_tmp.loc[(df_tmp.index >= start_date) & (df_tmp.index <= end_date)]
+    return df_aifluence

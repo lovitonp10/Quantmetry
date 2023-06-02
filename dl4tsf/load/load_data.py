@@ -7,6 +7,7 @@ from load.load_data_aifluence import (
     change_column_validations,
     process_validation_titre,
     preprocess_station,
+    cut_start_end_ts,
 )
 from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
 from datasets import load_dataset as get_huggingface_dataset
@@ -176,6 +177,8 @@ def aifluence_public_histo_vrf(
     df_rename = df_aifluence.rename_axis("DATE")
     df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
     df_aifluence = df_aifluence.rename_axis(None)
+
+    df_aifluence = cut_start_end_ts(df_aifluence)
 
     return df_aifluence
 
