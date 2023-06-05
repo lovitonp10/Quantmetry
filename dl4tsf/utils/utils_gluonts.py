@@ -3,6 +3,8 @@ from utils.custom_objects_pydantic import HuggingFaceDataset
 import pandas as pd
 from pandas import Period
 import numpy as np
+import configs
+
 
 from gluonts.itertools import Map
 from pathlib import Path
@@ -182,11 +184,7 @@ def create_ts_with_features(
     dataset_type: str,
     df: pd.DataFrame,
     target: str,
-    dynamic_real: List[str],
-    static_cat: List[str],
-    static_real: List[str],
-    past_dynamic_real: List[str],
-    dynamic_cat: List[str],
+    name_feats: configs.Feats,
     freq: str,
     test_length_rows: int,
     prediction_length: int,
@@ -234,6 +232,12 @@ def create_ts_with_features(
         The created dataset in gluonts or hugging face format.
 
     """
+    dynamic_real = name_feats.feat_dynamic_real
+    static_cat = name_feats.feat_static_cat
+    static_real = name_feats.feat_static_real
+    past_dynamic_real = name_feats.past_feat_dynamic_real
+    dynamic_cat = name_feats.feat_dynamic_cat
+
     # calculate item_id and get an efficient df static_features for the next format
     df["item_id"], df_static_features = utils_item_id(df, static_cat, static_real)
 
@@ -255,12 +259,8 @@ def create_ts_with_features(
         df,
         df_pivot,
         target,
-        dynamic_real,
+        name_feats,
         df_static_features,
-        static_cat,
-        static_real,
-        past_dynamic_real,
-        dynamic_cat,
         test_length_rows,
         prediction_length,
         df_dynamic_feat_forecast,
@@ -273,12 +273,8 @@ def create_ts_with_features(
         df,
         df_pivot,
         target,
-        dynamic_real,
+        name_feats,
         df_static_features,
-        static_cat,
-        static_real,
-        past_dynamic_real,
-        dynamic_cat,
         test_length_rows,
         prediction_length,
         df_dynamic_feat_forecast,
@@ -291,12 +287,8 @@ def create_ts_with_features(
         df,
         df_pivot,
         target,
-        dynamic_real,
+        name_feats,
         df_static_features,
-        static_cat,
-        static_real,
-        past_dynamic_real,
-        dynamic_cat,
         test_length_rows,
         prediction_length,
         df_dynamic_feat_forecast,
@@ -308,12 +300,8 @@ def create_ts_with_features(
             df_train=df_train,
             df_validation=df_validation,
             df_test=df_test,
-            dynamic_real=dynamic_real,
-            past_dynamic_real=past_dynamic_real,
-            static_cat=static_cat,
+            name_feats=name_feats,
             static_cardinality=static_cardinality,
-            static_real=static_real,
-            dynamic_cat=dynamic_cat,
             dynamic_cardinality=dynamic_cardinality,
             freq=freq,
             prediction_length=prediction_length,
@@ -334,16 +322,19 @@ def gluonts_format(
     df_train: pd.DataFrame,
     df_validation: pd.DataFrame,
     df_test: pd.DataFrame,
-    dynamic_real: List[str],
-    past_dynamic_real: List[str],
-    static_cat: List[str],
+    name_feats: configs.Feats,
     static_cardinality: List[int],
-    static_real: List[str],
-    dynamic_cat: List[str],
     dynamic_cardinality: List[int],
     freq: str,
     prediction_length: int,
 ) -> TrainDatasets:
+
+    dynamic_real = name_feats.feat_dynamic_real
+    static_cat = name_feats.feat_static_cat
+    static_real = name_feats.feat_static_real
+    past_dynamic_real = name_feats.past_feat_dynamic_real
+    dynamic_cat = name_feats.feat_dynamic_cat
+
     meta = MetaData(
         freq=freq,
         prediction_length=prediction_length,
@@ -475,12 +466,8 @@ def train_val_test_split(
     df: pd.DataFrame,
     df_pivot: pd.DataFrame,
     target: str,
-    dynamic_real: List[str],
+    name_feats: configs.Feats,
     df_static_features: pd.DataFrame,
-    static_cat: List[str],
-    static_real: List[str],
-    past_dynamic_real: List[str],
-    dynamic_cat: List[str],
     test_length_rows: int,
     prediction_length: int,
     dynamic_feat_forecast: pd.DataFrame,
@@ -525,6 +512,12 @@ def train_val_test_split(
         The split train, validation, or test datasets.
 
     """
+
+    dynamic_real = name_feats.feat_dynamic_real
+    static_cat = name_feats.feat_static_cat
+    static_real = name_feats.feat_static_real
+    past_dynamic_real = name_feats.past_feat_dynamic_real
+    dynamic_cat = name_feats.feat_dynamic_cat
 
     if part == "train":
         df_pivot = df_pivot[: -test_length_rows * 2]

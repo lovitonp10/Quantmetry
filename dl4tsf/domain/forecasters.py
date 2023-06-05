@@ -121,13 +121,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = self.cfg_dataset.freq
-        self.num_feat_dynamic_real = len(self.cfg_dataset.name_feats["feat_dynamic_real"])
-        self.num_feat_static_cat = len(self.cfg_dataset.name_feats["feat_static_cat"])
-        self.num_feat_static_real = len(self.cfg_dataset.name_feats["feat_static_real"])
-        self.num_past_feat_dynamic_real = len(
-            self.cfg_dataset.name_feats["past_feat_dynamic_real"]
-        )
-        self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats["feat_dynamic_cat"])
+        self.num_feat_dynamic_real = len(self.cfg_dataset.name_feats.feat_dynamic_real)
+        self.num_feat_static_cat = len(self.cfg_dataset.name_feats.feat_static_cat)
+        self.num_feat_static_real = len(self.cfg_dataset.name_feats.feat_static_real)
+        self.num_past_feat_dynamic_real = len(self.cfg_dataset.name_feats.past_feat_dynamic_real)
+        self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats.feat_dynamic_cat)
 
         self.model_config.context_length = (
             self.model_config.context_length
@@ -444,12 +442,10 @@ class InformerForecaster(Forecaster):
         self.model_config_informer = CustomInformerConfig(
             num_time_features=len(time_features) + 1,
             cardinality=self.model_config.static_cardinality,
-            num_dynamic_real_features=len(self.cfg_dataset.name_feats["feat_dynamic_real"]),
-            num_static_categorical_features=len(self.cfg_dataset.name_feats["feat_static_cat"]),
-            num_static_real_features=len(self.cfg_dataset.name_feats["feat_static_real"]),
-            num_past_dynamic_real_features=len(
-                self.cfg_dataset.name_feats["past_feat_dynamic_real"]
-            ),
+            num_dynamic_real_features=len(self.cfg_dataset.name_feats.feat_dynamic_real),
+            num_static_categorical_features=len(self.cfg_dataset.name_feats.feat_static_cat),
+            num_static_real_features=len(self.cfg_dataset.name_feats.feat_static_real),
+            num_past_dynamic_real_features=len(self.cfg_dataset.name_feats.past_feat_dynamic_real),
             **self.model_config.dict(),
         )
         if self.from_pretrained:
