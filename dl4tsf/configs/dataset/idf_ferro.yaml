@@ -9,14 +9,13 @@ load:
   target: VALD_TOTAL
   start_date: 2016-01-01
   end_date: 2021-01-01
-  weather: null
 test_length: 12D
 freq: 1D
 static_cardinality: [688]
 dynamic_cardinality: [9]
 name_feats:
-  feat_dynamic_real: [] # ["temperature", "rainfall", "pressure"]
+  feat_dynamic_real: ["temperature", "rainfall", "pressure"]
   feat_static_cat: ["STATION"]
   feat_static_real: []
   past_feat_dynamic_real: ["NB_VALD_AMETHYSTE", "NB_VALD_FGT", "NB_VALD_IMAGINE_R", "NB_VALD_NAVIGO", "NB_VALD_NAVIGO_JOUR","NB_VALD_TST", "NB_VALD_AUTRE"]
-  feat_dynamic_cat : [] #["barometric_trend"]
+  feat_dynamic_cat : ["barometric_trend"]
