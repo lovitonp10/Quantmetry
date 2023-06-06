@@ -9,7 +9,7 @@ from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
 from load.load_exo_data import add_weather
-from typing import Dict
+from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,6 @@ def enedis(
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
-
     list_csv = glob.glob(path + "*.csv")
     df_enedis = pd.DataFrame()
     for file in list_csv:
@@ -133,6 +132,8 @@ def aifluence_public_histo_vrf(
         "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ) -> pd.DataFrame:
     """Read a folder for load data from file and save it to a fataframe
 
@@ -156,14 +157,9 @@ def aifluence_public_histo_vrf(
         public data frame from IDF-mobilités
     """
     aifluence = Aifluence(path)
-    df_load = aifluence.load_validations()
-    df_load_mod = aifluence.change_column_validations(df_load)
-    df_temp = df_load_mod.drop(
-        columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
-    )
+    aifluence.load_validations()
 
-    df_fusion = aifluence.process_validation_titre(df_temp)
-    df_aifluence = aifluence.preprocess_station(df_fusion, p_data_station)
+    df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
 
     if weather:
         df_aifluence = add_weather(df_aifluence, weather)
@@ -172,7 +168,7 @@ def aifluence_public_histo_vrf(
     df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
     df_aifluence = df_aifluence.rename_axis(None)
 
-    df_aifluence = aifluence.cut_start_end_ts(df_aifluence)
+    df_aifluence = aifluence.cut_start_end_ts(df_aifluence, start=start_date, end=end_date)
 
     return df_aifluence
 
