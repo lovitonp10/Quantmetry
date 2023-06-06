@@ -2,13 +2,7 @@ import glob
 import logging
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
-from load.load_data_aifluence import (
-    load_validations,
-    change_column_validations,
-    process_validation_titre,
-    preprocess_station,
-    cut_start_end_ts,
-)
+from load.load_data_aifluence import Aifluence
 from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
 from datasets import load_dataset as get_huggingface_dataset
 from functools import partial
@@ -161,15 +155,15 @@ def aifluence_public_histo_vrf(
     pd.DataFrame
         public data frame from IDF-mobilités
     """
-
-    df_load = load_validations(path)
-    df_load_mod = change_column_validations(df_load)
+    aifluence = Aifluence(path)
+    df_load = aifluence.load_validations()
+    df_load_mod = aifluence.change_column_validations(df_load)
     df_temp = df_load_mod.drop(
         columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
     )
 
-    df_fusion = process_validation_titre(df_temp)
-    df_aifluence = preprocess_station(df_fusion, p_data_station)
+    df_fusion = aifluence.process_validation_titre(df_temp)
+    df_aifluence = aifluence.preprocess_station(df_fusion, p_data_station)
 
     if weather:
         df_aifluence = add_weather(df_aifluence, weather)
@@ -178,7 +172,7 @@ def aifluence_public_histo_vrf(
     df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
     df_aifluence = df_aifluence.rename_axis(None)
 
-    df_aifluence = cut_start_end_ts(df_aifluence)
+    df_aifluence = aifluence.cut_start_end_ts(df_aifluence)
 
     return df_aifluence
 
