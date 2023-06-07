@@ -8,6 +8,10 @@ from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
 from load.load_exo_data import add_weather
 from typing import Dict
+import logging
+from load.load_data_enedis import Enedis
+
+logger = logging.getLogger(__name__)
 
 
 def climate(
@@ -79,6 +83,13 @@ def enedis(
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
+
+    logger.info("Loading Data")
+    df_enedis = Enedis(path, target)
+    df_enedis.load_data()
+
+    logger.info("Preprocess Data")
+    df_enedis = df_enedis.get_preprocessed_data()
     list_csv = glob.glob(path + "*.csv")
     df_enedis = pd.DataFrame()
     for file in list_csv:

@@ -22,14 +22,8 @@ def load_weather(
     cat_features: list = ["cod_tend"],
     station_name: str = "ORLY",
     freq: str = "30T",
-    prediction_length: int = 7,
 ) -> pd.DataFrame:
     station = get_station_id(path_weather=path_weather, name=station_name)
-
-    forecast_days = count_days_for_pred(freq=freq, pred_length=prediction_length)
-
-    start = datetime.strptime(start, "%d-%m-%Y")
-    end = datetime.strptime(end, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
 
     start_start_month = start.replace(day=1)
     end_start_month = end.replace(day=1)
@@ -108,15 +102,19 @@ def add_weather(
 
     frequency = pd.infer_freq(sorted_dates)
 
+    forecast_days = count_days_for_pred(freq=frequency, pred_length=prediction_length)
+
+    start = datetime.strptime(first_date_str, "%d-%m-%Y")
+    end = datetime.strptime(last_date_str, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
+
     weather = load_weather(
         path_weather=path_weather,
-        start=first_date_str,
-        end=last_date_str,
+        start=start,
+        end=end,
         dynamic_features=dynamic_features,
         cat_features=cat_features,
         station_name=station_name,
         freq=frequency,
-        prediction_length=prediction_length,
     )
 
     df.index = df.index.tz_localize(None)
