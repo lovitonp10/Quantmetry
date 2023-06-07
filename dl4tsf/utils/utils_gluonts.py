@@ -256,7 +256,9 @@ def utils_static_features(
     if len(static_cat) != 0:
         lst_item = df[static_cat].apply(lambda x: "_".join(x.astype(str)), axis=1)
         lst_item = lst_item.astype("category").cat.codes
-        static_features_cat = df.groupby(static_cat).sum().reset_index()[static_cat]
+        static_features_cat = (
+            df.groupby(static_cat).sum(numeric_only=False).reset_index()[static_cat]
+        )
         for col in static_features_cat:
             static_features_cat[col] = static_features_cat[col].astype("category").cat.codes
     else:

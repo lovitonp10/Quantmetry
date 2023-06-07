@@ -55,6 +55,7 @@ The current data needed are:
 - climate_delhi
 - energy
 - enedis
+- idf_mobilities (Data available on the site: https://data.iledefrance-mobilites.fr/explore/dataset/histo-validations-reseau-ferre/export/ by selecting only the NB_FER of each year which are arranged by semester)
 - all_weather (The mapping between the station name and the station number is available here: [posteSynop.csv](https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Synop/postesSynop).csv ))
 
 # Jupyter notebooks
@@ -101,6 +102,7 @@ Currently the following datasets are implemented and tested:
 - climate_delhi
 - energy
 - enedis
+- idf_mobilities
 
 ### Modification to make in .yaml files
 Dataset:

@@ -12,3 +12,4 @@ tensorboard_logs/
 models/
 *.ipynb
 data/
+.DS_Store
