@@ -30,6 +30,12 @@ class TFTLightningModule(pl.LightningModule):
             on_step=False,
             prog_bar=True,
         )
+
+        """if steps not in locals() or steps not in globals():
+            steps=0
+        mlflow.log_metric("loss", train_loss, step=steps)
+        steps+=1"""
+
         return train_loss
 
     def validation_step(self, batch, batch_idx: int):

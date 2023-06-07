@@ -38,6 +38,8 @@ from utils.utils_tft.split import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
+import pickle
+from pathlib import Path
 
 import logging
 
@@ -54,6 +56,8 @@ import evaluate
 
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
+
+from abc import abstractmethod
 
 
 PREDICTION_INPUT_NAMES = [
@@ -88,6 +92,17 @@ class Forecaster:
         self.cfg_train = cfg_train
         self.cfg_dataset = cfg_dataset
         self.from_pretrained = from_pretrained
+
+    @abstractmethod
+    def get_model(self):
+        pass
+
+    def save(self, path):
+        pickle.dump(self.get_model(), Path(path).open(mode="wb"))
+
+    @classmethod
+    def load(cls, path):
+        return pickle.load(Path(path).open(mode="rb"))
 
 
 class TFTForecaster(Forecaster, PyTorchLightningEstimator):
@@ -172,6 +187,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     def train(self, input_data: gluontsPandasDataset):
         self.model = None
         self.model = super().train(training_data=input_data)
+
+    def get_model(self):
+        return self.model
 
     def predict(
         self, test_dataset: gluontsPandasDataset
@@ -529,6 +547,9 @@ class InformerForecaster(Forecaster):
                 self.loss_history.append(loss.item())
                 if idx % 100 == 0:
                     print(loss.item())
+
+    def get_model(self):
+        return self.model
 
     def predict(
         self, test_dataset: List[Dict[str, Any]], transform_df=True
