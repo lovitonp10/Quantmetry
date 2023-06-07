@@ -82,7 +82,6 @@ def enedis(
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
-
     list_csv = glob.glob(path + "*.csv")
     df_enedis = pd.DataFrame()
     for file in list_csv:
@@ -161,17 +160,12 @@ def aifluence_public_histo_vrf(
     pd.DataFrame
         public data frame from IDF-mobilités
     """
-    aifluence = Aifluence(path)
     logger.info("Loading Data")
-    df_load = aifluence.load_validations()
-    df_load = aifluence.change_column_validations(df_load)
-    df_temp = df_load.drop(
-        columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
-    )
+    aifluence = Aifluence(path)
+    aifluence.load_validations()
 
     logger.info("Preprocess Data")
-    df_fusion = aifluence.preprocess_validation_titre(df_temp)
-    df_aifluence = aifluence.preprocess_station(df_fusion, p_data_station)
+    df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
 
     if weather:
         df_aifluence = add_weather(df_aifluence, weather)
@@ -180,6 +174,7 @@ def aifluence_public_histo_vrf(
     df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
     df_aifluence = df_aifluence.rename_axis(None)
     df_aifluence = aifluence.cut_start_end_ts(df_aifluence, start=start_date, end=end_date)
+
     return df_aifluence
 
 

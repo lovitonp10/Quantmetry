@@ -42,8 +42,19 @@ class Aifluence:
                     df_temp = pd.read_csv(file, sep="\t", low_memory=False)
                 list_df.append(df_temp)
                 del df_temp
-        df = pd.concat(list_df)
-        return df
+        self.df = pd.concat(list_df)
+
+    def get_preprocessed_data(self, p_data_station: float = 0.9):
+        if not hasattr(self, "df"):
+            self.load_validations()
+        df_out = self.change_column_validations(self.df)
+        df_out = df_out.drop(
+            columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
+        )
+
+        df_out = self.preprocess_validation_titre(df_out)
+        df_out = self.preprocess_station(df_out, p_data_station)
+        return df_out
 
     def change_column_validations(
         self,
@@ -91,9 +102,14 @@ class Aifluence:
         pd.DataFrame
             a sample validation dataframe with 7 validations categories and the total validation
         """
-
+        df_in = df.copy()
         indexes = ["DATE", "STATION", "CATEGORIE_TITRE"]
-        df_group = df.groupby(indexes).sum()
+        df_in["CATEGORIE_TITRE"] = df_in["CATEGORIE_TITRE"].replace(
+            ("AUTRE TITRE", "INCONNU", "NON DEFINI"), "AUTRE"
+        )
+        df_in["CATEGORIE_TITRE"] = df_in["CATEGORIE_TITRE"].str.replace(" ", "_")
+
+        df_group = df_in.groupby(indexes).sum()
         df_unstack = df_group.unstack(["CATEGORIE_TITRE"])
         new_columns = df_unstack.columns.map("_".join)
         df_unstack.columns = new_columns
@@ -102,27 +118,14 @@ class Aifluence:
         df_unstack_index = df_unstack.reset_index(level=["STATION", "DATE"])
         df_unstack_index.index = df_unstack_index["DATE"]
 
-        df_unstack_index["NB_VALD_AUTRE"] = (
-            df_unstack_index["NB_VALD_AUTRE TITRE"]
-            + df_unstack_index["NB_VALD_INCONNU"]
-            + df_unstack_index["NB_VALD_NON DEFINI"]
-        )
-        df_unstack_drop = df_unstack_index.drop(
-            columns=["DATE", "NB_VALD_INCONNU", "NB_VALD_AUTRE TITRE", "NB_VALD_NON DEFINI"]
-        )
-        df_unstack_drop.rename(
-            columns={
-                "NB_VALD_IMAGINE R": "NB_VALD_IMAGINE_R",
-                "NB_VALD_NAVIGO JOUR": "NB_VALD_NAVIGO_JOUR",
-            },
-            inplace=True,
-        )
+        df_unstack_drop = df_unstack_index.drop(columns=["DATE"])
         df_unstack_drop["VALD_TOTAL"] = df_unstack_drop.sum(numeric_only=True, axis=1)
 
         return df_unstack_drop
 
     def preprocess_station(self, df: pd.DataFrame, p_data_station: float) -> pd.DataFrame:
         """Preprocess the time series by station
+            Keep stations with at least `p_data_station` ratio of total length of station data
 
         Parameters
         ----------
@@ -148,7 +151,7 @@ class Aifluence:
 
         select_station = group_station[group_station < n_data_station].index
         df_aifluence = df_aifluence[~df_aifluence["STATION"].isin(select_station)]
-        df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum(numeric_only=True)
+        df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum()
         df_aifluence = df_resampled.reset_index(level="STATION")
 
         return df_aifluence

@@ -15,7 +15,6 @@ logging.info("Start")
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
 
-    logging.info("Prepare Config")
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
     cfg: Configs = Configs(**cfg)
@@ -25,7 +24,6 @@ def main(cfgHydra: DictConfig):
         filename="example.log",
         filemode="w",
     )
-    logging.info("Prepare Config Completed")
 
     logging.info("Prepare Data")
     loader_data = CustomDataLoader(

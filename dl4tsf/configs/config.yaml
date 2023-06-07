@@ -1,7 +1,7 @@
 defaults:
   - _self_
-  - dataset: enedis
-  - model: tft
+  - dataset: idf_ferro
+  - model: informer
   - train: dummy
 
 
