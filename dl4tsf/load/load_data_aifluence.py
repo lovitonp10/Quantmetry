@@ -1,6 +1,9 @@
 import glob
 from typing import Optional
 import pandas as pd
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Aifluence:
@@ -75,7 +78,7 @@ class Aifluence:
 
         return df_copy
 
-    def process_validation_titre(self, df: pd.DataFrame) -> pd.DataFrame:
+    def preprocess_validation_titre(self, df: pd.DataFrame) -> pd.DataFrame:
         """Unstack and fusion the validations categories of aifluence dataframe
 
         Parameters
@@ -159,7 +162,10 @@ class Aifluence:
         ----------
         df : pd.DataFrame
             validation dataframe preprocess for each station
-
+        start : Optional[str], optional
+            starting date of time series, by default None
+        end : Optional[str], optional
+            ending date of time series, by default None
         Returns
         -------
         pd.DataFrame

@@ -8,19 +8,24 @@ from domain import forecasters
 from omegaconf import DictConfig, OmegaConf
 from load.dataloaders import CustomDataLoader
 
+logger = logging.getLogger(__name__)
+logging.info("Start")
+
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
+
+    logging.info("Prepare Config")
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
     cfg: Configs = Configs(**cfg)
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         filename="example.log",
         filemode="w",
     )
+    logging.info("Prepare Config Completed")
 
     logging.info("Prepare Data")
     loader_data = CustomDataLoader(
@@ -31,18 +36,20 @@ def main(cfgHydra: DictConfig):
         test_length=cfg.dataset.test_length,
     )
     dataset = loader_data.get_dataset()
+    logging.info("Prepare Completed")
 
     logging.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
     forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-
     forecaster.train(input_data=dataset.train)
+    logging.info("Training Completed")
+
+    logging.info("Compute First 10 Losses")
     losses = forecaster.get_callback_losses(type="train")
-    logging.info("first 10 losses")
     logging.info(losses[:10])
 
+    logging.info("Compute Prediction")
     ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test)
-
     # logging.info(ts_it[:10])
     # logging.info(forecast_it.shape)
     logging.info(ts_it[0].tail())
@@ -58,6 +65,7 @@ def main(cfgHydra: DictConfig):
     #     prediction_length=cfg.model.model_config.prediction_length,
     #     forecasts=forecast_it,
     # )
+    logging.info("End")
 
 
 if __name__ == "__main__":
