@@ -1,13 +1,14 @@
 import glob
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
+from load.load_data_aifluence import Aifluence
 from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
 from datasets import load_dataset as get_huggingface_dataset
 from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
 from load.load_exo_data import add_weather
-from typing import Dict
+from typing import Dict, Optional
 import logging
 from load.load_data_enedis import Enedis
 
@@ -19,8 +20,8 @@ def climate(
     target: str = "mean_temp",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dynamic_features": ["t", "rr3", "pmer"],
-        "cat_features": ["cod_tend"],
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
@@ -44,8 +45,8 @@ def energy(
     target: str = "consommation",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dynamic_features": ["t", "rr3", "pmer"],
-        "cat_features": ["cod_tend"],
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
@@ -78,8 +79,8 @@ def enedis(
     prediction_length: int = 7,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dynamic_features": ["t", "rr3", "pmer"],
-        "cat_features": ["cod_tend"],
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
@@ -137,6 +138,62 @@ def enedis(
     # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
 
     return df_enedis, None
+
+
+def aifluence_public_histo_vrf(
+    path: str = "data/idf_mobilites/",
+    target: str = "VALD_TOTAL",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    p_data_station: float = 0.9,
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
+    """Read a folder for load data from file and save it to a fataframe
+
+    Parameters
+    ----------
+    path : str, optional
+        loaded files, by default "data/idf_mobilites/"
+    target : str, optional
+        target features, by default "VALD_TOTAL"
+    p_data_station : float
+        proportion of data for each station, by default 90%
+    start_date : Optional[str], optional
+        starting date of time series, by default None
+    end_date : Optional[str], optional
+        ebding date of time series, by default None
+    weather : Dict[str, any], optional
+        weather feature for the dataset, by default {
+            "path_weather": "data/all_weather/",
+            "dynamic_features": ["temperature", "rainfall", "pressure"],
+            "cat_features": ["barometric_trend"], "station_name": "ORLY", }
+
+    Returns
+    -------
+    pd.DataFrame
+        public data frame from IDF-mobilités
+    """
+    logger.info("Loading Data")
+    aifluence = Aifluence(path)
+    aifluence.load_validations()
+
+    logger.info("Preprocess Data")
+    df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
+
+    if weather:
+        df_aifluence = add_weather(df_aifluence, weather)
+
+    df_rename = df_aifluence.rename_axis("DATE")
+    df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
+    df_aifluence = df_aifluence.rename_axis(None)
+    df_aifluence = aifluence.cut_start_end_ts(df_aifluence, start=start_date, end=end_date)
+
+    return df_aifluence
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:

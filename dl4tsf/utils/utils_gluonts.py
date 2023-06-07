@@ -542,6 +542,8 @@ def utils_item_id(
     """
     if len(static_cat) != 0:
         static_feat = static_cat
+        # if we use don't static_real more to create item_id, comment next 2 lines
+        # but still add static_real to static_features_df after calculate item_id
         if len(static_real) != 0:
             static_feat = static_feat + static_real
         lst_item = df[static_feat].apply(lambda x: "_".join(x.astype(str)), axis=1)
@@ -550,11 +552,15 @@ def utils_item_id(
         for col in static_features_df[static_cat]:
             static_features_df[col] = static_features_df[col].astype("category").cat.codes
 
+    # if we don't use static_real more to create item_id, comment next condition
+    # but still add static_real to static_features_df after calculate item_id
     elif len(static_real) != 0:
         static_feat = static_real
         lst_item = df[static_feat].apply(lambda x: "_".join(x.astype(str)), axis=1)
         lst_item = lst_item.astype("category").cat.codes
-        static_features_df = df.groupby(static_feat).sum().reset_index()[static_feat]
+        static_features_df = (
+            df.groupby(static_feat).sum(numeric_only=False).reset_index()[static_feat]
+        )
 
     else:
         lst_item = 0
