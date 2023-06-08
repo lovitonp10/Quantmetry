@@ -2,7 +2,6 @@ import logging
 
 import hydra
 import mlflow
-from utils import logging_mlflow
 from configs import Configs
 from domain import forecasters
 
@@ -12,6 +11,7 @@ from load.dataloaders import CustomDataLoader
 
 from urllib.parse import urlparse
 
+from mlflow_deploy import logging_mlflow
 from mlflow_deploy.utils_mlflow import (
     save_mlflow_model,
     MLflowModel,
