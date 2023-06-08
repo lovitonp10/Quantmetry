@@ -46,13 +46,16 @@ def main(cfgHydra: DictConfig):
     losses = forecaster.get_callback_losses(type="train")
     logging.info(losses[:10])
 
-    logging.info("Validation")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
+    logging.info("Compute Validation & Evaluation")
+    # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
+    metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.validation)
+    logging.info(ts_it[0].tail())
+    logging.info(forecast_it[0].head())
+
+    logging.info(metrics)
 
     # logging.info(ts_it[:10])
     # logging.info(forecast_it.shape)
-    logging.info(ts_it[0].tail())
-    logging.info(forecast_it[0].head())
 
     logging.info("Compute Prediction")
     ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
@@ -61,9 +64,6 @@ def main(cfgHydra: DictConfig):
     # logging.info(forecast_it.shape)
     logging.info(ts_it[0].tail())
     logging.info(forecast_it[0].head())
-
-    # metrics = forecaster.evaluate(test_dataset=dataset.test)
-    # logging.info(metrics)
 
     # logging.info("Plot first TS predictions")
     # plot_timeseries(
