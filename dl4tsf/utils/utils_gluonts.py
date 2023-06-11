@@ -788,52 +788,6 @@ def create_dict_dataset(
     return data
 
 
-def create_df_dynamic_forecast(
-    df_forecast: pd.DataFrame,
-    dynamic_real: List[str],
-    dynamic_cat: List[str],
-    item_id: pd.Series,
-) -> pd.DataFrame:
-    """Create a DataFrame for dynamic forecast data with MultiIndex.
-
-    Parameters
-    ----------
-    df_forecast : DataFrame
-        The forecast DataFrame containing the data.
-    dynamic_real : list
-        List of names of dynamic real variables.
-    dynamic_cat : list
-        List of names of dynamic categorical variables.
-    item_id : Series
-        Series containing the item IDs.
-
-    Returns
-    -------
-    DataFrame
-        The DataFrame with the added dynamic forecast data.
-    """
-
-    dynamic_feat_forecast = pd.DataFrame()
-    if df_forecast is not None:
-        weather_dynamic_feat_real = ["temperature", "rainfall", "pressure"]
-        weather_dynamic_feat_cat = ["barometric_trend"]
-        original_dynamic_real = [x for x in dynamic_real if x not in weather_dynamic_feat_real]
-        original_dynamic_cat = [x for x in dynamic_cat if x not in weather_dynamic_feat_cat]
-        num_item_id = len(item_id.unique())
-        if len(original_dynamic_real) > 0 or len(original_dynamic_cat) > 0:
-            dynamic_feat_forecast = df_forecast
-        else:
-            for feat in weather_dynamic_feat_real + weather_dynamic_feat_cat:
-                index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
-                weather_data = np.array(
-                    list(repeat(df_forecast[feat], num_item_id))
-                ).T  # np.tile(weather_forecast[feat], (1, num_item_id))
-                weather_data = pd.DataFrame(weather_data, columns=index)
-                dynamic_feat_forecast = pd.concat([dynamic_feat_forecast, weather_data], axis=1)
-
-    return dynamic_feat_forecast
-
-
 def add_target_forecast(
     df_pivot: pd.DataFrame,
     target: str,
