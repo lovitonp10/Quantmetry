@@ -8,9 +8,10 @@ from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
 from load.load_exo_data import add_weather
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import logging
 from load.load_data_enedis import Enedis
+from utils.utils_gluonts import generate_item_ids_static_features
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,7 @@ def enedis(
     path: str = "data/enedis/",
     target: str = "total_energy",
     prediction_length: int = 7,
+    name_feats: Dict[str, List[str]] = None,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
@@ -84,46 +86,15 @@ def enedis(
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
-
     logger.info("Loading Data")
-    df_enedis = Enedis(path, target)
-    df_enedis.load_data()
+    enedis = Enedis(path, target)
+    enedis.load_data()
 
     logger.info("Preprocess Data")
-    df_enedis = df_enedis.get_preprocessed_data()
-    list_csv = glob.glob(path + "*.csv")
-    df_enedis = pd.DataFrame()
-    for file in list_csv:
-        df_tmp = pd.read_csv(file)
-        df_enedis = pd.concat([df_enedis, df_tmp], axis=0)
-    df_enedis.rename(
-        columns={
-            "horodate": "date",
-            "nb_points_soutirage": "soutirage",
-            "total_energie_soutiree_wh": target,
-            "plage_de_puissance_souscrite": "power",
-        },
-        inplace=True,
-    )
+    df_enedis = enedis.get_preprocessed_data()
 
-    df_enedis = df_enedis.sort_values(by=["region", "profil", "power", "date"])
-    df_enedis.index = pd.to_datetime(df_enedis.date)
-    df_enedis = df_enedis[["region", "profil", "power", target, "soutirage"]]
-
-    df_na = df_enedis[df_enedis.total_energy.isna()]
-    groups_with_nan = (
-        df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any()).index.tolist()
-    )
-    df_enedis = df_enedis[
-        ~df_enedis.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
-    ]
-
-    df_enedis["power_min"] = df_enedis["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
-    df_enedis["power_max"] = (
-        df_enedis["power"]
-        .str.extract(r"\-(\d+)]")
-        .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
-        .astype(int)
+    df_enedis["item_id"] = generate_item_ids_static_features(
+        df=df_enedis, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
     )
 
     if weather:

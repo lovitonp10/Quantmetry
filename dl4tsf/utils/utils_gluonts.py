@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict, Any, Optional, NamedTuple
+from typing import List, Dict, Any, Optional, NamedTuple
 from utils.custom_objects_pydantic import HuggingFaceDataset
 import pandas as pd
 from pandas import Period
@@ -14,7 +14,6 @@ from gluonts.dataset import Dataset, DatasetWriter
 import datasets
 from gluonts.dataset.common import (
     ProcessDataEntry,
-    # TrainDatasets,
     CategoricalFeatureInfo,
     BasicFeatureInfo,
 )
@@ -23,6 +22,9 @@ from typing import cast
 import pydantic
 from functools import partial
 from itertools import repeat
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MetaData(pydantic.BaseModel):
@@ -294,30 +296,29 @@ def create_ts_with_features(
     past_dynamic_real = name_feats.past_feat_dynamic_real
     dynamic_cat = name_feats.feat_dynamic_cat
 
-    # calculate item_id and get an efficient df static_features for the next format
-    df["item_id"], df_static_features = utils_item_id(
-        df=df, static_cat=static_cat, static_real=static_real
-    )
+    logging.info("get static features")
+    df_static_features = df.drop_duplicates(subset=["item_id"]).set_index("item_id")[
+        static_cat + static_real
+    ]
+    for col in static_cat + static_real:
+        df_static_features[col] = df_static_features[col].astype("category").cat.codes
 
-    # resample, fill na and create pivot table with all dynamic features and target
-    df_pivot = utils_resampling(
+    logging.info("Resample Pivot table")
+    df_pivot = pivot_df(
         df=df,
-        target=target,
-        dynamic_real=dynamic_real,
-        past_dynamic_real=past_dynamic_real,
-        dynamic_cat=dynamic_cat,
+        cols=[target] + dynamic_real + past_dynamic_real + dynamic_cat,
+        index_col="item_id",
         freq=freq,
     )
 
-    # create df with all features known in the future, length = prediction_length
-    df_dynamic_feat_forecast = create_df_dynamic_forecast(
-        df_forecast=df_forecast,
-        dynamic_real=dynamic_real,
-        dynamic_cat=dynamic_cat,
-        item_id=df["item_id"],
+    logging.info("Add dynamic features")
+    df_dynamic_feat_forecast = pivot_df(
+        df=df_forecast,
+        cols=list(df_forecast.columns.difference(["item_id"])),
+        index_col="item_id",
+        freq=freq,
     )
 
-    # create train df
     df_train = train_val_test_split(
         part="train",
         dataset_type=dataset_type,
@@ -519,62 +520,39 @@ def transform_start_field(
     return batch
 
 
-def utils_item_id(
+def generate_item_ids_static_features(
     df: pd.DataFrame,
-    static_cat: List[str],
-    static_real: List[str],
-) -> Tuple[pd.Series, pd.DataFrame]:
-    """Creates item IDs based on the static categorical and real features in the DataFrame.
+    key_columns: List[str],
+) -> pd.Series:
+    """Creates item IDs based on the key columns in the DataFrame.
 
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame containing the data.
-    static_cat : List[str]
-        List of names of static categorical features.
-    static_real : List[str]
-        List of names of static real-valued features.
+    key_columns : List[str]
+        List of columns that must be taken to create item_it
 
     Returns
     -------
-    Tuple[pd.Series, pd.DataFrame]
-        A tuple containing the item IDs as a pandas Series and the static features DataFrame.
+    pd.Series
+        A pandas Series containing the item IDs.
     """
-    if len(static_cat) != 0:
-        static_feat = static_cat
-        # if we use don't static_real more to create item_id, comment next 2 lines
-        # but still add static_real to static_features_df after calculate item_id
-        if len(static_real) != 0:
-            static_feat = static_feat + static_real
-        lst_item = df[static_feat].apply(lambda x: "_".join(x.astype(str)), axis=1)
-        lst_item = lst_item.astype("category").cat.codes
-        static_features_df = df.groupby(static_feat).sum().reset_index()[static_feat]
-        for col in static_features_df[static_cat]:
-            static_features_df[col] = static_features_df[col].astype("category").cat.codes
 
-    # if we don't use static_real more to create item_id, comment next condition
-    # but still add static_real to static_features_df after calculate item_id
-    elif len(static_real) != 0:
-        static_feat = static_real
-        lst_item = df[static_feat].apply(lambda x: "_".join(x.astype(str)), axis=1)
-        lst_item = lst_item.astype("category").cat.codes
-        static_features_df = (
-            df.groupby(static_feat).sum(numeric_only=False).reset_index()[static_feat]
-        )
-
-    else:
-        lst_item = 0
-        static_features_df = pd.DataFrame()
-
-    return lst_item, static_features_df
+    df_u_items = (
+        df[key_columns]
+        .drop_duplicates(ignore_index=True)
+        .reset_index()
+        .rename(columns={"index": "item_id"})
+    )
+    lst_item_ids = df.merge(df_u_items, how="left", on=key_columns)["item_id"].values
+    return lst_item_ids
 
 
-def utils_resampling(
+def pivot_df(
     df: pd.DataFrame,
-    target: str,
-    dynamic_real: List[str],
-    past_dynamic_real: List[str],
-    dynamic_cat: List[str],
+    cols: List[str],
+    index_col: str,
     freq: str,
 ) -> pd.DataFrame:
     """Resamples the DataFrame with the specified frequency and fills missing values.
@@ -583,14 +561,8 @@ def utils_resampling(
     ----------
     df : pd.DataFrame
         DataFrame containing the data.
-    target : str
-        Name of the target column.
-    dynamic_real : List[str]
-        List of names of dynamic real-valued features.
-    past_dynamic_real : List[str]
-        List of names of past dynamic real-valued features.
-    dynamic_cat : List[str]
-        List of names of dynamic categorical features.
+    cols: List[str]
+        List of columns to be pivoted
     freq : str
         The frequency to which the DataFrame should be resampled (e.g., '1H', '1D').
 
@@ -599,15 +571,12 @@ def utils_resampling(
     pd.DataFrame
         The resampled DataFrame with filled missing values.
     """
-    # create pivot table with all dynamic feat and target
-    # resample with the right frequency
-    # fill na with method linear interpolate
     df_pivot = (
         pd.pivot_table(
             df,
-            values=[target] + dynamic_real + past_dynamic_real + dynamic_cat,
+            values=cols,
             index=df.index,
-            columns=["item_id"],
+            columns=[index_col],
         )
         .resample(freq)
         .interpolate(method="linear")
@@ -617,12 +586,12 @@ def utils_resampling(
     # We use Backward Fill to fill the NaN values with the next valid observation
     df_pivot.fillna(method="bfill", inplace=True)
 
-    """if df_pivot.iloc[0].isna().any():
-        df_pivot = df_pivot.drop(labels=df_pivot.index[0], axis=0)"""
+    # if df_pivot.iloc[0].isna().any():
+    #     df_pivot = df_pivot.drop(labels=df_pivot.index[0], axis=0)
 
     # dynamic cat as type int
-    for feat in dynamic_cat:
-        df_pivot[feat] = df_pivot[feat].astype(int)
+    # for feat in dynamic_cat:
+    #     df_pivot[feat] = df_pivot[feat].astype(int)
 
     return df_pivot
 

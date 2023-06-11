@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from dateutil import relativedelta
-from typing import Dict
+from typing import Dict, List
 import math
 
 
@@ -10,8 +10,6 @@ def get_station_id(path_weather: str = "data/all_weather/", name: str = "ORLY") 
     df_stations = pd.read_csv(path_weather + "stations.txt", sep=";")
     dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
     id_station = dict_stations[name]
-    # id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
-
     return id_station
 
 
@@ -82,6 +80,18 @@ def load_weather(
     return df
 
 
+def generate_itemid_weather(
+    df: pd.DataFrame, item_ids: List, item_col: str = "item_id"
+) -> pd.DataFrame:
+    new_df = pd.DataFrame()
+    for item_id in item_ids:
+        tmp = df.copy()
+        tmp[item_col] = item_id
+        new_df = pd.concat([new_df, tmp])
+        del tmp
+    return new_df
+
+
 def add_weather(
     df: pd.DataFrame,
     weather: Dict[str, any] = {
@@ -92,7 +102,6 @@ def add_weather(
     },
     prediction_length: int = 7,
 ) -> pd.DataFrame:
-
     path_weather = weather["path_weather"]
     dynamic_features = weather["dynamic_features"]
     cat_features = weather["cat_features"]
@@ -125,14 +134,19 @@ def add_weather(
 
     df.index = df.index.tz_localize(None)
     weather.index = weather.index.tz_localize(None)
+    weather = generate_itemid_weather(weather, item_ids=df["item_id"].unique())
 
     forecast_date_range = pd.date_range(
         start=last_date, periods=prediction_length + 1, freq=frequency
     )[1:].tz_localize(None)
-    weather_forecast = weather.loc[forecast_date_range][dynamic_features + cat_features]
+    weather_forecast = weather.loc[forecast_date_range][
+        dynamic_features + cat_features + ["item_id"]
+    ]
 
-    merge = pd.merge(df, weather, left_index=True, right_index=True, how="left")
-
+    index_names = df.index.names
+    df = df.reset_index()
+    merge = pd.merge(df, weather, on=["item_id"] + index_names, how="left")
+    merge = merge.set_index(index_names)
     return merge, weather_forecast
 
 
