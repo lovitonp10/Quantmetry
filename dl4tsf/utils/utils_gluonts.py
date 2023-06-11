@@ -319,36 +319,8 @@ def create_ts_with_features(
         freq=freq,
     )
 
-    df_train = train_val_test_split(
-        part="train",
-        dataset_type=dataset_type,
-        df=df,
-        df_pivot=df_pivot,
-        target=target,
-        name_feats=name_feats,
-        df_static_features=df_static_features,
-        test_length_rows=test_length_rows,
-        prediction_length=prediction_length,
-        df_dynamic_feat_forecast=df_dynamic_feat_forecast,
-    )
-
-    # create train df
-    df_validation = train_val_test_split(
-        part="validation",
-        dataset_type=dataset_type,
-        df=df,
-        df_pivot=df_pivot,
-        target=target,
-        name_feats=name_feats,
-        df_static_features=df_static_features,
-        test_length_rows=test_length_rows,
-        prediction_length=prediction_length,
-        df_dynamic_feat_forecast=df_dynamic_feat_forecast,
-    )
-
-    # create test df
-    df_test = train_val_test_split(
-        part="test",
+    logging.info("Create train/val/test dfs")
+    train, val, test = train_val_test_split(
         dataset_type=dataset_type,
         df=df,
         df_pivot=df_pivot,
@@ -363,9 +335,9 @@ def create_ts_with_features(
     if dataset_type == "gluonts":
         # gluonts dataset format
         dataset = gluonts_format(
-            df_train=df_train,
-            df_validation=df_validation,
-            df_test=df_test,
+            df_train=train,
+            df_validation=val,
+            df_test=test,
             name_feats=name_feats,
             static_cardinality=static_cardinality,
             dynamic_cardinality=dynamic_cardinality,
@@ -375,9 +347,9 @@ def create_ts_with_features(
 
     elif dataset_type == "hugging_face":
         dataset = hugging_face_format(
-            df_train=df_train,
-            df_validation=df_validation,
-            df_test=df_test,
+            df_train=train,
+            df_validation=val,
+            df_test=test,
             freq=freq,
         )
 
@@ -597,7 +569,6 @@ def pivot_df(
 
 
 def train_val_test_split(
-    part: str,
     dataset_type: str,
     df: pd.DataFrame,
     df_pivot: pd.DataFrame,
@@ -613,8 +584,6 @@ def train_val_test_split(
 
     Parameters
     ----------
-    part : str
-        The part of the data to split ("train", "validation", "test").
     dataset_type : str
         The type of dataset being created ("gluonts", "hugging_face").
     df : pd.DataFrame
@@ -641,91 +610,93 @@ def train_val_test_split(
 
     """
 
-    dynamic_real = name_feats.feat_dynamic_real
-    static_cat = name_feats.feat_static_cat
-    static_real = name_feats.feat_static_real
-    past_dynamic_real = name_feats.past_feat_dynamic_real
-    dynamic_cat = name_feats.feat_dynamic_cat
-
-    if part == "train":
-        df_pivot = df_pivot[: -test_length_rows * 2]
-        df_feat_dynamic_real = df_pivot[dynamic_real]
-        df_feat_dynamic_cat = df_pivot[dynamic_cat]
-        target = df_pivot[target]
-        df_past_feat_dynamic_real = df_pivot[past_dynamic_real]
-
-    elif part == "validation":
-        df_pivot = df_pivot[:-test_length_rows]
-        df_feat_dynamic_real = df_pivot[dynamic_real]
-        df_feat_dynamic_cat = df_pivot[dynamic_cat]
-        target = df_pivot[target]
-        df_past_feat_dynamic_real = df_pivot[past_dynamic_real]
-
-    elif part == "test" and dataset_type == "hugging_face":
-        df_feat_dynamic_real = pd.concat(
-            [df_pivot[dynamic_real], df_dynamic_feat_forecast[dynamic_real]], axis=0
-        )
-        df_feat_dynamic_cat = pd.concat(
-            [df_pivot[dynamic_cat], df_dynamic_feat_forecast[dynamic_cat]], axis=0
-        )
-        target = df_pivot[target]
-        df_past_feat_dynamic_real = df_pivot[past_dynamic_real]
-
-    elif part == "test" and dataset_type == "gluonts":
-        df_feat_dynamic_real = pd.concat(
-            [df_pivot[dynamic_real], df_dynamic_feat_forecast[dynamic_real]], axis=0
-        )
-        df_feat_dynamic_cat = pd.concat(
-            [df_pivot[dynamic_cat], df_dynamic_feat_forecast[dynamic_cat]], axis=0
-        )
-        target = add_target_forecast(
-            df_pivot=df_pivot,
-            target=target,
-            prediction_length=prediction_length,
-            item_id=df["item_id"],
-        )
-
-        if len(past_dynamic_real) > 0:
-            df_past_feat_dynamic_real = add_past_forecast(
-                df_pivot=df_pivot,
-                past_dynamic_real=past_dynamic_real,
-                prediction_length=prediction_length,
-                item_id=df["item_id"],
-            )
-        else:
-            df_past_feat_dynamic_real = pd.DataFrame()
-
-    data = create_dict_dataset(
-        target=target,
-        df_pivot=df_pivot,
-        df_feat_dynamic_real=df_feat_dynamic_real,
-        dynamic_real=dynamic_real,
-        df_static_features=df_static_features,
-        static_cat=static_cat,
-        static_real=static_real,
-        df_past_feat_dynamic_real=df_past_feat_dynamic_real,
-        past_dynamic_real=past_dynamic_real,
-        df_feat_dynamic_cat=df_feat_dynamic_cat,
-        dynamic_cat=dynamic_cat,
-        df=df,
+    # train
+    df_train = df_pivot[: -test_length_rows * 2].copy()
+    item_ids = df["item_id"].unique()
+    train = create_dict_dataset(
+        target=df_train[target],
+        start_date=df_train.index[0],
+        df_feat_dynamic_real=df_train[name_feats.feat_dynamic_real],
+        df_feat_static_cat=df_static_features[name_feats.feat_static_cat],
+        df_feat_static_real=df_static_features[name_feats.feat_static_real],
+        df_past_feat_dynamic_real=df_train[name_feats.past_feat_dynamic_real],
+        df_feat_dynamic_cat=df_train[name_feats.feat_dynamic_cat],
+        item_ids=item_ids,
     )
 
-    return data
+    # validation
+    df_val = df_pivot[: -test_length_rows * 2].copy()
+    item_ids = df["item_id"].unique()
+    val = create_dict_dataset(
+        target=df_val[target],
+        start_date=df_val.index[0],
+        df_feat_dynamic_real=df_val[name_feats.feat_dynamic_real],
+        df_feat_static_cat=df_static_features[name_feats.feat_static_cat],
+        df_feat_static_real=df_static_features[name_feats.feat_static_real],
+        df_past_feat_dynamic_real=df_val[name_feats.past_feat_dynamic_real],
+        df_feat_dynamic_cat=df_val[name_feats.feat_dynamic_cat],
+        item_ids=item_ids,
+    )
+
+    # test
+    df_test = df_pivot.copy()
+
+    df_feat_dynamic_real = pd.concat(
+        [
+            df_test[name_feats.feat_dynamic_real],
+            df_dynamic_feat_forecast[name_feats.feat_dynamic_real],
+        ],
+        axis=0,
+    )
+    df_feat_dynamic_cat = pd.concat(
+        [
+            df_test[name_feats.feat_dynamic_cat],
+            df_dynamic_feat_forecast[name_feats.feat_dynamic_cat],
+        ],
+        axis=0,
+    )
+
+    df_feat_static_cat = df_static_features[name_feats.feat_static_cat]
+    df_feat_static_real = df_static_features[name_feats.feat_static_real]
+    target = add_target_forecast(
+        df_pivot=df_test,
+        target=target,
+        prediction_length=prediction_length,
+        item_id=df["item_id"],
+        dataset_type=dataset_type,
+    )
+
+    df_past_feat_dynamic_real = add_past_forecast(
+        df_pivot=df_test,
+        past_dynamic_real=name_feats.past_feat_dynamic_real,
+        prediction_length=prediction_length,
+        item_id=df["item_id"],
+        dataset_type=dataset_type,
+    )
+
+    test = create_dict_dataset(
+        target=target,
+        start_date=df_test.index[0],
+        df_feat_dynamic_real=df_feat_dynamic_real,
+        df_feat_static_cat=df_feat_static_cat,
+        df_feat_static_real=df_feat_static_real,
+        df_past_feat_dynamic_real=df_past_feat_dynamic_real,
+        df_feat_dynamic_cat=df_feat_dynamic_cat,
+        item_ids=df["item_id"].unique(),
+    )
+
+    return train, val, test
 
 
 def create_dict_dataset(
     target: str,
-    df_pivot: pd.DataFrame,
+    start_date: Any,
     df_feat_dynamic_real: pd.DataFrame,
-    dynamic_real: List[str],
-    df_static_features: pd.DataFrame,
-    static_cat: List[str],
-    static_real: List[str],
+    df_feat_static_real: pd.DataFrame,
+    df_feat_static_cat: pd.DataFrame,
     df_past_feat_dynamic_real: pd.DataFrame,
-    past_dynamic_real: List[str],
     df_feat_dynamic_cat: pd.DataFrame,
-    dynamic_cat: List[str],
-    df: pd.DataFrame,
+    item_ids: List[int],
 ) -> List[Dict[str, Any]]:
     """
     Create a dictionary-based dataset for time series forecasting.
@@ -734,28 +705,20 @@ def create_dict_dataset(
     ----------
     target : str
         The name of the target variable column.
-    df_pivot : pd.DataFrame
-        The pivot DataFrame containing the transformed time series data.
+    start_date : Datetime
+        the first starting date.
     df_feat_dynamic_real : pd.DataFrame
         The DataFrame containing dynamic real-valued features.
-    dynamic_real : List[str]
-        A list of names of columns containing dynamic real-valued features.
-    df_static_features : pd.DataFrame
-        The DataFrame containing static features.
-    static_cat : List[str]
-        A list of names of columns containing static categorical features.
-    static_real : List[str]
-        A list of names of columns containing static real-valued features.
+    df_feat_static_real : pd.DataFrame
+        The DataFrame containing static real features.
+    df_feat_static_cat : pd.DataFrame
+        The DataFrame containing static categorical features.
     df_past_feat_dynamic_real : pd.DataFrame
         The DataFrame containing past values of dynamic real-valued features.
-    past_dynamic_real : List[str]
-        A list of names of columns containing past values of dynamic real-valued features.
     df_feat_dynamic_cat : pd.DataFrame
         The DataFrame containing dynamic categorical features.
-    dynamic_cat : List[str]
-        A list of names of columns containing dynamic categorical features.
-    df : pd.DataFrame
-        The input DataFrame containing the time series data.
+    item_ids : pd.DataFrame
+        The input DataFrame containing the item_ids.
 
     Returns
     -------
@@ -766,58 +729,60 @@ def create_dict_dataset(
     data = [
         {
             "target": np.array(target[i].to_list()),
-            "start": df_pivot.index[0],
+            "start": start_date,
             **(
                 {
                     "feat_dynamic_real": np.array(
                         [
-                            df_feat_dynamic_real[dynamic_real[j]][i].to_list()
-                            for j in range(len(dynamic_real))
+                            df_feat_dynamic_real[feat][i].to_list()
+                            for feat in df_feat_dynamic_real.columns.get_level_values(0).unique()
                         ]
                     )
                 }
-                if len(dynamic_real) != 0
+                if len(df_feat_dynamic_real.columns) != 0
                 else {}
             ),
             **(
-                {"feat_static_cat": np.array(df_static_features[static_cat])[i]}
-                if len(static_cat) != 0
+                {"feat_static_cat": np.array(df_feat_static_cat)[i]}
+                if len(df_feat_static_cat.columns) != 0
                 else {}
             ),
             **(
                 {
-                    "feat_static_real": np.array(df_static_features[static_real])[i]
+                    "feat_static_real": np.array(df_feat_static_real)[i]
                 }  # np.array(df[df["item_id"] == i][static_real].iloc[0])}
-                if len(static_real) != 0
+                if len(df_feat_static_real.columns) != 0
                 else {}
             ),
             **(
                 {
                     "past_feat_dynamic_real": np.array(
                         [
-                            df_past_feat_dynamic_real[past_dynamic_real[j]][i].to_list()
-                            for j in range(len(past_dynamic_real))
+                            df_past_feat_dynamic_real[feat][i].to_list()
+                            for feat in df_past_feat_dynamic_real.columns.get_level_values(
+                                0
+                            ).unique()
                         ]
                     )
                 }
-                if len(past_dynamic_real) != 0
+                if len(df_past_feat_dynamic_real.columns) != 0
                 else {}
             ),
             **(
                 {
                     "feat_dynamic_cat": np.array(
                         [
-                            df_feat_dynamic_cat[dynamic_cat[j]][i].to_list()
-                            for j in range(len(dynamic_cat))
+                            df_feat_dynamic_cat[feat][i].to_list()
+                            for feat in df_feat_dynamic_cat.columns.get_level_values(0).unique()
                         ]
                     )
                 }
-                if len(dynamic_cat) != 0
+                if len(df_feat_dynamic_cat.columns) != 0
                 else {}
             ),
             "item_id": str(i),
         }
-        for i in df["item_id"].unique()
+        for i in item_ids
     ]
 
     return data
@@ -874,6 +839,7 @@ def add_target_forecast(
     target: str,
     prediction_length: int,
     item_id: pd.Series,
+    dataset_type: str,
 ) -> pd.DataFrame:
     """Add 0 to target for prediction length forecast.
 
@@ -893,20 +859,22 @@ def add_target_forecast(
     DataFrame
         The DataFrame with the added 0 to target.
     """
+    if dataset_type == "hugging_face":
+        return df_pivot[target]
+    elif dataset_type == "gluonts":
+        target_forecast = pd.DataFrame()
+        num_item_id = len(item_id.unique())
+        for feat in [target]:
+            index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
+            target_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
+            target_data = pd.DataFrame(
+                np.zeros((prediction_length, df_pivot[feat].shape[1])), columns=index
+            )
+            target_forecast = pd.concat([target_forecast, target_data], axis=1)
 
-    target_forecast = pd.DataFrame()
-    num_item_id = len(item_id.unique())
-    for feat in [target]:
-        index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
-        target_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
-        target_data = pd.DataFrame(
-            np.zeros((prediction_length, df_pivot[feat].shape[1])), columns=index
-        )
-        target_forecast = pd.concat([target_forecast, target_data], axis=1)
+        target = pd.concat([df_pivot[target], target_forecast], axis=0)
 
-    target = pd.concat([df_pivot[target], target_forecast], axis=0)
-
-    return target
+        return target
 
 
 def add_past_forecast(
@@ -914,6 +882,7 @@ def add_past_forecast(
     past_dynamic_real: List[str],
     prediction_length: int,
     item_id: pd.Series,
+    dataset_type: str,
 ) -> pd.DataFrame:
     """Add 0 to past_dynamic_real for prediction length forecast.
 
@@ -939,17 +908,21 @@ def add_past_forecast(
     DataFrame
         The DataFrame with the added 0 to past_dynamic_real.
     """
+    if len(past_dynamic_real) == 0:
+        return pd.DataFrame
+    if dataset_type == "hugging_face":
+        return df_pivot[past_dynamic_real]
+    elif dataset_type == "gluonts":
+        target_forecast = pd.DataFrame()
+        num_item_id = len(item_id.unique())
+        for feat in past_dynamic_real:
+            index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
+            past_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
+            past_data = pd.DataFrame(
+                np.zeros((prediction_length, df_pivot[feat].shape[1])), columns=index
+            )
+            past_forecast = pd.concat([target_forecast, past_data], axis=1)
 
-    target_forecast = pd.DataFrame()
-    num_item_id = len(item_id.unique())
-    for feat in past_dynamic_real:
-        index = pd.MultiIndex.from_tuples([(feat, i) for i in range(num_item_id)])
-        past_data = np.array(list(repeat(df_pivot[feat], num_item_id))).T
-        past_data = pd.DataFrame(
-            np.zeros((prediction_length, df_pivot[feat].shape[1])), columns=index
-        )
-        past_forecast = pd.concat([target_forecast, past_data], axis=1)
+        df_past_feat_dynamic_real = pd.concat([df_pivot[past_dynamic_real], past_forecast], axis=0)
 
-    df_past_feat_dynamic_real = pd.concat([df_pivot[past_dynamic_real], past_forecast], axis=0)
-
-    return df_past_feat_dynamic_real
+        return df_past_feat_dynamic_real
