@@ -158,7 +158,9 @@ def aifluence_public_histo_vrf(
     aifluence.load_validations()
 
     logger.info("Preprocess Data")
-    df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
+    df_aifluence = aifluence.get_preprocessed_data(
+        p_data_station=p_data_station, start_date=start_date, end_date=end_date
+    )
 
     df_aifluence["item_id"] = generate_item_ids_static_features(
         df=df_aifluence, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
@@ -169,13 +171,6 @@ def aifluence_public_histo_vrf(
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
         # left_index=True, right_index=True, how="left")
-
-    df_rename = df_aifluence.rename_axis("DATE")
-    df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
-    df_aifluence = df_aifluence.rename_axis(None)
-    df_aifluence = aifluence.cut_start_end_ts(df_aifluence, start=start_date, end=end_date)
-
-    if weather:
         return df_aifluence, df_forecast
 
     return df_aifluence, None
