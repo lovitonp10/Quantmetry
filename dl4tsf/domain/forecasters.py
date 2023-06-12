@@ -172,7 +172,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = super().train(training_data=input_data)
 
     def predict(
-        self, test_dataset: gluontsPandasDataset, validation
+        self, test_dataset: gluontsPandasDataset, validation=True
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
         forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_dataset, predictor=self.model
@@ -204,10 +204,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
 
     def evaluate(
         self,
-        input_data: gluontsPandasDataset,
+        test_dataset: gluontsPandasDataset,
         mean: bool = False,
     ) -> Dict[str, Any]:
-        true_ts, forecasts = self.predict(input_data)
+        true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
             "mae": domain.metrics.estimate_mae(
                 forecasts, true_ts, self.model_config.prediction_length
@@ -238,7 +238,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             for name, value in agg_metrics.items():
                 agg_metrics[name] = np.mean(value)
 
-        return agg_metrics
+        return agg_metrics, true_ts, forecasts
 
     def create_transformation(self) -> Transformation:
         remove_field_names = []
@@ -533,8 +533,8 @@ class InformerForecaster(Forecaster):
                 optimizer.step()
 
                 self.loss_history.append(loss.item())
-                if idx % 100 == 0:
-                    print(loss.item())
+                # if idx % 100 == 0:
+                # print(loss.item())
 
     def predict(
         self,
@@ -604,7 +604,7 @@ class InformerForecaster(Forecaster):
         self, test_dataset: List[Dict[str, Any]], forecasts=[]
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
-            _, forecasts = self.predict(test_dataset, transform_df=False)
+            true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
         smape_metric = evaluate.load("evaluate-metric/smape")
@@ -631,4 +631,19 @@ class InformerForecaster(Forecaster):
         metrics = {}
         metrics["smape"] = smape_metrics
         metrics["mase"] = mase_metrics
-        return metrics
+
+        df_ts = pd.DataFrame(true_ts.T)
+        forecasts_df = {}
+
+        for i, forecast in enumerate(forecasts):
+            forecasts_df[i] = utils_gluonts.sample_df(
+                forecast,
+                periods=forecast.shape[1],
+                start_date=test_dataset[0]["start"],
+                freq=self.freq,
+                ts_length=len(test_dataset[0]["target"]),
+                pred_length=self.model_config.prediction_length,
+                validation=True,
+            )
+
+        return metrics, df_ts, forecasts_df
