@@ -533,8 +533,8 @@ class InformerForecaster(Forecaster):
                 optimizer.step()
 
                 self.loss_history.append(loss.item())
-                if idx % 100 == 0:
-                    print(loss.item())
+                # if idx % 100 == 0:
+                # print(loss.item())
 
     def predict(
         self,

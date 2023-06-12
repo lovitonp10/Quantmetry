@@ -91,40 +91,6 @@ def enedis(
 
     logger.info("Preprocess Data")
     df_enedis = df_enedis.get_preprocessed_data()
-    list_csv = glob.glob(path + "*.csv")
-    df_enedis = pd.DataFrame()
-    for file in list_csv:
-        df_tmp = pd.read_csv(file)
-        df_enedis = pd.concat([df_enedis, df_tmp], axis=0)
-    df_enedis.rename(
-        columns={
-            "horodate": "date",
-            "nb_points_soutirage": "soutirage",
-            "total_energie_soutiree_wh": target,
-            "plage_de_puissance_souscrite": "power",
-        },
-        inplace=True,
-    )
-
-    df_enedis = df_enedis.sort_values(by=["region", "profil", "power", "date"])
-    df_enedis.index = pd.to_datetime(df_enedis.date)
-    df_enedis = df_enedis[["region", "profil", "power", target, "soutirage"]]
-
-    df_na = df_enedis[df_enedis.total_energy.isna()]
-    groups_with_nan = (
-        df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any()).index.tolist()
-    )
-    df_enedis = df_enedis[
-        ~df_enedis.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
-    ]
-
-    df_enedis["power_min"] = df_enedis["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
-    df_enedis["power_max"] = (
-        df_enedis["power"]
-        .str.extract(r"\-(\d+)]")
-        .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
-        .astype(int)
-    )
 
     if weather:
         df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length)
