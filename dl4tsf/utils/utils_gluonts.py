@@ -157,53 +157,6 @@ def get_ts_length(df_pandas: pd.DataFrame) -> int:
     return ts_length
 
 
-def transform_huggingface_to_pandas(gluonts_dataset: pd.DataFrame, freq: str):
-    """Transforms a HuggingFace dataset to a pandas DataFrame.
-
-    Parameters
-    ----------
-    gluonts_dataset : pd.DataFrame
-        HuggingFace dataset to be transformed.
-    freq : str
-        Frequency string representing the frequency of the time series.
-
-    Returns
-    -------
-    pd.DataFrame
-        Transformed pandas DataFrame.
-    """
-    df_pandas = pd.DataFrame()
-    periods = len(gluonts_dataset[0]["target"])
-    i = 0
-
-    for item in list(gluonts_dataset)[:10]:
-        print(i)
-        i = i + 1
-        df_tmp = pd.DataFrame()
-
-        df_tmp["target"] = item["target"]
-        df_tmp["date"] = pd.date_range(
-            start=item["start"].to_timestamp(), periods=periods, freq=freq
-        )
-        df_tmp["item_id"] = item["item_id"]
-
-        if "feat_static_cat" in gluonts_dataset.features:
-            df_tmp["feat_static_cat"] = (
-                item["feat_static_cat"][0]
-                if isinstance(item["feat_static_cat"], list) and len(item["feat_static_cat"]) == 1
-                else item["feat_static_cat"]
-            )
-        if "feat_dynamic_real" in gluonts_dataset.features:
-            df_tmp["feat_dynamic_real"] = (
-                item["feat_dynamic_real"][0]
-                if isinstance(item["feat_dynamic_real"], list)
-                and len(item["feat_dynamic_real"]) == 1
-                else item["feat_dynamic_real"]
-            )
-        df_pandas = pd.concat([df_pandas, df_tmp], axis=0)
-    return df_pandas
-
-
 def transform_huggingface_to_dict(dataset: pd.DataFrame, freq: str):
     """Transforms a HuggingFace dataset to a list of pandas DataFrames.
 
@@ -535,6 +488,8 @@ def pivot_df(
         DataFrame containing the data.
     cols: List[str]
         List of columns to be pivoted
+    index_col: str
+        column name of the index
     freq : str
         The frequency to which the DataFrame should be resampled (e.g., '1H', '1D').
 
@@ -640,7 +595,6 @@ def train_val_test_split(
 
     # test
     df_test = df_pivot.copy()
-
     df_feat_dynamic_real = pd.concat(
         [
             df_test[name_feats.feat_dynamic_real],
