@@ -31,14 +31,16 @@ def main(cfgHydra: DictConfig):
     )  # cfgHydra["_paths"]["mlflow"]["tracking_uri"])
     mlflow.set_experiment("test_1")  # cfgHydra["_paths"]["mlflow"]["experiment_name"])
 
-    mlflow.start_run()
+    """mlflow.start_run()
     for pipeline_name in list(cfgHydra.keys())[:-1]:
         with mlflow.start_run(nested=True, run_name=pipeline_name + "_yaml"):
-            logging_mlflow.log_params_from_omegaconf_dict(cfgHydra[pipeline_name])
+            logging_mlflow.log_params_from_omegaconf_dict(cfgHydra[pipeline_name])"""
 
     with mlflow.start_run(nested=True, run_name="train"):
         mlflow.log_param("hydra_output_dir", hydra_output_dir)
         logging_mlflow.log_params_from_omegaconf_dict(cfgHydra["train"])
+        for pipeline_name in list(cfgHydra.keys())[:-1]:
+            logging_mlflow.log_params_from_omegaconf_dict(cfgHydra[pipeline_name])
 
         logging.basicConfig(
             level=logging.INFO,
@@ -89,13 +91,11 @@ def main(cfgHydra: DictConfig):
         #     forecasts=forecast_it,
         # )
 
-    tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
+        tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
-    save_mlflow_model(tracking_url_type_store, forecaster, cfg)
+        save_mlflow_model(tracking_url_type_store, forecaster, cfg)
 
-    last_run = mlflow.last_active_run().info.run_id
-
-    mlflow.end_run()
+        last_run = mlflow.last_active_run().info.run_id
 
     mlflow_model = MLflowModel(last_run)
     mlflow_model.load_mlflow_model()
