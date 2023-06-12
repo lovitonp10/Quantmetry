@@ -78,6 +78,7 @@ def enedis(
     path: str = "data/enedis/",
     target: str = "total_energy",
     prediction_length: int = 7,
+    freq: str = "30T",
     name_feats: Dict[str, List[str]] = None,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
@@ -98,7 +99,7 @@ def enedis(
     )
 
     if weather:
-        df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length)
+        df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length, freq)
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
         # left_index=True, right_index=True, how="left")
@@ -114,9 +115,12 @@ def enedis(
 def aifluence_public_histo_vrf(
     path: str = "data/idf_mobilites/",
     target: str = "VALD_TOTAL",
+    prediction_length: int = 7,
+    freq: str = "30T",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     p_data_station: float = 0.9,
+    name_feats: Dict[str, List[str]] = None,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
@@ -156,15 +160,25 @@ def aifluence_public_histo_vrf(
     logger.info("Preprocess Data")
     df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
 
+    df_aifluence["item_id"] = generate_item_ids_static_features(
+        df=df_aifluence, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+    )
+
     if weather:
-        df_aifluence = add_weather(df_aifluence, weather)
+        df_aifluence, df_forecast = add_weather(df_aifluence, weather, prediction_length, freq)
+        # If you have dynamic_feat (known in the future):
+        # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
+        # left_index=True, right_index=True, how="left")
 
     df_rename = df_aifluence.rename_axis("DATE")
     df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
     df_aifluence = df_aifluence.rename_axis(None)
     df_aifluence = aifluence.cut_start_end_ts(df_aifluence, start=start_date, end=end_date)
 
-    return df_aifluence
+    if weather:
+        return df_aifluence, df_forecast
+
+    return df_aifluence, None
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:

@@ -101,6 +101,7 @@ def add_weather(
         "station_name": "ORLY",
     },
     prediction_length: int = 7,
+    frequency: str = "30T",
 ) -> pd.DataFrame:
     path_weather = weather["path_weather"]
     dynamic_features = weather["dynamic_features"]
@@ -115,7 +116,7 @@ def add_weather(
     first_date_str = first_date.strftime("%d-%m-%Y")
     last_date_str = last_date.strftime("%d-%m-%Y")
 
-    frequency = pd.infer_freq(sorted_dates)
+    # frequency = pd.infer_freq(sorted_dates)
 
     forecast_days = count_days_for_pred(freq=frequency, pred_length=prediction_length)
 
@@ -144,10 +145,13 @@ def add_weather(
     ]
 
     index_names = df.index.names
+    weather.index.names = index_names
     df = df.reset_index()
-    merge = pd.merge(df, weather, on=["item_id"] + index_names, how="left")
-    merge = merge.set_index(index_names)
-    return merge, weather_forecast
+    weather = weather.reset_index()
+
+    df_merge = pd.merge(df, weather, on=["item_id"] + index_names, how="left")
+    df_merge = df_merge.set_index(index_names)
+    return df_merge, weather_forecast
 
 
 def count_days_for_pred(freq, pred_length):

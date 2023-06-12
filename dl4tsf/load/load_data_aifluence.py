@@ -151,7 +151,7 @@ class Aifluence:
 
         select_station = group_station[group_station < n_data_station].index
         df_aifluence = df_aifluence[~df_aifluence["STATION"].isin(select_station)]
-        df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum()
+        df_resampled = df_aifluence.groupby(["STATION"]).resample("1D").sum()
         df_aifluence = df_resampled.reset_index(level="STATION")
 
         return df_aifluence
