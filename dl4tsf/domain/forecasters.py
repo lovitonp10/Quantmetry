@@ -235,16 +235,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
 
-        for name, values in agg_metrics.items():
-            if mean:
+        if mean:
+            for name, values in agg_metrics.items():
                 agg_metrics[name] = np.mean(values)
-                self.logger.log_metrics({name: agg_metrics[name]})
-            else:
-                agg_metrics[name] = values
-                step = 0
-                for value in values:
-                    self.logger.log_metrics({name: value}, step=step)
-                    step += 1
 
         return agg_metrics, true_ts, forecasts
 
@@ -557,6 +550,7 @@ class InformerForecaster(Forecaster):
             self.writer.add_scalar("train_loss", loss.item(), global_step)
             # writer.add_scalar("Accuracy", accuracy.item(), global_step)
             global_step += 1
+        self.writer.close()
 
     def predict(
         self,
@@ -633,7 +627,6 @@ class InformerForecaster(Forecaster):
         mase_metrics = []
         smape_metrics = []
 
-        global_step = 0
         for item_id, ts in enumerate(test_dataset):
             training_data = ts["target"][: -self.model_config.prediction_length]
             ground_truth = ts["target"][-self.model_config.prediction_length :]
@@ -650,12 +643,6 @@ class InformerForecaster(Forecaster):
                 references=np.array(ground_truth),
             )
             smape_metrics.append(smape["smape"])
-
-            self.writer.add_scalar("mase", mase["mase"], global_step=global_step)
-            self.writer.add_scalar("smape", smape["smape"], global_step=global_step)
-            global_step += 1
-
-        self.writer.close()
 
         metrics = {}
         metrics["smape"] = smape_metrics
