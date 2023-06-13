@@ -8,9 +8,10 @@ from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
 from load.load_exo_data import add_weather
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import logging
 from load.load_data_enedis import Enedis
+from utils.utils_gluonts import generate_item_ids_static_features
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,8 @@ def enedis(
     path: str = "data/enedis/",
     target: str = "total_energy",
     prediction_length: int = 7,
+    freq: str = "30T",
+    name_feats: Dict[str, List[str]] = None,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
@@ -84,16 +87,19 @@ def enedis(
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
-
     logger.info("Loading Data")
-    df_enedis = Enedis(path, target)
-    df_enedis.load_data()
+    enedis = Enedis(path, target)
+    enedis.load_data()
 
     logger.info("Preprocess Data")
-    df_enedis = df_enedis.get_preprocessed_data()
+    df_enedis = enedis.get_preprocessed_data()
+
+    df_enedis["item_id"] = generate_item_ids_static_features(
+        df=df_enedis, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+    )
 
     if weather:
-        df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length)
+        df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length, freq)
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
         # left_index=True, right_index=True, how="left")
@@ -109,9 +115,12 @@ def enedis(
 def aifluence_public_histo_vrf(
     path: str = "data/idf_mobilites/",
     target: str = "VALD_TOTAL",
+    prediction_length: int = 7,
+    freq: str = "30T",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     p_data_station: float = 0.9,
+    name_feats: Dict[str, List[str]] = None,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
@@ -149,17 +158,22 @@ def aifluence_public_histo_vrf(
     aifluence.load_validations()
 
     logger.info("Preprocess Data")
-    df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
+    df_aifluence = aifluence.get_preprocessed_data(
+        p_data_station=p_data_station, start_date=start_date, end_date=end_date
+    )
+
+    df_aifluence["item_id"] = generate_item_ids_static_features(
+        df=df_aifluence, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+    )
 
     if weather:
-        df_aifluence = add_weather(df_aifluence, weather)
+        df_aifluence, df_forecast = add_weather(df_aifluence, weather, prediction_length, freq)
+        # If you have dynamic_feat (known in the future):
+        # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
+        # left_index=True, right_index=True, how="left")
+        return df_aifluence, df_forecast
 
-    df_rename = df_aifluence.rename_axis("DATE")
-    df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
-    df_aifluence = df_aifluence.rename_axis(None)
-    df_aifluence = aifluence.cut_start_end_ts(df_aifluence, start=start_date, end=end_date)
-
-    return df_aifluence
+    return df_aifluence, None
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:

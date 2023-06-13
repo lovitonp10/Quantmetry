@@ -32,7 +32,8 @@ class Enedis:
         return df
 
     def change_columns_name(self, df: pd.DataFrame) -> pd.DataFrame:
-        df.rename(
+        df_out = df.copy()
+        df_out.rename(
             columns={
                 "horodate": "date",
                 "nb_points_soutirage": "soutirage",
@@ -41,26 +42,33 @@ class Enedis:
             },
             inplace=True,
         )
-        return df
+        return df_out
 
     def filter_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.sort_values(by=["region", "profil", "power", "date"])
-        df.index = pd.to_datetime(df.date)
-        df = df[["region", "profil", "power", self.target, "soutirage"]]
-        df_na = df[df.total_energy.isna()]
-        groups_with_nan = (
-            df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any()).index.tolist()
+        df_out = df.sort_values(by=["region", "profil", "power", "date"]).copy()
+        df_out["date"] = pd.to_datetime(df_out["date"])
+        df_out = df_out.set_index("date")
+        # df = df[["region", "profil", "power", self.target, "soutirage"]]
+        df_na = df_out[df_out.total_energy.isna()]
+        groups_with_nan = list(
+            df_na[["region", "profil", "power"]]
+            .drop_duplicates()
+            .itertuples(index=False, name=None)
         )
-        df = df[~df.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)]
-        return df
+
+        df_out = df_out[
+            ~df_out.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
+        ]
+        return df_out
 
     def add_power_values(self, df: pd.DataFrame) -> pd.DataFrame:
-        df["power_min"] = df["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
-        df["power_max"] = (
-            df["power"]
+        df_out = df.copy()
+        df_out["power_min"] = df_out["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
+        df_out["power_max"] = (
+            df_out["power"]
             .str.extract(r"\-(\d+)]")
-            .fillna(df["power"].str.extract(r"<= (\d+)"))
+            .fillna(df_out["power"].str.extract(r"<= (\d+)"))
             .astype(int)
         )
 
-        return df
+        return df_out
