@@ -121,13 +121,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         PyTorchLightningEstimator.__init__(self, trainer_kwargs=trainer_kwargs)
 
         self.freq = self.cfg_dataset.freq
-        self.num_feat_dynamic_real = len(self.cfg_dataset.name_feats["feat_dynamic_real"])
-        self.num_feat_static_cat = len(self.cfg_dataset.name_feats["feat_static_cat"])
-        self.num_feat_static_real = len(self.cfg_dataset.name_feats["feat_static_real"])
-        self.num_past_feat_dynamic_real = len(
-            self.cfg_dataset.name_feats["past_feat_dynamic_real"]
-        )
-        self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats["feat_dynamic_cat"])
+        self.num_feat_dynamic_real = len(self.cfg_dataset.name_feats.feat_dynamic_real)
+        self.num_feat_static_cat = len(self.cfg_dataset.name_feats.feat_static_cat)
+        self.num_feat_static_real = len(self.cfg_dataset.name_feats.feat_static_real)
+        self.num_past_feat_dynamic_real = len(self.cfg_dataset.name_feats.past_feat_dynamic_real)
+        self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats.feat_dynamic_cat)
 
         self.model_config.context_length = (
             self.model_config.context_length
@@ -174,7 +172,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.model = super().train(training_data=input_data)
 
     def predict(
-        self, test_dataset: gluontsPandasDataset
+        self, test_dataset: gluontsPandasDataset, validation=True
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
         forecast_it, ts_it = make_evaluation_predictions(
             dataset=test_dataset, predictor=self.model
@@ -187,21 +185,29 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                     periods=forecast.samples.shape[1],
                     start_date=forecast.start_date,
                     freq=forecast.freq,
-                    ts_length=0,
-                    pred_length=0,
+                    ts_length=0,  # forecast.samples.shape[1],
+                    pred_length=0,  # forecast.samples.shape[1],
+                    validation=validation,
                 )
             )
-        return list(ts_it), forecasts_df
+        if validation is False:
+            list_it = []
+            for ls in list(ts_it):
+                list_it.append(ls[: -self.model_config.prediction_length])
+        else:
+            list_it = list(ts_it)
+
+        return list_it, forecasts_df
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.callback.metrics["loss"][f"{type}_loss"]
 
     def evaluate(
         self,
-        input_data: gluontsPandasDataset,
+        test_dataset: gluontsPandasDataset,
         mean: bool = False,
     ) -> Dict[str, Any]:
-        true_ts, forecasts = self.predict(input_data)
+        true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
             "mae": domain.metrics.estimate_mae(
                 forecasts, true_ts, self.model_config.prediction_length
@@ -232,7 +238,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             for name, value in agg_metrics.items():
                 agg_metrics[name] = np.mean(value)
 
-        return agg_metrics
+        return agg_metrics, true_ts, forecasts
 
     def create_transformation(self) -> Transformation:
         remove_field_names = []
@@ -436,12 +442,10 @@ class InformerForecaster(Forecaster):
         self.model_config_informer = CustomInformerConfig(
             num_time_features=len(time_features) + 1,
             cardinality=self.model_config.static_cardinality,
-            num_dynamic_real_features=len(self.cfg_dataset.name_feats["feat_dynamic_real"]),
-            num_static_categorical_features=len(self.cfg_dataset.name_feats["feat_static_cat"]),
-            num_static_real_features=len(self.cfg_dataset.name_feats["feat_static_real"]),
-            num_past_dynamic_real_features=len(
-                self.cfg_dataset.name_feats["past_feat_dynamic_real"]
-            ),
+            num_dynamic_real_features=len(self.cfg_dataset.name_feats.feat_dynamic_real),
+            num_static_categorical_features=len(self.cfg_dataset.name_feats.feat_static_cat),
+            num_static_real_features=len(self.cfg_dataset.name_feats.feat_static_real),
+            num_past_dynamic_real_features=len(self.cfg_dataset.name_feats.past_feat_dynamic_real),
             **self.model_config.dict(),
         )
         if self.from_pretrained:
@@ -460,20 +464,22 @@ class InformerForecaster(Forecaster):
             num_workers=2,
         )
 
-    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]]):
+    def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
         logging.info("Create test dataloader")
-        self.test_dataloader = create_test_dataloader(
-            config=self.model_config_informer,
-            freq=self.freq,
-            data=test_dataset,
-            batch_size=self.cfg_train.batch_size_test,
-        )
-        self.test_dataloader = create_validation_dataloader(
-            config=self.model_config_informer,
-            freq=self.freq,
-            data=test_dataset,
-            batch_size=self.cfg_train.batch_size_test,
-        )
+        if validation is True:
+            self.test_dataloader = create_validation_dataloader(
+                config=self.model_config_informer,
+                freq=self.freq,
+                data=test_dataset,
+                batch_size=self.cfg_train.batch_size_test,
+            )
+        else:
+            self.test_dataloader = create_test_dataloader(
+                config=self.model_config_informer,
+                freq=self.freq,
+                data=test_dataset,
+                batch_size=self.cfg_train.batch_size_test,
+            )
 
     def train(self, input_data: List[Dict[str, Any]]):
         if self.from_pretrained:
@@ -527,13 +533,16 @@ class InformerForecaster(Forecaster):
                 optimizer.step()
 
                 self.loss_history.append(loss.item())
-                if idx % 100 == 0:
-                    print(loss.item())
+                # if idx % 100 == 0:
+                # print(loss.item())
 
     def predict(
-        self, test_dataset: List[Dict[str, Any]], transform_df=True
+        self,
+        test_dataset: List[Dict[str, Any]],
+        transform_df=True,
+        validation=True,
     ) -> Tuple[List[pd.Series], List[pd.Series]]:
-        self.get_test_dataloader(test_dataset)
+        self.get_test_dataloader(test_dataset, validation)
         accelerator = Accelerator()
         device = accelerator.device
 
@@ -583,6 +592,7 @@ class InformerForecaster(Forecaster):
                 freq=self.freq,
                 ts_length=len(test_dataset[0]["target"]),
                 pred_length=self.model_config.prediction_length,
+                validation=validation,
             )
 
         return df_ts, forecasts_df
@@ -594,7 +604,7 @@ class InformerForecaster(Forecaster):
         self, test_dataset: List[Dict[str, Any]], forecasts=[]
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
-            _, forecasts = self.predict(test_dataset, transform_df=False)
+            true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
         smape_metric = evaluate.load("evaluate-metric/smape")
@@ -621,4 +631,19 @@ class InformerForecaster(Forecaster):
         metrics = {}
         metrics["smape"] = smape_metrics
         metrics["mase"] = mase_metrics
-        return metrics
+
+        df_ts = pd.DataFrame(true_ts.T)
+        forecasts_df = {}
+
+        for i, forecast in enumerate(forecasts):
+            forecasts_df[i] = utils_gluonts.sample_df(
+                forecast,
+                periods=forecast.shape[1],
+                start_date=test_dataset[0]["start"],
+                freq=self.freq,
+                ts_length=len(test_dataset[0]["target"]),
+                pred_length=self.model_config.prediction_length,
+                validation=True,
+            )
+
+        return metrics, df_ts, forecasts_df

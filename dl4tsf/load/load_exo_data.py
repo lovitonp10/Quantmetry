@@ -2,15 +2,14 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 from dateutil import relativedelta
-from typing import Dict
+from typing import Dict, List
+import math
 
 
 def get_station_id(path_weather: str = "data/all_weather/", name: str = "ORLY") -> int:
     df_stations = pd.read_csv(path_weather + "stations.txt", sep=";")
     dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
     id_station = dict_stations[name]
-    # id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
-
     return id_station
 
 
@@ -24,9 +23,6 @@ def load_weather(
     freq: str = "30T",
 ) -> pd.DataFrame:
     station = get_station_id(path_weather=path_weather, name=station_name)
-
-    start = datetime.strptime(start, "%d-%m-%Y")
-    end = datetime.strptime(end, "%d-%m-%Y") + timedelta(days=1)
 
     start_start_month = start.replace(day=1)
     end_start_month = end.replace(day=1)
@@ -84,6 +80,18 @@ def load_weather(
     return df
 
 
+def generate_itemid_weather(
+    df: pd.DataFrame, item_ids: List, item_col: str = "item_id"
+) -> pd.DataFrame:
+    new_df = pd.DataFrame()
+    for item_id in item_ids:
+        tmp = df.copy()
+        tmp[item_col] = item_id
+        new_df = pd.concat([new_df, tmp])
+        del tmp
+    return new_df
+
+
 def add_weather(
     df: pd.DataFrame,
     weather: Dict[str, any] = {
@@ -92,8 +100,9 @@ def add_weather(
         "cat_features": ["cod_tend"],
         "station_name": "ORLY",
     },
+    prediction_length: int = 7,
+    frequency: str = "30T",
 ) -> pd.DataFrame:
-
     path_weather = weather["path_weather"]
     dynamic_features = weather["dynamic_features"]
     cat_features = weather["cat_features"]
@@ -107,12 +116,17 @@ def add_weather(
     first_date_str = first_date.strftime("%d-%m-%Y")
     last_date_str = last_date.strftime("%d-%m-%Y")
 
-    frequency = pd.infer_freq(sorted_dates)
+    # frequency = pd.infer_freq(sorted_dates)
+
+    forecast_days = count_days_for_pred(freq=frequency, pred_length=prediction_length)
+
+    start = datetime.strptime(first_date_str, "%d-%m-%Y")
+    end = datetime.strptime(last_date_str, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
 
     weather = load_weather(
         path_weather=path_weather,
-        start=first_date_str,
-        end=last_date_str,
+        start=start,
+        end=end,
         dynamic_features=dynamic_features,
         cat_features=cat_features,
         station_name=station_name,
@@ -121,7 +135,29 @@ def add_weather(
 
     df.index = df.index.tz_localize(None)
     weather.index = weather.index.tz_localize(None)
+    weather = generate_itemid_weather(weather, item_ids=df["item_id"].unique())
 
-    merge = pd.merge(df, weather, left_index=True, right_index=True, how="left")
+    forecast_date_range = pd.date_range(
+        start=last_date, periods=prediction_length + 1, freq=frequency
+    )[1:].tz_localize(None)
+    weather_forecast = weather.loc[forecast_date_range][
+        dynamic_features + cat_features + ["item_id"]
+    ]
 
-    return merge
+    index_names = df.index.names
+    weather.index.names = index_names
+    df = df.reset_index()
+    weather = weather.reset_index()
+
+    df_merge = pd.merge(df, weather, on=["item_id"] + index_names, how="left")
+    df_merge = df_merge.set_index(index_names)
+    return df_merge, weather_forecast
+
+
+def count_days_for_pred(freq, pred_length):
+    freq = pd.Timedelta(freq)
+    # Calculer la durée totale en minutes
+    total_minutes = freq.total_seconds() / 60 * pred_length
+    # Calculer le nombre de jours
+    days = math.ceil(total_minutes / (24 * 60))
+    return days
