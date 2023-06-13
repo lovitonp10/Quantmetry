@@ -17,6 +17,8 @@ from mlflow_deploy.utils_mlflow import (
     MLflowModel,
 )
 
+import os
+
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
@@ -26,10 +28,22 @@ def main(cfgHydra: DictConfig):
 
     # print(cfgHydra["dataset"]["enedis"]["dataset_name"])
     hydra_output_dir = hydra.core.hydra_config.HydraConfig.get()["runtime"]["output_dir"]
+
+    azure_logger = "azure.core.pipeline.policies.http_logging_policy"
+    logging.getLogger(azure_logger).setLevel(logging.WARNING)
+    # os.environ["MLFLOW_TRACKING_URI"] ="https://quantmetry-mlflow.azurewebsites.net/"
+    os.environ[
+        "AZURE_STORAGE_CONNECTION_STRING"
+    ] = """DefaultEndpointsProtocol=https;AccountName=qmmlflowblobstorage;
+    AccountKey=9h59gGzrmnn9bDttkR1aJAKlTJOG2BpCkmWT7pBl+ipkv6rn5
+    5TwsC4oIvOWH1JRUKCbVDBs5bogK8hfS/PbKQ==;EndpointSuffix=core.windows.net"""
+
     mlflow.set_tracking_uri(
-        "http://127.0.0.1:5000/"
+        "https://quantmetry-mlflow.azurewebsites.net/"
     )  # cfgHydra["_paths"]["mlflow"]["tracking_uri"])
-    mlflow.set_experiment("test_1")  # cfgHydra["_paths"]["mlflow"]["experiment_name"])
+    # mlflow.set_tracking_uri("http://127.0.0.1:5000/")
+
+    mlflow.set_experiment("test_dl4tsf")  # cfgHydra["_paths"]["mlflow"]["experiment_name"])
 
     """mlflow.start_run()
     for pipeline_name in list(cfgHydra.keys())[:-1]:
