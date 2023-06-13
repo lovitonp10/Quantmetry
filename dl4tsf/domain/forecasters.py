@@ -54,6 +54,7 @@ import evaluate
 
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
+from utils.utils_informer.utils_tensorboard import get_summary_writer
 
 
 PREDICTION_INPUT_NAMES = [
@@ -234,9 +235,16 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
 
-        if mean:
-            for name, value in agg_metrics.items():
-                agg_metrics[name] = np.mean(value)
+        for name, values in agg_metrics.items():
+            if mean:
+                agg_metrics[name] = np.mean(values)
+                self.logger.log_metrics({name: agg_metrics[name]})
+            else:
+                agg_metrics[name] = values
+                step = 0
+                for value in values:
+                    self.logger.log_metrics({name: value}, step=step)
+                    step += 1
 
         return agg_metrics, true_ts, forecasts
 
@@ -437,6 +445,7 @@ class InformerForecaster(Forecaster):
             cfg_dataset=cfg_dataset,
             from_pretrained=from_pretrained,
         )
+
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
         self.model_config_informer = CustomInformerConfig(
@@ -447,6 +456,8 @@ class InformerForecaster(Forecaster):
             num_static_real_features=len(self.cfg_dataset.name_feats.feat_static_real),
             num_past_dynamic_real_features=len(self.cfg_dataset.name_feats.past_feat_dynamic_real),
             **self.model_config.dict(),
+            report_to="tensorboard",
+            output_dir="tensorboard_logs",
         )
         if self.from_pretrained:
             self.model = CustomInformerForPrediction.from_pretrained(self.from_pretrained)
@@ -498,6 +509,14 @@ class InformerForecaster(Forecaster):
         )
 
         self.loss_history = []
+
+        self.writer = get_summary_writer(
+            log_dir="tensorboard_logs",
+            dataset_name=self.cfg_dataset.dataset_name,
+            model_name="Informer",
+        )
+
+        global_step = 0
         self.model.train()
 
         for epoch in range(self.cfg_train.epochs):
@@ -535,6 +554,9 @@ class InformerForecaster(Forecaster):
                 self.loss_history.append(loss.item())
                 # if idx % 100 == 0:
                 # print(loss.item())
+            self.writer.add_scalar("train_loss", loss.item(), global_step)
+            # writer.add_scalar("Accuracy", accuracy.item(), global_step)
+            global_step += 1
 
     def predict(
         self,
@@ -611,6 +633,7 @@ class InformerForecaster(Forecaster):
         mase_metrics = []
         smape_metrics = []
 
+        global_step = 0
         for item_id, ts in enumerate(test_dataset):
             training_data = ts["target"][: -self.model_config.prediction_length]
             ground_truth = ts["target"][-self.model_config.prediction_length :]
@@ -627,6 +650,12 @@ class InformerForecaster(Forecaster):
                 references=np.array(ground_truth),
             )
             smape_metrics.append(smape["smape"])
+
+            self.writer.add_scalar("mase", mase["mase"], global_step=global_step)
+            self.writer.add_scalar("smape", smape["smape"], global_step=global_step)
+            global_step += 1
+
+        self.writer.close()
 
         metrics = {}
         metrics["smape"] = smape_metrics
