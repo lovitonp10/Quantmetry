@@ -7,7 +7,7 @@ from datasets import load_dataset as get_huggingface_dataset
 from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
-from load.load_exo_data import add_weather
+from load.load_exo_data import Weather
 from typing import Dict, Optional
 import logging
 
@@ -34,7 +34,8 @@ def climate(
     df_climate = df_climate[[target]]
 
     if weather:
-        df_climate = add_weather(df_climate, weather)
+        weather_class = Weather()
+        df_climate = weather_class.add_weather(df_climate, weather)
 
     return df_climate
 
@@ -67,7 +68,8 @@ def energy(
     df_energy = df_energy[["region", "consommation"]]
 
     if weather:
-        df_energy = add_weather(df_energy, weather)
+        weather_class = Weather()
+        df_energy = weather_class.add_weather(df_energy, weather)
 
     return df_energy
 
@@ -117,7 +119,8 @@ def enedis(
         .astype(int)
     )
     if weather:
-        df_enedis = add_weather(df_enedis, weather)
+        weather_class = Weather()
+        df_enedis = weather_class.add_weather(df_enedis, weather)
 
     return df_enedis
 
@@ -168,7 +171,8 @@ def aifluence_public_histo_vrf(
     df_aifluence = aifluence.get_preprocessed_data(p_data_station=p_data_station)
 
     if weather:
-        df_aifluence = add_weather(df_aifluence, weather)
+        weather_class = Weather()
+        df_aifluence = weather_class.add_weather(df_aifluence, weather)
 
     df_rename = df_aifluence.rename_axis("DATE")
     df_aifluence = df_rename.sort_values(by=["STATION", "DATE"])
@@ -195,6 +199,7 @@ def huggingface_dataset(
     dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
 
     if weather:
-        dataset = add_weather(dataset, weather)
+        weather_class = Weather()
+        dataset = weather_class.add_weather(dataset, weather)
 
     return dataset

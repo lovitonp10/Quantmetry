@@ -109,7 +109,7 @@ class Aifluence:
         )
         df_in["CATEGORIE_TITRE"] = df_in["CATEGORIE_TITRE"].str.replace(" ", "_")
 
-        df_group = df_in.groupby(indexes).sum()
+        df_group = df_in.groupby(indexes).sum(numeric_only=False)
         df_unstack = df_group.unstack(["CATEGORIE_TITRE"])
         new_columns = df_unstack.columns.map("_".join)
         df_unstack.columns = new_columns
@@ -151,7 +151,7 @@ class Aifluence:
 
         select_station = group_station[group_station < n_data_station].index
         df_aifluence = df_aifluence[~df_aifluence["STATION"].isin(select_station)]
-        df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum()
+        df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum(numeric_only=True)
         df_aifluence = df_resampled.reset_index(level="STATION")
 
         return df_aifluence
