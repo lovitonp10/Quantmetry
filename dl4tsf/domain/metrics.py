@@ -40,7 +40,9 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
     return rmse_metrics
 
 
-def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> list:
+def estimate_mape(
+    forecasts: list, true_ts: list, prediction_length: float, pourcentage: bool
+) -> list:
 
     """
     Compute the MAPE metric:
@@ -51,12 +53,20 @@ def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> l
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        mape_metrics.append(100 * metrics.mape(true_value, forecast_value))
+        if pourcentage:
+            mape_metrics.append(100 * metrics.mape(true_value, forecast_value))
+        else:
+            mape_metrics.append(metrics.mape(true_value, forecast_value))
 
     return mape_metrics
 
 
-def estimate_smape(forecasts: list, true_ts: list, prediction_length: float) -> list:
+def estimate_smape(
+    forecasts: list,
+    true_ts: list,
+    prediction_length: float,
+    pourcentage: bool,
+) -> list:
 
     """
     Compute the SMAPE metric:
@@ -68,12 +78,20 @@ def estimate_smape(forecasts: list, true_ts: list, prediction_length: float) -> 
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        smape_metrics.append(100 * metrics.smape(true_value, forecast_value))
+        if pourcentage:
+            smape_metrics.append(100 * metrics.smape(true_value, forecast_value))
+        else:
+            smape_metrics.append(metrics.smape(true_value, forecast_value))
 
     return smape_metrics
 
 
-def estimate_wmape(forecasts: list, true_ts: list, prediction_length: float) -> list:
+def estimate_wmape(
+    forecasts: list,
+    true_ts: list,
+    prediction_length: float,
+    pourcentage: bool,
+) -> list:
 
     """
     Compute the WMAPE metric:
@@ -84,9 +102,15 @@ def estimate_wmape(forecasts: list, true_ts: list, prediction_length: float) -> 
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        wmape_metrics.append(
-            100 * np.sum(np.abs(true_value - forecast_value)) / np.sum(np.abs(true_value))
-        )
+        if pourcentage:
+            wmape_metrics.append(
+                100 * np.sum(np.abs(true_value - forecast_value)) / np.sum(np.abs(true_value))
+            )
+        else:
+            wmape_metrics.append(
+                np.sum(np.abs(true_value - forecast_value)) / np.sum(np.abs(true_value))
+            )
+
     return wmape_metrics
 
 

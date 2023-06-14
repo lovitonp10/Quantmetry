@@ -207,6 +207,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self,
         test_dataset: gluontsPandasDataset,
         mean: bool = False,
+        pourcentage: bool = False,
     ) -> Dict[str, Any]:
         true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
@@ -217,13 +218,22 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                 forecasts, true_ts, self.model_config.prediction_length
             ),
             "mape": domain.metrics.estimate_mape(
-                forecasts, true_ts, self.model_config.prediction_length
+                forecasts,
+                true_ts,
+                self.model_config.prediction_length,
+                pourcentage,
             ),
             "smape": domain.metrics.estimate_smape(
-                forecasts, true_ts, self.model_config.prediction_length
+                forecasts,
+                true_ts,
+                self.model_config.prediction_length,
+                pourcentage,
             ),
             "wmape": domain.metrics.estimate_wmape(
-                forecasts, true_ts, self.model_config.prediction_length
+                forecasts,
+                true_ts,
+                self.model_config.prediction_length,
+                pourcentage,
             ),
             "mase": domain.metrics.estimate_mase(
                 forecasts, true_ts, self.model_config.prediction_length, self.freq
