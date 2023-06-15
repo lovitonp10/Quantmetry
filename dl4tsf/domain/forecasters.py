@@ -1,19 +1,28 @@
+import logging
 from typing import Any, Dict, Iterable, List, Optional, Tuple
-from gluonts.evaluation import make_evaluation_predictions
+
 import configs
+import domain.metrics
+import evaluate
 import hydra
 import numpy as np
 import pandas as pd
 import torch
-import domain.metrics
+from accelerate import Accelerator
 from domain.lightning_module import TFTLightningModule
 from domain.module import TFTModel
+from domain.transformations import (
+    create_test_dataloader,
+    create_train_dataloader,
+    create_validation_dataloader,
+)
 from gluonts.core.component import validated
 from gluonts.dataset.common import Dataset
 from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
+from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
-from gluonts.time_feature import time_features_from_frequency_str
+from gluonts.time_feature import get_seasonality, time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
@@ -34,28 +43,14 @@ from gluonts.transform import (
     ValidationSplitSampler,
     VstackFeatures,
 )
-from utils.utils_tft.split import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
+from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
-
-import logging
-
-from accelerate import Accelerator
-from torch.optim import AdamW
-from domain.transformations import (
-    create_test_dataloader,
-    create_train_dataloader,
-    create_validation_dataloader,
-)
-from gluonts.time_feature import get_seasonality
-
-import evaluate
-
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 from utils.utils_informer.utils_tensorboard import get_summary_writer
-
+from utils.utils_tft.split import CustomTFTInstanceSplitter
 
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
@@ -89,6 +84,15 @@ class Forecaster:
         self.cfg_train = cfg_train
         self.cfg_dataset = cfg_dataset
         self.from_pretrained = from_pretrained
+
+    def convert_to_percentage(self, agg_metrics: Dict[str, List[float]]):
+        agg_metrics2 = {}
+        for metric_name, values in agg_metrics.items():
+            if metric_name in ["mape", "smape", "wmape"]:
+                agg_metrics2[metric_name] = [val * 100 for val in values]
+            else:
+                agg_metrics2[metric_name] = values
+        return agg_metrics2
 
 
 class TFTForecaster(Forecaster, PyTorchLightningEstimator):
@@ -207,7 +211,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self,
         test_dataset: gluontsPandasDataset,
         mean: bool = False,
-        pourcentage: bool = False,
+        percentage: bool = False,
     ) -> Dict[str, Any]:
         true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
@@ -221,25 +225,23 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
-                pourcentage,
             ),
             "smape": domain.metrics.estimate_smape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
-                pourcentage,
             ),
             "wmape": domain.metrics.estimate_wmape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
-                pourcentage,
             ),
             "mase": domain.metrics.estimate_mase(
                 forecasts, true_ts, self.model_config.prediction_length, self.freq
             ),
         }
-
+        if percentage:
+            agg_metrics = self.convert_to_percentage(agg_metrics)
         for i in range(1, 10):
             agg_metrics[f"QuantileLoss[{i/10}]"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
@@ -627,7 +629,7 @@ class InformerForecaster(Forecaster):
         return self.loss_history
 
     def evaluate(
-        self, test_dataset: List[Dict[str, Any]], forecasts=[]
+        self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
@@ -657,7 +659,8 @@ class InformerForecaster(Forecaster):
         metrics = {}
         metrics["smape"] = smape_metrics
         metrics["mase"] = mase_metrics
-
+        if percentage:
+            metrics = self.convert_to_percentage(metrics)
         df_ts = pd.DataFrame(true_ts.T)
         forecasts_df = {}
 

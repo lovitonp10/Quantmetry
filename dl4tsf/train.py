@@ -48,7 +48,9 @@ def main(cfgHydra: DictConfig):
 
     logging.info("Compute Validation & Evaluation")
     # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
-    metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.validation)
+    metrics, ts_it, forecast_it = forecaster.evaluate(
+        test_dataset=dataset.validation, percentage=False
+    )
     logging.info(ts_it[0].tail())
     logging.info(forecast_it[0].head())
 
