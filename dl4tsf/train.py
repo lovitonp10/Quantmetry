@@ -7,6 +7,7 @@ from domain import forecasters
 # from domain.plots import plot_timeseries
 from omegaconf import DictConfig, OmegaConf
 from load.dataloaders import CustomDataLoader
+import torch
 
 logger = logging.getLogger(__name__)
 logging.info("Start")
@@ -14,7 +15,8 @@ logging.info("Start")
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
-
+    print(torch.cuda.is_available())
+    print(torch.cuda.device_count())
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
     cfg: Configs = Configs(**cfg)
