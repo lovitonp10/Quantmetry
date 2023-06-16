@@ -120,7 +120,6 @@ class Weather:
         prediction_length: int = 7,
         frequency: str = "30T",
     ) -> pd.DataFrame:
-        path_weather = weather["path_weather"]
         dynamic_features = weather["dynamic_features"]
         cat_features = weather["cat_features"]
         station_name = weather["station_name"]
@@ -141,7 +140,6 @@ class Weather:
         end = datetime.strptime(last_date_str, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
 
         weather = self.load_weather(
-            path_weather=path_weather,
             start=start,
             end=end,
             dynamic_features=dynamic_features,
@@ -278,7 +276,7 @@ class Aifluence:
         infostation_idfm = infostation_idfm.loc[
             ~np.any(infostation_idfm[["longitude", "latitude"]].isnull(), axis=1), :
         ]
-        infostation_idfm = infostation_idfm.set_index(["station"])
+        infostation_idfm = infostation_idfm.set_index(["id"])
         df_stations = infostation_idfm[["latitude", "longitude"]]
 
         df_amenities = df_amenities[["amenity", "geometry"]]

@@ -51,7 +51,7 @@ class Aifluence:
         df_out = df_out.drop(
             columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
         )
-
+        # Add Amenities
         df_out = self.preprocess_validation_titre(df_out)
         df_out = self.preprocess_station(df_out, p_data_station)
 
