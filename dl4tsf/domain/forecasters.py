@@ -56,6 +56,8 @@ from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 
 
+logger = logging.getLogger(__name__)
+
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
     "feat_static_real",
@@ -454,7 +456,7 @@ class InformerForecaster(Forecaster):
             self.model = CustomInformerForPrediction(self.model_config_informer)
 
     def get_train_dataloader(self, train_dataset: List[Dict[str, Any]]):
-        logging.info("Create train dataloader")
+        logger.info("Create train dataloader")
         self.train_dataloader = create_train_dataloader(
             config=self.model_config_informer,
             freq=self.freq,
@@ -465,7 +467,7 @@ class InformerForecaster(Forecaster):
         )
 
     def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
-        logging.info("Create test dataloader")
+        logger.info("Create test dataloader")
         if validation is True:
             self.test_dataloader = create_validation_dataloader(
                 config=self.model_config_informer,
@@ -483,7 +485,7 @@ class InformerForecaster(Forecaster):
 
     def train(self, input_data: List[Dict[str, Any]]):
         if self.from_pretrained:
-            logging.error("Model already trained, cannot be retrained from scratch")
+            logger.error("Model already trained, cannot be retrained from scratch")
             return
         self.get_train_dataloader(input_data)
         accelerator = Accelerator()

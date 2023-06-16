@@ -101,6 +101,7 @@ def enedis(
     )
 
     if weather:
+        logger.info("Add Weather")
         weather_inst = Weather()
         df_enedis, df_forecast = weather_inst.add_weather(
             df_enedis, weather, prediction_length, freq
@@ -120,7 +121,7 @@ def aifluence_public_histo_vrf(
     path: str = "data/idf_mobilites/",
     target: str = "VALD_TOTAL",
     prediction_length: int = 7,
-    freq: str = "30T",
+    freq: str = "1D",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     p_data_station: float = 0.9,
@@ -171,6 +172,7 @@ def aifluence_public_histo_vrf(
     )
 
     if weather:
+        logger.info("Add Weather")
         weather_inst = Weather()
         df_aifluence, df_forecast = weather_inst.add_weather(
             df_aifluence, weather, prediction_length, freq
