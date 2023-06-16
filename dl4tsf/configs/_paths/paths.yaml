@@ -7,5 +7,7 @@ output:
   EDA: ${_paths.data_dir}results/EDA/
   category_comparison: ${_paths.output.EDA}category_comparison/
 mlflow:
-  tracking_uri: ../mlruns
-  experiment_name: training_tft
+  tracking_uri: "https://quantmetry-mlflow.azurewebsites.net/"
+  experiment_name: test_dl4tsf
+  AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=https;AccountName=qmmlflowblobstorage;AccountKey=9h59gGzrmnn9bDttkR1aJAKlTJOG2BpCkmWT7pBl+ipkv6rn55TwsC4oIvOWH1JRUKCbVDBs5bogK8hfS/PbKQ==;EndpointSuffix=core.windows.net"
+  # tracking_uri: http://127.0.0.1:5000/ # ../mlruns

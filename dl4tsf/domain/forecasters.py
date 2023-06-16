@@ -57,8 +57,6 @@ import evaluate
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 
-from abc import abstractmethod
-
 
 PREDICTION_INPUT_NAMES = [
     "feat_static_cat",
@@ -93,9 +91,8 @@ class Forecaster:
         self.cfg_dataset = cfg_dataset
         self.from_pretrained = from_pretrained
 
-    @abstractmethod
     def get_model(self):
-        pass
+        return self.model
 
     def save(self, path):
         pickle.dump(self.get_model(), Path(path).open(mode="wb"))
@@ -187,9 +184,6 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     def train(self, input_data: gluontsPandasDataset):
         self.model = None
         self.model = super().train(training_data=input_data)
-
-    def get_model(self):
-        return self.model
 
     def predict(
         self, test_dataset: gluontsPandasDataset
@@ -547,9 +541,6 @@ class InformerForecaster(Forecaster):
                 self.loss_history.append(loss.item())
                 if idx % 100 == 0:
                     print(loss.item())
-
-    def get_model(self):
-        return self.model
 
     def predict(
         self, test_dataset: List[Dict[str, Any]], transform_df=True
