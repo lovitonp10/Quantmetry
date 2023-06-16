@@ -11,7 +11,6 @@ import math
 import json
 import os
 import osmnx as ox
-from unidecode import unidecode
 
 
 class Weather:
@@ -177,7 +176,7 @@ class Weather:
         return days
 
 
-class Aifluence:
+class Amenities:
     def __init__(
         self,
         path: str = "data/exo_idf_mobilites/",
@@ -276,7 +275,7 @@ class Aifluence:
         infostation_idfm = infostation_idfm.loc[
             ~np.any(infostation_idfm[["longitude", "latitude"]].isnull(), axis=1), :
         ]
-        infostation_idfm = infostation_idfm.set_index(["id"])
+        infostation_idfm = infostation_idfm.set_index(["id_ref_lda"])
         df_stations = infostation_idfm[["latitude", "longitude"]]
 
         df_amenities = df_amenities[["amenity", "geometry"]]
@@ -294,21 +293,16 @@ class Aifluence:
             int
         )
         df = (
-            distances_array.groupby(["station", "amenity"])
+            distances_array.groupby(["id_ref_lda", "amenity"])
             .agg({"in_neighbour": "sum"})
             .reset_index()
         )
-        df = df.pivot(index="station", columns="amenity", values="in_neighbour").reset_index()
+        df = df.pivot(index="id_ref_lda", columns="amenity", values="in_neighbour").reset_index()
         return df
 
     def get_amenities(self):
         df_amenities = pd.read_csv(self.path + "amenities_full", sep=",")
         df_amenities_final = self.create_amenities(df_amenities)
-
-        df_amenities_final.rename(columns={"station": "STATION"}, inplace=True)
-        df_amenities_final["STATION"] = df_amenities_final["STATION"].str.upper().apply(unidecode)
-        df_amenities_final["STATION"] = df_amenities_final["STATION"].str.strip(" ")
-        df_amenities_final["STATION"] = df_amenities_final["STATION"].str.replace(" - ", "-")
         return df_amenities_final
 
     def get_calendar(self):
@@ -320,4 +314,11 @@ class Aifluence:
 
     def add_amenities(self):
         df_amenities = self.get_amenities()
+        df_amenities["id_ref_lda"] = df_amenities["id_ref_lda"].astype(int)
+        df_amenities.rename(
+            columns={
+                "id_ref_lda": "ID_REFA_LDA",
+            },
+            inplace=True,
+        )
         return df_amenities

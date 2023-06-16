@@ -2,6 +2,7 @@ import glob
 from typing import Optional
 import pandas as pd
 import logging
+from load.load_exo_data import Amenities
 
 logger = logging.getLogger(__name__)
 
@@ -44,21 +45,113 @@ class Aifluence:
                 del df_temp
         self.df = pd.concat(list_df)
 
-    def get_preprocessed_data(self, start_date: str, end_date: str, p_data_station: float = 0.9):
+    def merge_amenities(self, df: pd.DataFrame) -> pd.DataFrame:
+
+        amenities = Amenities()
+        df_amenities = amenities.add_amenities()
+
+        df_aifluence = df[df["STATION"] != "Inconnu"]
+        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].fillna("474152")
+        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].replace("?", "73798")
+        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].astype(int)
+
+        old_id = [
+            73615,
+            70469,
+            71282,
+            71686,
+            73616,
+            73794,
+            71404,
+            71416,
+            71743,
+            74040,
+            72059,
+            71219,
+            59577,
+            70540,
+            62737,
+            60234,
+            71848,
+            67747,
+            73652,
+            69531,
+            63650,
+            64057,
+            74371,
+            63980,
+            73792,
+            412697,
+            70035,
+            474149,
+            73795,
+            72219,
+            62172,
+            70772,
+            482368,
+            74000,
+            71245,
+            474150,
+        ]
+        new_id = [
+            71359,
+            461505,
+            479068,
+            71697,
+            478885,
+            474151,
+            425779,
+            411486,
+            463564,
+            71139,
+            478883,
+            473829,
+            59531,
+            424396,
+            478505,
+            422776,
+            71935,
+            462934,
+            71607,
+            463754,
+            463850,
+            424296,
+            463843,
+            422420,
+            478926,
+            479919,
+            427230,
+            71359,
+            71321,
+            72225,
+            71860,
+            422067,
+            73688,
+            478733,
+            71229,
+            71229,
+        ]
+
+        replacement_dict = {old: new for old, new in zip(old_id, new_id)}
+        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].replace(replacement_dict)
+        merged_df = pd.merge(df_aifluence, df_amenities, on="ID_REFA_LDA", how="inner")
+        return merged_df
+
+    def get_preprocessed_data(
+        self, start_date: str, end_date: str, p_data_station: float = 0.9
+    ) -> pd.DataFrame:
         if not hasattr(self, "df"):
             self.load_validations()
         df_out = self.change_column_validations(self.df)
+        df_out = self.merge_amenities(df_out)
         df_out = df_out.drop(
             columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
         )
-        # Add Amenities
         df_out = self.preprocess_validation_titre(df_out)
         df_out = self.preprocess_station(df_out, p_data_station)
-
         df_out = df_out.rename_axis("date")
         df_out = df_out.sort_values(by=["STATION", "date"])
         df_out = self.cut_start_end_ts(df_out, start=start_date, end=end_date)
-
         return df_out
 
     def change_column_validations(
