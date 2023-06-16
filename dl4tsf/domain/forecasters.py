@@ -499,6 +499,8 @@ class InformerForecaster(Forecaster):
 
         self.loss_history = []
         self.model.train()
+        if device.type == "cuda":
+            self.model.double()
 
         for epoch in range(self.cfg_train.epochs):
             for idx, batch in enumerate(self.train_dataloader):
