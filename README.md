@@ -95,6 +95,7 @@ The configs files are based on the library hydra. Please refer to https://hydra.
 ### Available working models
 Currently the following models are implemented and tested:
 - TFT
+- Informer
 
 ### Available working datasets
 Currently the following datasets are implemented and tested:
@@ -107,6 +108,10 @@ Currently the following datasets are implemented and tested:
 ### Modification to make in .yaml files
 Dataset:
 - Modifiy the lists in 'name_feats' with the variables name corresponding to the different features
+- Cardinalities (empty if there isn't categorical features)
+- Test length (pandas format)
+- Frequency (pandas format)
+- Target
 
 
 ### Testing the train/forecast script:
@@ -120,6 +125,8 @@ python dl4tsf/train.py model=tft dataset=climate_delhi
 python dl4tsf/train.py model=tft dataset=energy
 # or
 python dl4tsf/train.py model=tft dataset=enedis
+# or
+python dl4tsf/train.py model=informer dataset=idf_ferro
 ```
 ### PENDING
 

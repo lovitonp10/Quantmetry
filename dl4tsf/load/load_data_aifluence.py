@@ -44,7 +44,7 @@ class Aifluence:
                 del df_temp
         self.df = pd.concat(list_df)
 
-    def get_preprocessed_data(self, p_data_station: float = 0.9):
+    def get_preprocessed_data(self, start_date: str, end_date: str, p_data_station: float = 0.9):
         if not hasattr(self, "df"):
             self.load_validations()
         df_out = self.change_column_validations(self.df)
@@ -54,6 +54,11 @@ class Aifluence:
 
         df_out = self.preprocess_validation_titre(df_out)
         df_out = self.preprocess_station(df_out, p_data_station)
+
+        df_out = df_out.rename_axis("date")
+        df_out = df_out.sort_values(by=["STATION", "date"])
+        df_out = self.cut_start_end_ts(df_out, start=start_date, end=end_date)
+
         return df_out
 
     def change_column_validations(
@@ -151,7 +156,7 @@ class Aifluence:
 
         select_station = group_station[group_station < n_data_station].index
         df_aifluence = df_aifluence[~df_aifluence["STATION"].isin(select_station)]
-        df_resampled = df_aifluence.groupby(["STATION"]).resample("D").sum(numeric_only=True)
+        df_resampled = df_aifluence.groupby(["STATION"]).resample("1D").sum()
         df_aifluence = df_resampled.reset_index(level="STATION")
 
         return df_aifluence
@@ -177,19 +182,19 @@ class Aifluence:
         """
 
         df_tmp = df.copy()
-        df_tmp["DATE"] = df_tmp.index
+        df_tmp["date"] = df_tmp.index
         if start is None:
             start_date = max(
-                df_tmp.groupby(["STATION"]).min(numeric_only=False).reset_index()["DATE"]
+                df_tmp.groupby(["STATION"]).min(numeric_only=False).reset_index()["date"]
             )
         else:
             start_date = pd.to_datetime(start, dayfirst=True)
         if end is None:
             end_date = min(
-                df_tmp.groupby(["STATION"]).max(numeric_only=False).reset_index()["DATE"]
+                df_tmp.groupby(["STATION"]).max(numeric_only=False).reset_index()["date"]
             )
         else:
             end_date = pd.to_datetime(end, dayfirst=True)
         df_aifluence = df_tmp.loc[(df_tmp.index >= start_date) & (df_tmp.index <= end_date)]
-        df_aifluence = df_aifluence.drop(columns=["DATE"])
+        df_aifluence = df_aifluence.drop(columns=["date"])
         return df_aifluence
