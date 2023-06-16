@@ -9,6 +9,7 @@ dependencies:
   - pip=21.2.4
   - pip:
       - accelerate==0.18.0
+      - boto3==1.26
       - datasets==2.10.1
       - evaluate==0.4.0
       - gluonts==0.12.5
