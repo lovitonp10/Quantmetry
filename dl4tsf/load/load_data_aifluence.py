@@ -51,7 +51,7 @@ class Aifluence:
         df_out = df_out.drop(
             columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
         )
-
+        # Add Amenities
         df_out = self.preprocess_validation_titre(df_out)
         df_out = self.preprocess_station(df_out, p_data_station)
 
@@ -114,7 +114,7 @@ class Aifluence:
         )
         df_in["CATEGORIE_TITRE"] = df_in["CATEGORIE_TITRE"].str.replace(" ", "_")
 
-        df_group = df_in.groupby(indexes).sum()
+        df_group = df_in.groupby(indexes).sum(numeric_only=False)
         df_unstack = df_group.unstack(["CATEGORIE_TITRE"])
         new_columns = df_unstack.columns.map("_".join)
         df_unstack.columns = new_columns

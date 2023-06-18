@@ -28,6 +28,7 @@ import logging
 from accelerate import Accelerator
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 
+logger = logging.getLogger(__name__)
 
 """
 Description: This file is a modified version of modeling_informer.py
@@ -1190,7 +1191,7 @@ class CustomInformerDecoder(InformerPreTrainedModel):
 
             if self.gradient_checkpointing and self.training:
                 if use_cache:
-                    logging.info(
+                    logger.info(
                         """`use_cache=True` is incompatible with gradient checkpointing.
                         Setting `use_cache=False`..."""
                     )
