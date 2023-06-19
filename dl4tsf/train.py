@@ -15,9 +15,13 @@ from mlflow_deploy import logging_mlflow
 
 import os
 
+logger = logging.getLogger(__name__)
+logger.info("Start")
+
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
+
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
     cfg: Configs = Configs(**cfg)
@@ -53,7 +57,7 @@ def main(cfgHydra: DictConfig):
             filemode="w",
         )
 
-        logging.info("Prepare Data")
+        logger.info("Prepare Data")
         loader_data = CustomDataLoader(
             cfg_dataset=cfg.dataset,
             target=cfg.dataset.load["target"],
@@ -62,38 +66,48 @@ def main(cfgHydra: DictConfig):
             test_length=cfg.dataset.test_length,
         )
         dataset = loader_data.get_dataset()
+        logger.info("Prepare Completed")
 
-        logging.info("Training")
+        logger.info("Training")
         forecaster_inst = getattr(forecasters, cfg.model.model_name)
         forecaster = forecaster_inst(
             cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset
         )
-
         forecaster.train(input_data=dataset.train)
-        losses = forecaster.get_callback_losses(type="train")
-        logging.info("first 10 losses")
-        logging.info(losses[:10])
+        logger.info("Training Completed")
 
-        # mlflow.log_metric("loss", losses[-1], step=0)
+        logger.info("Compute First 10 Losses")
+        losses = forecaster.get_callback_losses(type="train")
+        logger.info(losses[:10])
         mlflow.log_metrics({"loss": losses[-1]})
 
-        ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test)
+        logger.info("Compute Validation & Evaluation")
+        # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
+        metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.validation)
+        logger.info(ts_it[0].tail())
+        logger.info(forecast_it[0].head())
 
-        # logging.info(ts_it[:10])
-        # logging.info(forecast_it.shape)
-        logging.info(ts_it[0].tail())
-        logging.info(forecast_it[0].head())
+        logger.info(metrics)
 
-        # metrics = forecaster.evaluate(test_dataset=dataset.test)
-        # logging.info(metrics)
+        # logger.info(ts_it[:10])
+        # logger.info(forecast_it.shape)
 
-        # logging.info("Plot first TS predictions")
+        logger.info("Compute Prediction")
+        ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
+
+        # logger.info(ts_it[:10])
+        # logger.info(forecast_it.shape)
+        logger.info(ts_it[0].tail())
+        logger.info(forecast_it[0].head())
+
+        # logger.info("Plot first TS predictions")
         # plot_timeseries(
         #     0,
         #     uni_variate_dataset=dataset.test,
         #     prediction_length=cfg.model.model_config.prediction_length,
         #     forecasts=forecast_it,
         # )
+        logger.info("End")
 
         tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
@@ -107,7 +121,7 @@ def main(cfgHydra: DictConfig):
         cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset, from_mlflow=last_run
     )
 
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test)
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
 
     logging.info(ts_it[0].tail())
     logging.info(forecast_it[0].head())

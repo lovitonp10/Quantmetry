@@ -3,6 +3,14 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel
 
 
+class Feats(BaseModel):
+    feat_dynamic_real: List[str]
+    feat_static_cat: List[str]
+    feat_static_real: List[str]
+    past_feat_dynamic_real: List[str]
+    feat_dynamic_cat: List[str]
+
+
 class Dataset(BaseModel):
     dataset_name: str
     load: Dict[str, Any]
@@ -11,7 +19,7 @@ class Dataset(BaseModel):
     freq: str
     static_cardinality: Optional[List[int]]
     dynamic_cardinality: Optional[List[int]]
-    name_feats: Dict[str, List[str]]
+    name_feats: Feats
 
 
 class ModelConfig(BaseModel):

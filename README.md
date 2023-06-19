@@ -56,7 +56,7 @@ The current data needed are:
 - energy
 - enedis
 - idf_mobilities (Data available on the site: https://data.iledefrance-mobilites.fr/explore/dataset/histo-validations-reseau-ferre/export/ by selecting only the NB_FER of each year which are arranged by semester)
-- all_weather (The mapping between the station name and the station number is available here: [posteSynop.csv](https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Synop/postesSynop).csv )
+- all_weather (The mapping between the station name and the station number is available here: [posteSynop.csv](https://donneespubliques.meteofrance.fr/donnees_libres/Txt/Synop/postesSynop).csv ))
 
 # Jupyter notebooks
 Make sure that code done in jupyter notebook are only for testing or visualization.

@@ -1,13 +1,19 @@
 import glob
 import pandas as pd
 from gluonts.dataset.common import TrainDatasets
+from load.load_data_aifluence import Aifluence
 from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
 from datasets import load_dataset as get_huggingface_dataset
 from functools import partial
 from utils.custom_objects_pydantic import HuggingFaceDataset
 from domain.transformations_pd import transform_start_field
-from load.load_exo_data import add_weather
-from typing import Dict
+from load.load_exo_data import Weather
+from typing import Dict, Optional, List
+import logging
+from load.load_data_enedis import Enedis
+from utils.utils_gluonts import generate_item_ids_static_features
+
+logger = logging.getLogger(__name__)
 
 
 def climate(
@@ -15,8 +21,8 @@ def climate(
     target: str = "mean_temp",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dynamic_features": ["t", "rr3", "pmer"],
-        "cat_features": ["cod_tend"],
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
@@ -30,7 +36,8 @@ def climate(
     df_climate = df_climate[[target]]
 
     if weather:
-        df_climate = add_weather(df_climate, weather)
+        weather_class = Weather()
+        df_climate = weather_class.add_weather(df_climate, weather)
 
     return df_climate
 
@@ -40,8 +47,8 @@ def energy(
     target: str = "consommation",
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dynamic_features": ["t", "rr3", "pmer"],
-        "cat_features": ["cod_tend"],
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
@@ -63,7 +70,8 @@ def energy(
     df_energy = df_energy[["region", "consommation"]]
 
     if weather:
-        df_energy = add_weather(df_energy, weather)
+        weather_class = Weather()
+        df_energy = weather_class.add_weather(df_energy, weather)
 
     return df_energy
 
@@ -71,55 +79,110 @@ def energy(
 def enedis(
     path: str = "data/enedis/",
     target: str = "total_energy",
+    prediction_length: int = 7,
+    freq: str = "30T",
+    name_feats: Dict[str, List[str]] = None,
     weather: Dict[str, any] = {
         "path_weather": "data/all_weather/",
-        "dynamic_features": ["t", "rr3", "pmer"],
-        "cat_features": ["cod_tend"],
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
         "station_name": "ORLY",
     },
 ) -> pd.DataFrame:
-    list_csv = glob.glob(path + "*.csv")
-    df_enedis = pd.DataFrame()
-    for file in list_csv:
-        df_tmp = pd.read_csv(file)
-        df_enedis = pd.concat([df_enedis, df_tmp], axis=0)
-    df_enedis.rename(
-        columns={
-            "horodate": "date",
-            "nb_points_soutirage": "soutirage",
-            "total_energie_soutiree_wh": target,
-            "plage_de_puissance_souscrite": "power",
-        },
-        inplace=True,
+    logger.info("Loading Data")
+    enedis = Enedis(path, target)
+    enedis.load_data()
+
+    logger.info("Preprocess Data")
+    df_enedis = enedis.get_preprocessed_data()
+
+    df_enedis["item_id"] = generate_item_ids_static_features(
+        df=df_enedis, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
     )
 
-    df_enedis = df_enedis.sort_values(by=["region", "profil", "power", "date"])
-    df_enedis.index = pd.to_datetime(df_enedis.date)
-    df_enedis = df_enedis[["region", "profil", "power", target, "soutirage"]]
-
-    df_na = df_enedis[df_enedis.total_energy.isna()]
-    groups_with_nan = (
-        df_na.groupby(["region", "profil", "power"]).apply(lambda x: x.any()).index.tolist()
-    )
-    df_enedis = df_enedis[
-        ~df_enedis.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
-    ]
-
-    df_enedis["power_min"] = df_enedis["power"].str.extract(r"](\d+)-").fillna(0).astype(int)
-    df_enedis["power_max"] = (
-        df_enedis["power"]
-        .str.extract(r"\-(\d+)]")
-        .fillna(df_enedis["power"].str.extract(r"<= (\d+)"))
-        .astype(int)
-    )
     if weather:
-        df_enedis = add_weather(df_enedis, weather)
+        logger.info("Add Weather")
+        weather_inst = Weather()
+        df_enedis, df_forecast = weather_inst.add_weather(
+            df_enedis, weather, prediction_length, freq
+        )
+        # If you have dynamic_feat (known in the future):
+        # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
+        # left_index=True, right_index=True, how="left")
+        return df_enedis, df_forecast
 
     # Dummy generated dynamic_cat
     # import numpy as np
     # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
+    return df_enedis, None
 
-    return df_enedis
+
+def aifluence_public_histo_vrf(
+    path: str = "data/idf_mobilites/",
+    target: str = "VALD_TOTAL",
+    prediction_length: int = 7,
+    freq: str = "1D",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    p_data_station: float = 0.9,
+    name_feats: Dict[str, List[str]] = None,
+    weather: Dict[str, any] = {
+        "path_weather": "data/all_weather/",
+        "dynamic_features": ["temperature", "rainfall", "pressure"],
+        "cat_features": ["barometric_trend"],
+        "station_name": "ORLY",
+    },
+) -> pd.DataFrame:
+    """Read a folder for load data from file and save it to a fataframe
+
+    Parameters
+    ----------
+    path : str, optional
+        loaded files, by default "data/idf_mobilites/"
+    target : str, optional
+        target features, by default "VALD_TOTAL"
+    p_data_station : float
+        proportion of data for each station, by default 90%
+    start_date : Optional[str], optional
+        starting date of time series, by default None
+    end_date : Optional[str], optional
+        ebding date of time series, by default None
+    weather : Dict[str, any], optional
+        weather feature for the dataset, by default {
+            "path_weather": "data/all_weather/",
+            "dynamic_features": ["temperature", "rainfall", "pressure"],
+            "cat_features": ["barometric_trend"], "station_name": "ORLY", }
+
+    Returns
+    -------
+    pd.DataFrame
+        public data frame from IDF-mobilités
+    """
+    logger.info("Loading Data")
+    aifluence = Aifluence(path)
+    aifluence.load_validations()
+
+    logger.info("Preprocess Data")
+    df_aifluence = aifluence.get_preprocessed_data(
+        p_data_station=p_data_station, start_date=start_date, end_date=end_date
+    )
+
+    df_aifluence["item_id"] = generate_item_ids_static_features(
+        df=df_aifluence, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+    )
+
+    if weather:
+        logger.info("Add Weather")
+        weather_inst = Weather()
+        df_aifluence, df_forecast = weather_inst.add_weather(
+            df_aifluence, weather, prediction_length, freq
+        )
+        # If you have dynamic_feat (known in the future):
+        # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
+        # left_index=True, right_index=True, how="left")
+        return df_aifluence, df_forecast
+
+    return df_aifluence, None
 
 
 def gluonts_dataset(dataset_name: str) -> TrainDatasets:
@@ -139,6 +202,7 @@ def huggingface_dataset(
     dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
 
     if weather:
-        dataset = add_weather(dataset, weather)
+        weather_class = Weather()
+        dataset = weather_class.add_weather(dataset, weather)
 
     return dataset
