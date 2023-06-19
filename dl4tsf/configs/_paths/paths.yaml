@@ -1,11 +1,3 @@
-data_dir: ../data/
-input:
-  flux: ${_paths.data_dir}input_data/
-  pdt: ${_paths.data_dir}metadata/pdt/
-  metadata: ${_paths.data_dir}metadata/
-output:
-  EDA: ${_paths.data_dir}results/EDA/
-  category_comparison: ${_paths.output.EDA}category_comparison/
 mlflow:
   tracking_uri: "https://quantmetry-mlflow.azurewebsites.net/"
   experiment_name: test_dl4tsf

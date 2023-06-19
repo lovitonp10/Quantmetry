@@ -56,6 +56,8 @@ import evaluate
 
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow_deploy.flavor import log_model
 
 
 PREDICTION_INPUT_NAMES = [
@@ -82,14 +84,15 @@ class Forecaster:
         cfg_model: configs.Model,
         cfg_train: configs.Train,
         cfg_dataset: configs.Dataset,
-        from_pretrained: str = None,
+        from_mlflow: str = None,
         **kwargs,
     ) -> None:
         self.model_config = cfg_model.model_config
         self.optimizer_config = cfg_model.optimizer_config
+        self.model_name = cfg_model.model_name
         self.cfg_train = cfg_train
         self.cfg_dataset = cfg_dataset
-        self.from_pretrained = from_pretrained
+        self.from_mlflow = from_mlflow
 
     def get_model(self):
         return self.model
@@ -97,9 +100,20 @@ class Forecaster:
     def save(self, path):
         pickle.dump(self.get_model(), Path(path).open(mode="wb"))
 
-    @classmethod
-    def load(cls, path):
-        return pickle.load(Path(path).open(mode="rb"))
+    # @classmethod
+    def load_model(self, from_mlflow, dst_path=None):
+        from_mlflow = "runs:/" + str(from_mlflow) + "/model"
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=from_mlflow, output_path=dst_path
+        )
+        model_subpath = Path(local_model_path) / "model.pkl"
+        return pickle.load(Path(model_subpath).open(mode="rb"))
+
+    def save_mlflow_model(self, tracking_url_type_store, forecaster):
+        registered_model_name = self.model_name if tracking_url_type_store != "file" else None
+        log_model(
+            model=forecaster, artifact_path="model", registered_model_name=registered_model_name
+        )
 
 
 class TFTForecaster(Forecaster, PyTorchLightningEstimator):
@@ -112,14 +126,14 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         # model
         distr_output: DistributionOutput = StudentTOutput(),
         loss: DistributionLoss = NegativeLogLikelihood(),
-        from_pretrained: str = None,
+        from_mlflow: str = None,
     ) -> None:
         Forecaster.__init__(
             self,
             cfg_model=cfg_model,
             cfg_train=cfg_train,
             cfg_dataset=cfg_dataset,
-            from_pretrained=from_pretrained,
+            from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
         self.logger = TensorBoardLogger(
@@ -140,14 +154,18 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             self.cfg_dataset.name_feats["past_feat_dynamic_real"]
         )
         self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats["feat_dynamic_cat"])
-
+        self.from_mlflow = from_mlflow
         self.model_config.context_length = (
             self.model_config.context_length
             if self.model_config.context_length is not None
             else self.model_config.prediction_length
         )
 
-        self.model = None
+        if from_mlflow is not None:
+            self.model = self.load_model(from_mlflow)
+        else:
+            self.model = None
+
         self.distr_output = distr_output
         self.loss = loss
         self.model_config.variable_dim = (
@@ -182,6 +200,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
 
     def train(self, input_data: gluontsPandasDataset):
+        if self.from_mlflow is not None:
+            logging.error("Model already trained, cannot be retrained from scratch")
+            return
         self.model = None
         self.model = super().train(training_data=input_data)
 
@@ -434,15 +455,16 @@ class InformerForecaster(Forecaster):
         cfg_model: configs.Model,
         cfg_train: configs.Train,
         cfg_dataset: configs.Dataset,
-        from_pretrained: str = None,
+        from_mlflow: str = None,
     ) -> None:
         Forecaster.__init__(
             self,
             cfg_model=cfg_model,
             cfg_train=cfg_train,
             cfg_dataset=cfg_dataset,
-            from_pretrained=from_pretrained,
+            from_mlflow=from_mlflow,
         )
+        self.from_mlflow = from_mlflow
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
         self.model_config_informer = CustomInformerConfig(
@@ -456,8 +478,9 @@ class InformerForecaster(Forecaster):
             ),
             **self.model_config.dict(),
         )
-        if self.from_pretrained:
-            self.model = CustomInformerForPrediction.from_pretrained(self.from_pretrained)
+        if from_mlflow is not None:
+            self.model = self.load_model(from_mlflow)
+            # CustomInformerForPrediction.from_pretrained(self.from_pretrained)
         else:
             self.model = CustomInformerForPrediction(self.model_config_informer)
 
@@ -488,7 +511,7 @@ class InformerForecaster(Forecaster):
         )
 
     def train(self, input_data: List[Dict[str, Any]]):
-        if self.from_pretrained:
+        if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
         self.get_train_dataloader(input_data)
@@ -539,8 +562,8 @@ class InformerForecaster(Forecaster):
                 optimizer.step()
 
                 self.loss_history.append(loss.item())
-                if idx % 100 == 0:
-                    print(loss.item())
+                # if idx % 100 == 0:
+                #     print(loss.item())
 
     def predict(
         self, test_dataset: List[Dict[str, Any]], transform_df=True

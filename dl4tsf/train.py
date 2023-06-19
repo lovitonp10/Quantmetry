@@ -12,10 +12,6 @@ from load.dataloaders import CustomDataLoader
 from urllib.parse import urlparse
 
 from mlflow_deploy import logging_mlflow
-from mlflow_deploy.utils_mlflow import (
-    save_mlflow_model,
-    MLflowModel,
-)
 
 import os
 
@@ -101,17 +97,17 @@ def main(cfgHydra: DictConfig):
 
         tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
-        save_mlflow_model(tracking_url_type_store, forecaster, cfg)
+        forecaster.save_mlflow_model(tracking_url_type_store, forecaster)
 
         last_run = mlflow.last_active_run().info.run_id
 
-    mlflow_model = MLflowModel(last_run)
-    mlflow_model.load_mlflow_model()
+    logging.info("MLflow test")
 
-    ts_it, forecast_it = mlflow_model.predict_mlflow_model(
-        test_dataset=dataset.test,
-        config=cfg,
+    forecaster = forecaster_inst(
+        cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset, from_mlflow=last_run
     )
+
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test)
 
     logging.info(ts_it[0].tail())
     logging.info(forecast_it[0].head())
