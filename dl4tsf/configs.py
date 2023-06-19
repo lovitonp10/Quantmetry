@@ -57,15 +57,7 @@ class Train(BaseModel):
     callback: Dict[str, Any]
 
 
-class Paths(BaseModel):
-    data_dir: str
-    input: Dict[str, Any]
-    output: Dict[str, Any]
-    mlflow: Dict[str, Any]
-
-
 class Configs(BaseModel):
     dataset: Dataset
     model: Model
     train: Train
-    _paths: Paths

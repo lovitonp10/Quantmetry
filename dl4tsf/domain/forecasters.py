@@ -57,7 +57,7 @@ import evaluate
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow_deploy.flavor import log_model
+from mlflow_deploy.flavor import register_model_mlflow
 
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,6 @@ class Forecaster:
     def save(self, path):
         pickle.dump(self.get_model(), Path(path).open(mode="wb"))
 
-    # @classmethod
     def load_model(self, from_mlflow, dst_path=None):
         from_mlflow = "runs:/" + str(from_mlflow) + "/model"
         local_model_path = _download_artifact_from_uri(
@@ -112,9 +111,9 @@ class Forecaster:
         return pickle.load(Path(model_subpath).open(mode="rb"))
 
     def save_mlflow_model(self, tracking_url_type_store, forecaster):
-        registered_model_name = self.model_name if tracking_url_type_store != "file" else None
-        log_model(
-            model=forecaster, artifact_path="model", registered_model_name=registered_model_name
+        regist_model_name = self.model_name if tracking_url_type_store != "file" else None
+        register_model_mlflow(
+            model=forecaster, artifact_path="model", model_name=regist_model_name
         )
 
 
@@ -161,10 +160,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             else self.model_config.prediction_length
         )
 
+        self.model = None
         if from_mlflow is not None:
             self.model = self.load_model(from_mlflow)
-        else:
-            self.model = None
 
         self.distr_output = distr_output
         self.loss = loss
@@ -203,7 +201,6 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
-        self.model = None
         self.model = super().train(training_data=input_data)
 
     def predict(

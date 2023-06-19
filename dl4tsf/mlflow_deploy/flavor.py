@@ -1,7 +1,4 @@
 from mlflow.models import Model
-
-# from mlflow_flavor_example.utils import FakeModel
-# from domain.forecasters import Forecaster
 from mlflow.models.model import MLMODEL_FILE_NAME
 from pathlib import Path
 import mlflow_deploy
@@ -22,22 +19,22 @@ def save_model(
     model_subpath = path / "model.pkl"
     if mlflow_model is None:
         mlflow_model = Model()
-    mlflow_model.add_flavor(FLAVOR_NAME)  # , foo=123, bar="abc", offset=my_model.offset)
+    mlflow_model.add_flavor(FLAVOR_NAME)
     mlflow_model.save(mlflow_mlmodel_file_path)
     model.save(model_subpath)
 
 
-def log_model(
+def register_model_mlflow(
     model,
-    artifact_path,
-    registered_model_name: None,
+    artifact_path: str,
+    model_name: None,
     **kwargs,
 ):
     return Model.log(
         artifact_path=str(artifact_path),  # must be string, numbers etc
         flavor=mlflow_deploy.flavor,  # points to this module itself
         model=model,
-        registered_model_name=registered_model_name,
+        registered_model_name=model_name,
         **kwargs,
     )
 
