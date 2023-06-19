@@ -52,7 +52,7 @@ def main(cfgHydra: DictConfig):
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
 
-    logger.info(metrics)
+    # logger.info(metrics)
 
     # logger.info(ts_it[:10])
     # logger.info(forecast_it.shape)

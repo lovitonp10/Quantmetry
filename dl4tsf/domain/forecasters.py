@@ -561,9 +561,8 @@ class InformerForecaster(Forecaster):
                 self.loss_history.append(loss.item())
                 # if idx % 100 == 0:
                 # print(loss.item())
-            self.writer.add_scalar("train_loss", loss.item(), global_step)
-            # writer.add_scalar("Accuracy", accuracy.item(), global_step)
-            global_step += 1
+                self.writer.add_scalar("train_loss", loss.item(), global_step)
+                global_step += 1
         self.writer.close()
 
     def predict(
