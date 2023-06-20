@@ -30,6 +30,7 @@ class TFTLightningModule(pl.LightningModule):
             on_step=False,
             prog_bar=True,
         )
+
         return train_loss
 
     def validation_step(self, batch, batch_idx: int):

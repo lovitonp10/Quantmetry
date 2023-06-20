@@ -97,6 +97,9 @@ Currently the following models are implemented and tested:
 - TFT
 - Informer
 
+**Exogenous features supported** by our model:
+![Features](readme_images/features/features.png "Features")
+
 ### Available working datasets
 Currently the following datasets are implemented and tested:
 - traffic
@@ -105,6 +108,10 @@ Currently the following datasets are implemented and tested:
 - enedis
 - idf_mobilities
 
+The **right dataset format** you need to provide is explained here:
+![Time Series](readme_images/time_series/time_series.png "Time Series")
+
+
 ### Modification to make in .yaml files
 Dataset:
 - Modifiy the lists in 'name_feats' with the variables name corresponding to the different features
@@ -112,6 +119,9 @@ Dataset:
 - Test length (pandas format)
 - Frequency (pandas format)
 - Target
+
+### Difference between our train, valid and test part
+![Train Val Test](readme_images/train_valid_test/train_valid_test.png "Train Val Test")
 
 
 ### Testing the train/forecast script:

@@ -38,6 +38,8 @@ from utils.utils_tft.split import CustomTFTInstanceSplitter
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
+import pickle
+from pathlib import Path
 
 import logging
 
@@ -54,6 +56,8 @@ import evaluate
 
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow_deploy.flavor import register_model_mlflow
 
 
 logger = logging.getLogger(__name__)
@@ -82,14 +86,35 @@ class Forecaster:
         cfg_model: configs.Model,
         cfg_train: configs.Train,
         cfg_dataset: configs.Dataset,
-        from_pretrained: str = None,
+        from_mlflow: str = None,
         **kwargs,
     ) -> None:
         self.model_config = cfg_model.model_config
         self.optimizer_config = cfg_model.optimizer_config
+        self.model_name = cfg_model.model_name
         self.cfg_train = cfg_train
         self.cfg_dataset = cfg_dataset
-        self.from_pretrained = from_pretrained
+        self.from_mlflow = from_mlflow
+
+    def get_model(self):
+        return self.model
+
+    def save(self, path):
+        pickle.dump(self.get_model(), Path(path).open(mode="wb"))
+
+    def load_model(self, from_mlflow, dst_path=None):
+        from_mlflow = "runs:/" + str(from_mlflow) + "/model"
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=from_mlflow, output_path=dst_path
+        )
+        model_subpath = Path(local_model_path) / "model.pkl"
+        return pickle.load(Path(model_subpath).open(mode="rb"))
+
+    def save_mlflow_model(self, tracking_url_type_store, forecaster):
+        regist_model_name = self.model_name if tracking_url_type_store != "file" else None
+        register_model_mlflow(
+            model=forecaster, artifact_path="model", model_name=regist_model_name
+        )
 
 
 class TFTForecaster(Forecaster, PyTorchLightningEstimator):
@@ -102,14 +127,14 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         # model
         distr_output: DistributionOutput = StudentTOutput(),
         loss: DistributionLoss = NegativeLogLikelihood(),
-        from_pretrained: str = None,
+        from_mlflow: str = None,
     ) -> None:
         Forecaster.__init__(
             self,
             cfg_model=cfg_model,
             cfg_train=cfg_train,
             cfg_dataset=cfg_dataset,
-            from_pretrained=from_pretrained,
+            from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
         self.logger = TensorBoardLogger(
@@ -128,7 +153,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.num_feat_static_real = len(self.cfg_dataset.name_feats.feat_static_real)
         self.num_past_feat_dynamic_real = len(self.cfg_dataset.name_feats.past_feat_dynamic_real)
         self.num_feat_dynamic_cat = len(self.cfg_dataset.name_feats.feat_dynamic_cat)
-
+        self.from_mlflow = from_mlflow
         self.model_config.context_length = (
             self.model_config.context_length
             if self.model_config.context_length is not None
@@ -136,6 +161,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
 
         self.model = None
+        if from_mlflow is not None:
+            self.model = self.load_model(from_mlflow)
+
         self.distr_output = distr_output
         self.loss = loss
         self.model_config.variable_dim = (
@@ -170,7 +198,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
 
     def train(self, input_data: gluontsPandasDataset):
-        self.model = None
+        if self.from_mlflow is not None:
+            logging.error("Model already trained, cannot be retrained from scratch")
+            return
         self.model = super().train(training_data=input_data)
 
     def predict(
@@ -232,7 +262,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         }
 
         for i in range(1, 10):
-            agg_metrics[f"QuantileLoss[{i/10}]"] = domain.metrics.quantileloss(
+            agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
 
@@ -430,15 +460,16 @@ class InformerForecaster(Forecaster):
         cfg_model: configs.Model,
         cfg_train: configs.Train,
         cfg_dataset: configs.Dataset,
-        from_pretrained: str = None,
+        from_mlflow: str = None,
     ) -> None:
         Forecaster.__init__(
             self,
             cfg_model=cfg_model,
             cfg_train=cfg_train,
             cfg_dataset=cfg_dataset,
-            from_pretrained=from_pretrained,
+            from_mlflow=from_mlflow,
         )
+        self.from_mlflow = from_mlflow
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
         self.model_config_informer = CustomInformerConfig(
@@ -450,8 +481,9 @@ class InformerForecaster(Forecaster):
             num_past_dynamic_real_features=len(self.cfg_dataset.name_feats.past_feat_dynamic_real),
             **self.model_config.dict(),
         )
-        if self.from_pretrained:
-            self.model = CustomInformerForPrediction.from_pretrained(self.from_pretrained)
+        if from_mlflow is not None:
+            self.model = self.load_model(from_mlflow)
+            # CustomInformerForPrediction.from_pretrained(self.from_pretrained)
         else:
             self.model = CustomInformerForPrediction(self.model_config_informer)
 
@@ -484,7 +516,7 @@ class InformerForecaster(Forecaster):
             )
 
     def train(self, input_data: List[Dict[str, Any]]):
-        if self.from_pretrained:
+        if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
             return
         self.get_train_dataloader(input_data)
