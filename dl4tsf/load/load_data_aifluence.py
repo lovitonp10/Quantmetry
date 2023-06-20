@@ -46,6 +46,18 @@ class Aifluence:
         self.df = pd.concat(list_df)
 
     def merge_amenities(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Merge the amenities data
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            aifluence data
+
+        Returns
+        -------
+        pd.DataFrame
+            amenities data merge with aifluence data
+        """
 
         amenities = Amenities()
         df_amenities = amenities.add_amenities()
@@ -140,6 +152,22 @@ class Aifluence:
     def get_preprocessed_data(
         self, start_date: str, end_date: str, p_data_station: float = 0.9
     ) -> pd.DataFrame:
+        """Assembles the different preprocess functions
+
+        Parameters
+        ----------
+        start_date : str
+            first day in the datas
+        end_date : str
+            last day in the datas
+        p_data_station : float, optional
+            proportion of data per station accepted, by default 0.9
+
+        Returns
+        -------
+        pd.DataFrame
+            the final dataset for aifluence after preprocess and merge with amenities datas
+        """
         if not hasattr(self, "df"):
             self.load_validations()
         df_out = self.change_column_validations(self.df)
@@ -152,13 +180,14 @@ class Aifluence:
         df_out = df_out.rename_axis("date")
         df_out = df_out.sort_values(by=["STATION", "date"])
         df_out = self.cut_start_end_ts(df_out, start=start_date, end=end_date)
+        df_out = self.change_column_amenities(df_out)
         return df_out
 
     def change_column_validations(
         self,
         df: pd.DataFrame,
     ) -> pd.DataFrame:
-        """First preprocess : change the columns name and values below 5
+        """Preprocess : change the columns name and values below 5
 
         Parameters
         ----------
@@ -185,6 +214,49 @@ class Aifluence:
         df_copy["CATEGORIE_TITRE"] = df_copy["CATEGORIE_TITRE"].replace("?", "INCONNU")
         df_copy["DATE"] = pd.to_datetime(df_copy["DATE"], dayfirst=True)
 
+        return df_copy
+
+    def change_column_amenities(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """Preprocess : Change the columns and select the good columns in the dataset
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataset with many unstack columns
+
+        Returns
+        -------
+        pd.DataFrame
+            dataset with the good columns
+        """
+        df_copy = df.copy()
+        columns_base = ["STATION", "VALD_TOTAL"]
+        columns_vald = [
+            "NB_VALD_AMETHYSTE",
+            "NB_VALD_AUTRE",
+            "NB_VALD_FGT",
+            "NB_VALD_IMAGINE_R",
+            "NB_VALD_NAVIGO",
+            "NB_VALD_NAVIGO_JOUR",
+            "NB_VALD_TST",
+        ]
+        columns_amenities = [
+            "Centers",
+            "Education",
+            "Entertainment",
+            "Services",
+            "Sustenance",
+            "Transport",
+            "WorkPlaces",
+        ]
+        columns_rename = ["amenityJSON=" + ind + "_AMETHYSTE" for ind in columns_amenities]
+        df_copy = df_copy.rename(columns=dict(zip(columns_rename, columns_amenities)))
+        df_copy = df_copy[columns_base + columns_vald + columns_amenities]
+        columns_majuscules = [caractere.upper() for caractere in columns_amenities]
+        df_copy = df_copy.rename(columns=dict(zip(columns_amenities, columns_majuscules)))
         return df_copy
 
     def preprocess_validation_titre(self, df: pd.DataFrame) -> pd.DataFrame:
