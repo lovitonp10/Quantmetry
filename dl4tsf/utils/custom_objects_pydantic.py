@@ -1,5 +1,5 @@
-from pydantic import BaseModel as PydanticBaseModel
 from datasets.arrow_dataset import Dataset
+from pydantic import BaseModel as PydanticBaseModel
 
 
 class BaseModel(PydanticBaseModel):

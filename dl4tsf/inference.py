@@ -1,13 +1,12 @@
 import logging
+import os
 
 import hydra
+import mlflow
 from configs import Configs
 from domain import forecasters
 from load.dataloaders import CustomDataLoader
-
 from omegaconf import DictConfig, OmegaConf
-import os
-import mlflow
 
 logger = logging.getLogger(__name__)
 logger.info("Start")

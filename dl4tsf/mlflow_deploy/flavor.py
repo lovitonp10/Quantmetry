@@ -1,7 +1,8 @@
+from pathlib import Path
+
+import mlflow_deploy
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from pathlib import Path
-import mlflow_deploy
 
 FLAVOR_NAME = "my_forecaster"
 

@@ -4,15 +4,14 @@ from urllib.parse import urlparse
 
 import hydra
 import mlflow
-
 from configs import Configs
 from domain import forecasters
 from load.dataloaders import CustomDataLoader
 from mlflow_deploy import logging_mlflow
-from utils.utils_gluonts import get_mean_metrics
 
 # from domain.plots import plot_timeseries
 from omegaconf import DictConfig, OmegaConf
+from utils.utils_gluonts import get_mean_metrics
 
 logger = logging.getLogger(__name__)
 logger.info("Start")

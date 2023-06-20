@@ -1,8 +1,8 @@
 import pytorch_lightning as pl
 import torch
+from domain.module import TFTModel
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import weighted_average
-from domain.module import TFTModel
 
 
 class TFTLightningModule(pl.LightningModule):
