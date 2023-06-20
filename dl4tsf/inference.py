@@ -6,6 +6,8 @@ from domain import forecasters
 from load.dataloaders import CustomDataLoader
 
 from omegaconf import DictConfig, OmegaConf
+import os
+import mlflow
 
 logger = logging.getLogger(__name__)
 logger.info("Start")
@@ -20,6 +22,13 @@ def main(cfgHydra: DictConfig):
 
     azure_logger = "azure.core.pipeline.policies.http_logging_policy"
     logging.getLogger(azure_logger).setLevel(logging.WARNING)
+
+    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = cfgHydra["logging"]["mlflow"][
+        "AZURE_STORAGE_CONNECTION_STRING"
+    ]
+
+    mlflow.set_tracking_uri(cfgHydra["logging"]["mlflow"]["tracking_uri"])
+    mlflow.set_experiment(cfgHydra["logging"]["mlflow"]["experiment_name"])
 
     logging.basicConfig(
         level=logging.INFO,
@@ -42,7 +51,7 @@ def main(cfgHydra: DictConfig):
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
 
     logging.info("MLflow test")
-    run_id = "c2727d179bca480db7aa5bf653d0e781"
+    run_id = "f284c3af7eda4f8a95497df40cad016f"
     forecaster = forecaster_inst(
         cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset, from_mlflow=run_id
     )

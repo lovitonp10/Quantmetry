@@ -262,7 +262,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         }
 
         for i in range(1, 10):
-            agg_metrics[f"QuantileLoss[{i/10}]"] = domain.metrics.quantileloss(
+            agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
 

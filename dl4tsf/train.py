@@ -4,10 +4,12 @@ from urllib.parse import urlparse
 
 import hydra
 import mlflow
+
 from configs import Configs
 from domain import forecasters
 from load.dataloaders import CustomDataLoader
 from mlflow_deploy import logging_mlflow
+from utils.utils_gluonts import get_mean_metrics
 
 # from domain.plots import plot_timeseries
 from omegaconf import DictConfig, OmegaConf
@@ -74,6 +76,7 @@ def main(cfgHydra: DictConfig):
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
 
+    mlflow.log_metrics(get_mean_metrics(metrics))
     # logger.info(metrics)
 
     logger.info("Compute Prediction")

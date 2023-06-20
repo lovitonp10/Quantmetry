@@ -157,6 +157,12 @@ def get_ts_length(df_pandas: pd.DataFrame) -> int:
     return ts_length
 
 
+def get_mean_metrics(metrics: dict) -> dict:
+    for key, value in metrics.items():
+        metrics[key] = np.mean(value)
+    return metrics
+
+
 def transform_huggingface_to_dict(dataset: pd.DataFrame, freq: str):
     """Transforms a HuggingFace dataset to a list of pandas DataFrames.
 
