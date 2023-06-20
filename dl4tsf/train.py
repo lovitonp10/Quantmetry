@@ -3,10 +3,10 @@ import logging
 import hydra
 from configs import Configs
 from domain import forecasters
+from load.dataloaders import CustomDataLoader
 
 # from domain.plots import plot_timeseries
 from omegaconf import DictConfig, OmegaConf
-from load.dataloaders import CustomDataLoader
 
 logger = logging.getLogger(__name__)
 logger.info("Start")

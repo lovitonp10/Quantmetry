@@ -1,16 +1,17 @@
-import pandas as pd
-import numpy as np
+import json
+import math
+import os
 from datetime import datetime, timedelta
+from typing import Dict, List
+
+import numpy as np
+import osmnx as ox
+import pandas as pd
 from dateutil import relativedelta
+from geopy.distance import distance as geodist
+from scipy.spatial.distance import cdist
 from sklearn.metrics import DistanceMetric
 from sklearn.neighbors import BallTree
-from scipy.spatial.distance import cdist
-from geopy.distance import distance as geodist
-from typing import Dict, List
-import math
-import json
-import os
-import osmnx as ox
 
 
 class Weather:

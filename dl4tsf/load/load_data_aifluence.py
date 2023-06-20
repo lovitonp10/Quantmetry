@@ -1,7 +1,8 @@
 import glob
-from typing import Optional
-import pandas as pd
 import logging
+from typing import Optional
+
+import pandas as pd
 from load.load_exo_data import Amenities
 
 logger = logging.getLogger(__name__)
