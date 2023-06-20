@@ -324,7 +324,23 @@ class Amenities:
         df.columns = [f"{amenity_col}={col}" for col in df.columns]
         return df
 
-    def create_amenities(self, df_amenities: pd.DataFrame) -> pd.DataFrame:
+    def load_stations_idfm(self, filename: str = "stations_idfm.csv"):
+        df_stations_idfm = pd.read_csv(self.path + filename, sep=",")
+        df_stations_idfm = df_stations_idfm.rename(columns={"nom_long": "station"})
+        df_stations_idfm = df_stations_idfm.drop_duplicates(subset=["station"])
+        df_stations_idfm[["latitude", "longitude"]] = df_stations_idfm["Geo Point"].str.split(
+            ",", expand=True
+        )
+        df_stations_idfm["latitude"] = df_stations_idfm["latitude"].astype(float)
+        df_stations_idfm["longitude"] = df_stations_idfm["longitude"].astype(float)
+        df_stations_idfm = df_stations_idfm.loc[
+            ~np.any(df_stations_idfm[["longitude", "latitude"]].isnull(), axis=1), :
+        ]
+        df_stations_idfm = df_stations_idfm.set_index(["id_ref_lda"])
+        df_stations_idfm = df_stations_idfm[["latitude", "longitude"]]
+        return df_stations_idfm
+
+    def create_amenities(self, df_amenities: pd.DataFrame, amenities_type: str) -> pd.DataFrame:
         """Preprocess the amenities data and prepare for merge in dataset
 
         Parameters
@@ -337,71 +353,63 @@ class Amenities:
         pd.DataFrame
             amenities data preprocess and ready for merge
         """
+        radius_influence = 1_000
 
-        df_stations_idfm = pd.read_csv(self.path + "stations_idfm.csv", sep=",")
-        infostation_idfm = df_stations_idfm.rename(columns={"nom_long": "station"})
-        infostation_idfm = infostation_idfm.drop_duplicates(subset=["station"])
-        infostation_idfm[["latitude", "longitude"]] = infostation_idfm["Geo Point"].str.split(
-            ",", expand=True
-        )
-        infostation_idfm["latitude"] = infostation_idfm["latitude"].astype(float)
-        infostation_idfm["longitude"] = infostation_idfm["longitude"].astype(float)
-        infostation_idfm = infostation_idfm.loc[
-            ~np.any(infostation_idfm[["longitude", "latitude"]].isnull(), axis=1), :
-        ]
-        infostation_idfm = infostation_idfm.set_index(["id_ref_lda"])
-        df_stations = infostation_idfm[["latitude", "longitude"]]
+        df_stations_idfm = self.load_stations_idfm(filename="stations_idfm.csv")
 
         df_amenities = df_amenities[["amenity", "geometry"]]
         pattern = r"POINT \((-?\d+\.\d+) (-?\d+\.\d+)\)"
         df_tmp = df_amenities.geometry.str.extract(pattern)
         df_amenities[["longitude", "latitude"]] = df_tmp.values.astype(float)
-        radius_influence = 1_000
 
         distances_array = self.pairwise_distances(
-            df_stations, df_amenities.set_index("amenity"), fast=True
+            df_stations_idfm, df_amenities.set_index("amenity"), fast=True
         )
         distances_array = distances_array.stack().rename("distance").reset_index()
         distances_array["in_neighbour"] = (distances_array["distance"] < radius_influence).astype(
             int
         )
+        json_amenities = self.load_amenities_json(amenities_type=amenities_type)
+        distances_array["amenity_type"] = distances_array["amenity"].map(json_amenities)
 
-        path_json_amenities = self.path + "amenities.json"
-        path_json_amenities_manual = self.path + "amenities_manual.json"
-        with open(path_json_amenities, "r") as f:
-            json_amenities = json.load(f)
-        with open(path_json_amenities_manual, "r") as f:
-            json_amenities_manual = json.load(f)
-
-        inverse_json_amenities = {item: k for k, v in json_amenities.items() for item in v}
-        distances_array["amenityJSON"] = distances_array["amenity"].map(inverse_json_amenities)
-        inverse_json_amenities_manual = {
-            item: k for k, v in json_amenities_manual.items() for item in v
-        }
-        distances_array["amenityMANUAL"] = distances_array["amenity"].map(
-            inverse_json_amenities_manual
-        )
         df_json = self.pivot_amenity(
-            distances_array, station_col="id_ref_lda", amenity_col="amenityJSON"
-        )
-        # df_manual = self.pivot_amenity(distances_array,
-        #                                station_col="id_ref_lda",
-        #                                amenity_col="amenityMANUAL")
-        # df = pd.concat([df_json, df_manual], axis=1)
-        df = df_json.reset_index()
-        return df
+            distances_array, station_col="id_ref_lda", amenity_col="amenity_type"
+        ).reset_index()
+        return df_json
+
+    def load_amenities_json(self, amenities_type: str):
+        if amenities_type == "amenities_manual":
+            path_json_amenities_manual = self.path + "amenities_manual.json"
+            with open(path_json_amenities_manual, "r") as f:
+                json_amenities_manual = json.load(f)
+
+            inverse_json_amenities_manual = {
+                item: k for k, v in json_amenities_manual.items() for item in v
+            }
+            return inverse_json_amenities_manual
+        else:
+            path_json_amenities = self.path + "amenities.json"
+            with open(path_json_amenities, "r") as f:
+                json_amenities = json.load(f)
+
+            inverse_json_amenities = {item: k for k, v in json_amenities.items() for item in v}
+            return inverse_json_amenities
 
     def get_amenities(self) -> pd.DataFrame:
-        """Read the amenities data
+        """Read the amenities data from csv, if does not exist, create it in _bronze file
 
         Returns
         -------
         pd.DataFrame
             amenities data
         """
-        df_amenities = pd.read_csv(self.path + "amenities_full", sep=",")
-        df_amenities_final = self.create_amenities(df_amenities)
-        return df_amenities_final
+        processed_amenities = "data/_bronze/amenities_idf.csv"
+        if not os.path.isfile(processed_amenities):
+            df_amenities = pd.read_csv(self.path + "amenities_full", sep=",")
+            df_amenities_final = self.create_amenities(df_amenities, amenities_type="amenityJSON")
+            df_amenities_final.to_csv(processed_amenities, index=False)
+            return df_amenities_final
+        return pd.read_csv(processed_amenities)
 
     def get_calendar(self) -> pd.DataFrame:
         """Read the calendar data

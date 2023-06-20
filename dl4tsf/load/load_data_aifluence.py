@@ -6,6 +6,44 @@ import pandas as pd
 from load.load_exo_data import Amenities
 
 logger = logging.getLogger(__name__)
+DICT_CORRECT_ID_REFA_LDA = {
+    73615: 71359,
+    70469: 461505,
+    71282: 479068,
+    71686: 71697,
+    73616: 478885,
+    73794: 474151,
+    71404: 425779,
+    71416: 411486,
+    71743: 463564,
+    74040: 71139,
+    72059: 478883,
+    71219: 473829,
+    59577: 59531,
+    70540: 424396,
+    62737: 478505,
+    60234: 422776,
+    71848: 71935,
+    67747: 462934,
+    73652: 71607,
+    69531: 463754,
+    63650: 463850,
+    64057: 424296,
+    74371: 463843,
+    63980: 422420,
+    73792: 478926,
+    412697: 479919,
+    70035: 427230,
+    474149: 71359,
+    73795: 71321,
+    72219: 72225,
+    62172: 71860,
+    70772: 422067,
+    482368: 73688,
+    74000: 478733,
+    71245: 71229,
+    474150: 71229,
+}
 
 
 class Aifluence:
@@ -46,7 +84,7 @@ class Aifluence:
                 del df_temp
         self.df = pd.concat(list_df)
 
-    def merge_amenities(self, df: pd.DataFrame) -> pd.DataFrame:
+    def merge_amenities(self, df_aifluence: pd.DataFrame) -> pd.DataFrame:
         """Merge the amenities data
 
         Parameters
@@ -57,98 +95,22 @@ class Aifluence:
         Returns
         -------
         pd.DataFrame
-            amenities data merge with aifluence data
+            amenities data with station name
         """
+        id_to_station = df_aifluence.set_index("ID_REFA_LDA")["STATION"].to_dict()
+        df_amenities = Amenities().add_amenities()
+        df_amenities["STATION"] = df_amenities["ID_REFA_LDA"].map(id_to_station)
+        df_amenities = df_amenities.drop(columns=["ID_REFA_LDA"])
+        return df_amenities
 
-        amenities = Amenities()
-        df_amenities = amenities.add_amenities()
+    def process_station_ID(self, df: pd.DataFrame) -> pd.DataFrame:
 
-        df_aifluence = df[df["STATION"] != "Inconnu"]
-        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].fillna("474152")
-        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].replace("?", "73798")
-        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].astype(int)
-
-        old_id = [
-            73615,
-            70469,
-            71282,
-            71686,
-            73616,
-            73794,
-            71404,
-            71416,
-            71743,
-            74040,
-            72059,
-            71219,
-            59577,
-            70540,
-            62737,
-            60234,
-            71848,
-            67747,
-            73652,
-            69531,
-            63650,
-            64057,
-            74371,
-            63980,
-            73792,
-            412697,
-            70035,
-            474149,
-            73795,
-            72219,
-            62172,
-            70772,
-            482368,
-            74000,
-            71245,
-            474150,
-        ]
-        new_id = [
-            71359,
-            461505,
-            479068,
-            71697,
-            478885,
-            474151,
-            425779,
-            411486,
-            463564,
-            71139,
-            478883,
-            473829,
-            59531,
-            424396,
-            478505,
-            422776,
-            71935,
-            462934,
-            71607,
-            463754,
-            463850,
-            424296,
-            463843,
-            422420,
-            478926,
-            479919,
-            427230,
-            71359,
-            71321,
-            72225,
-            71860,
-            422067,
-            73688,
-            478733,
-            71229,
-            71229,
-        ]
-
-        replacement_dict = {old: new for old, new in zip(old_id, new_id)}
-        df["ID_REFA_LDA"] = df["ID_REFA_LDA"].replace(replacement_dict)
-        merged_df = pd.merge(df_aifluence, df_amenities, on="ID_REFA_LDA", how="inner")
-        return merged_df
+        df_out = df[df["STATION"] != "Inconnu"].reset_index(drop=True)
+        df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].fillna("474152")
+        df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].replace("?", "73798")
+        df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].astype(int)
+        df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].replace(DICT_CORRECT_ID_REFA_LDA)
+        return df_out
 
     def get_preprocessed_data(
         self, start_date: str, end_date: str, p_data_station: float = 0.9
@@ -172,7 +134,9 @@ class Aifluence:
         if not hasattr(self, "df"):
             self.load_validations()
         df_out = self.change_column_validations(self.df)
-        df_out = self.merge_amenities(df_out)
+        df_out = self.process_station_ID(df_out)
+
+        df_amenities = self.merge_amenities(df_out)
         df_out = df_out.drop(
             columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
         )
@@ -181,7 +145,9 @@ class Aifluence:
         df_out = df_out.rename_axis("date")
         df_out = df_out.sort_values(by=["STATION", "date"])
         df_out = self.cut_start_end_ts(df_out, start=start_date, end=end_date)
-        df_out = self.change_column_amenities(df_out)
+        df_out = (
+            df_out.reset_index().merge(df_amenities, how="left", on="STATION").set_index("date")
+        )
         return df_out
 
     def change_column_validations(
@@ -215,49 +181,6 @@ class Aifluence:
         df_copy["CATEGORIE_TITRE"] = df_copy["CATEGORIE_TITRE"].replace("?", "INCONNU")
         df_copy["DATE"] = pd.to_datetime(df_copy["DATE"], dayfirst=True)
 
-        return df_copy
-
-    def change_column_amenities(
-        self,
-        df: pd.DataFrame,
-    ) -> pd.DataFrame:
-        """Preprocess : Change the columns and select the good columns in the dataset
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            dataset with many unstack columns
-
-        Returns
-        -------
-        pd.DataFrame
-            dataset with the good columns
-        """
-        df_copy = df.copy()
-        columns_base = ["STATION", "VALD_TOTAL"]
-        columns_vald = [
-            "NB_VALD_AMETHYSTE",
-            "NB_VALD_AUTRE",
-            "NB_VALD_FGT",
-            "NB_VALD_IMAGINE_R",
-            "NB_VALD_NAVIGO",
-            "NB_VALD_NAVIGO_JOUR",
-            "NB_VALD_TST",
-        ]
-        columns_amenities = [
-            "Centers",
-            "Education",
-            "Entertainment",
-            "Services",
-            "Sustenance",
-            "Transport",
-            "WorkPlaces",
-        ]
-        columns_rename = ["amenityJSON=" + ind + "_AMETHYSTE" for ind in columns_amenities]
-        df_copy = df_copy.rename(columns=dict(zip(columns_rename, columns_amenities)))
-        df_copy = df_copy[columns_base + columns_vald + columns_amenities]
-        columns_majuscules = [caractere.upper() for caractere in columns_amenities]
-        df_copy = df_copy.rename(columns=dict(zip(columns_amenities, columns_majuscules)))
         return df_copy
 
     def preprocess_validation_titre(self, df: pd.DataFrame) -> pd.DataFrame:
