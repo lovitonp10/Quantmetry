@@ -35,7 +35,7 @@ def main(cfgHydra: DictConfig):
     mlflow.set_tracking_uri(cfgHydra["logging"]["mlflow"]["tracking_uri"])
     mlflow.set_experiment(cfgHydra["logging"]["mlflow"]["experiment_name"])
 
-    mlflow.start_run(nested=True, run_name="train")
+    mlflow.start_run(nested=True, run_name="train_" + cfg.dataset.dataset_name)
     mlflow.log_param("hydra_output_dir", hydra_output_dir)
     logging_mlflow.log_params_from_omegaconf_dict(cfgHydra["train"])
     for pipeline_name in list(cfgHydra.keys())[:-1]:
