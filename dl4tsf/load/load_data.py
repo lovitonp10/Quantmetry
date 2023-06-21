@@ -97,7 +97,7 @@ def enedis(
     df_enedis = enedis.get_preprocessed_data()
 
     df_enedis["item_id"] = generate_item_ids_static_features(
-        df=df_enedis, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+        df=df_enedis, key_columns=name_feats["feat_for_item_id"]
     )
 
     if weather:
@@ -182,7 +182,7 @@ def aifluence_public_histo_vrf(
     )
 
     df_aifluence["item_id"] = generate_item_ids_static_features(
-        df=df_aifluence, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+        df=df_aifluence, key_columns=name_feats["feat_for_item_id"]
     )
 
     if weather:

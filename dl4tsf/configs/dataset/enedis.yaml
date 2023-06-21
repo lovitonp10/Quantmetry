@@ -16,6 +16,7 @@ freq: 30T
 static_cardinality: [12, 2, 8]
 dynamic_cardinality: [9]
 name_feats:
+  feat_for_item_id: ["region", "profil", "power", "power_min", "power_max"]
   feat_dynamic_real: ["temperature", "rainfall", "pressure"]
   feat_static_cat: ["region", "profil", "power"]
   feat_static_real: ["power_min", "power_max"]

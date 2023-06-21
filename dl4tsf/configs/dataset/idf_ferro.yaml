@@ -18,6 +18,7 @@ freq: 1D
 static_cardinality: [688]
 dynamic_cardinality: [9]
 name_feats:
+  feat_for_item_id: ["STATION"]
   feat_dynamic_real: ["temperature", "rainfall", "pressure"]
   feat_static_cat: ["STATION"]
   feat_static_real: []
