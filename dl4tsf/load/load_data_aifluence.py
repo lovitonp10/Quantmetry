@@ -84,7 +84,7 @@ class Aifluence:
                 del df_temp
         self.df = pd.concat(list_df)
 
-    def merge_amenities(self, df_aifluence: pd.DataFrame) -> pd.DataFrame:
+    def merge_amenities(self, df: pd.DataFrame) -> pd.DataFrame:
         """Merge the amenities data
 
         Parameters
@@ -97,20 +97,18 @@ class Aifluence:
         pd.DataFrame
             amenities data with station name
         """
-        id_to_station = df_aifluence.set_index("ID_REFA_LDA")["STATION"].to_dict()
-        df_amenities = Amenities().add_amenities()
-        df_amenities["STATION"] = df_amenities["ID_REFA_LDA"].map(id_to_station)
-        df_amenities = df_amenities.drop(columns=["ID_REFA_LDA"])
-        return df_amenities
-
-    def process_station_ID(self, df: pd.DataFrame) -> pd.DataFrame:
-
-        df_out = df[df["STATION"] != "Inconnu"].reset_index(drop=True)
+        df_out = df.copy()
+        df_out = df_out[df_out["STATION"] != "Inconnu"]
+        df_out["DATE"] = df_out.index
         df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].fillna("474152")
         df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].replace("?", "73798")
         df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].astype(int)
         df_out["ID_REFA_LDA"] = df_out["ID_REFA_LDA"].replace(DICT_CORRECT_ID_REFA_LDA)
-        return df_out
+        amenities = Amenities()
+        df_amenities = amenities.add_amenities()
+        merged_df = df_out.merge(df_amenities, on="ID_REFA_LDA", how="inner").set_index("DATE")
+        merged_df = merged_df.drop(columns=["ID_REFA_LDA"])
+        return merged_df
 
     def get_preprocessed_data(
         self, start_date: str, end_date: str, p_data_station: float = 0.9
@@ -134,20 +132,16 @@ class Aifluence:
         if not hasattr(self, "df"):
             self.load_validations()
         df_out = self.change_column_validations(self.df)
-        df_out = self.process_station_ID(df_out)
-
-        df_amenities = self.merge_amenities(df_out)
-        df_out = df_out.drop(
-            columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET", "ID_REFA_LDA"]
-        )
+        df_out = df_out.drop(columns=["CODE_STIF_TRNS", "CODE_STIF_RES", "CODE_STIF_ARRET"])
         df_out = self.preprocess_validation_titre(df_out)
+        df_out = self.merge_amenities(df_out)
         df_out = self.preprocess_station(df_out, p_data_station)
         df_out = df_out.rename_axis("date")
         df_out = df_out.sort_values(by=["STATION", "date"])
         df_out = self.cut_start_end_ts(df_out, start=start_date, end=end_date)
-        df_out = (
-            df_out.reset_index().merge(df_amenities, how="left", on="STATION").set_index("date")
-        )
+        # df_out = (
+        #     df_out.reset_index().merge(df_amenities, how="left", on="STATION").set_index("date")
+        # )
         return df_out
 
     def change_column_validations(
@@ -197,7 +191,7 @@ class Aifluence:
             a sample validation dataframe with 7 validations categories and the total validation
         """
         df_in = df.copy()
-        indexes = ["DATE", "STATION", "CATEGORIE_TITRE"]
+        indexes = ["DATE", "STATION", "ID_REFA_LDA", "CATEGORIE_TITRE"]
         df_in["CATEGORIE_TITRE"] = df_in["CATEGORIE_TITRE"].replace(
             ("AUTRE TITRE", "INCONNU", "NON DEFINI"), "AUTRE"
         )
@@ -209,7 +203,7 @@ class Aifluence:
         df_unstack.columns = new_columns
         df_unstack = df_unstack.fillna(0)
 
-        df_unstack_index = df_unstack.reset_index(level=["STATION", "DATE"])
+        df_unstack_index = df_unstack.reset_index(level=["STATION", "ID_REFA_LDA", "DATE"])
         df_unstack_index.index = df_unstack_index["DATE"]
 
         df_unstack_drop = df_unstack_index.drop(columns=["DATE"])
