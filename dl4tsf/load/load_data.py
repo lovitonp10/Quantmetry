@@ -23,7 +23,7 @@ def climate(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
@@ -49,7 +49,7 @@ def energy(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
@@ -86,7 +86,7 @@ def enedis(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     logger.info("Loading Data")
@@ -103,8 +103,22 @@ def enedis(
     if weather:
         logger.info("Add Weather")
         weather_inst = Weather()
+        weather["station_names"] = [
+            "ORLY",
+            "LILLE-LESQUIN",
+            "CAEN-CARPIQUET",
+            "REIMS-PRUNAY",
+            "RENNES-ST JACQUES",
+            "NANTES-BOUGUENAIS",
+            "TOURS",
+            "DIJON-LONGVIC",
+            "CLERMONT-FD",
+            "BORDEAUX-MERIGNAC",
+            "TOULOUSE-BLAGNAC",
+            "NICE",
+        ]
         df_enedis, df_forecast = weather_inst.add_weather(
-            df_enedis, weather, prediction_length, freq
+            df_enedis, weather, prediction_length, freq, with_regions=True
         )
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
@@ -130,7 +144,7 @@ def aifluence_public_histo_vrf(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     """Read a folder for load data from file and save it to a fataframe
@@ -151,7 +165,7 @@ def aifluence_public_histo_vrf(
         weather feature for the dataset, by default {
             "path_weather": "data/all_weather/",
             "dynamic_features": ["temperature", "rainfall", "pressure"],
-            "cat_features": ["barometric_trend"], "station_name": "ORLY", }
+            "cat_features": ["barometric_trend"], "station_names": ["ORLY"], }
 
     Returns
     -------

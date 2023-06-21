@@ -1,8 +1,8 @@
 model_name: InformerForecaster
 model_config:
   input_size: 1
-  prediction_length : 7
-  context_length : 28
+  prediction_length : ${dataset.load.prediction_length}
+  context_length : ${dataset.context_length}
   lags_sequence:
     - 1
     - 168 # 7*24

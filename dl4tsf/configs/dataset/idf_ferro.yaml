@@ -7,12 +7,13 @@ load:
   _target_: load.load_data.aifluence_public_histo_vrf
   path: data/idf_mobilites
   target: VALD_TOTAL
-  prediction_length: ${model.model_config.prediction_length}
+  prediction_length: 7
   freq: ${dataset.freq}
   start_date: 01/04/2015
   end_date: 31/12/2019
   name_feats: ${dataset.name_feats}
 test_length: 12D
+context_length: 28
 freq: 1D
 static_cardinality: [688]
 dynamic_cardinality: [9]

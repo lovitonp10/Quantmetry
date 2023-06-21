@@ -6,4 +6,4 @@ weather:
     - pressure
   cat_features:
     - barometric_trend
-  station_name: ORLY
+  station_names: [ORLY]

@@ -26,6 +26,9 @@ class CustomDataLoader:
         self.static_cardinality = cfg_model.model_config.static_cardinality
         self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
         self.model_name = cfg_model.model_name
+        self.mapping_item_id = self.tmp[
+            ["item_id"] + self.name_feats.feat_static_cat + self.name_feats.feat_static_real
+        ].drop_duplicates()
 
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):
