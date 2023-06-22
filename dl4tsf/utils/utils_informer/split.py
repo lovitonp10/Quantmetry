@@ -1,9 +1,9 @@
-from typing import List, Iterator
-from gluonts.transform import FlatMapTransformation, InstanceSampler
+from typing import Iterator, List
+
+import numpy as np
 from gluonts.core.component import validated
 from gluonts.dataset.common import DataEntry
-import numpy as np
-
+from gluonts.transform import FlatMapTransformation, InstanceSampler
 
 """
 Description: This file is a modified version of split.py from gluonts that add

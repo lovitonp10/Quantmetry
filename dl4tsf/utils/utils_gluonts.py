@@ -1,28 +1,25 @@
-from typing import List, Dict, Any, Optional, NamedTuple
-from utils.custom_objects_pydantic import HuggingFaceDataset
-import pandas as pd
-from pandas import Period
-import numpy as np
-import configs
-
-
-from gluonts.itertools import Map
-from pathlib import Path
+import logging
 import shutil
-from gluonts import json
-from gluonts.dataset import Dataset, DatasetWriter
-import datasets
-from gluonts.dataset.common import (
-    ProcessDataEntry,
-    CategoricalFeatureInfo,
-    BasicFeatureInfo,
-)
-
-from typing import cast
-import pydantic
 from functools import partial
 from itertools import repeat
-import logging
+from pathlib import Path
+from typing import Any, Dict, List, NamedTuple, Optional, cast
+
+import configs
+import datasets
+import numpy as np
+import pandas as pd
+import pydantic
+from gluonts import json
+from gluonts.dataset import Dataset, DatasetWriter
+from gluonts.dataset.common import (
+    BasicFeatureInfo,
+    CategoricalFeatureInfo,
+    ProcessDataEntry,
+)
+from gluonts.itertools import Map
+from pandas import Period
+from utils.custom_objects_pydantic import HuggingFaceDataset
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +154,12 @@ def get_ts_length(df_pandas: pd.DataFrame) -> int:
     return ts_length
 
 
+def get_mean_metrics(metrics: dict) -> dict:
+    for key, value in metrics.items():
+        metrics[key] = np.mean(value)
+    return metrics
+
+
 def transform_huggingface_to_dict(dataset: pd.DataFrame, freq: str):
     """Transforms a HuggingFace dataset to a list of pandas DataFrames.
 
@@ -249,14 +252,14 @@ def create_ts_with_features(
     past_dynamic_real = name_feats.past_feat_dynamic_real
     dynamic_cat = name_feats.feat_dynamic_cat
 
-    logging.info("get static features")
+    logger.info("get static features")
     df_static_features = df.drop_duplicates(subset=["item_id"]).set_index("item_id")[
         static_cat + static_real
     ]
     for col in static_cat + static_real:
         df_static_features[col] = df_static_features[col].astype("category").cat.codes
 
-    logging.info("Resample Pivot table")
+    logger.info("Resample Pivot table")
     df_pivot = pivot_df(
         df=df,
         cols=[target] + dynamic_real + past_dynamic_real + dynamic_cat,
@@ -264,7 +267,7 @@ def create_ts_with_features(
         freq=freq,
     )
 
-    logging.info("Add dynamic features")
+    logger.info("Add dynamic features")
     df_dynamic_feat_forecast = pivot_df(
         df=df_forecast,
         cols=list(df_forecast.columns.difference(["item_id"])),
@@ -272,7 +275,7 @@ def create_ts_with_features(
         freq=freq,
     )
 
-    logging.info("Create train/val/test dfs")
+    logger.info("Create train/val/test dfs")
     train, val, test = train_val_test_split(
         dataset_type=dataset_type,
         df=df,

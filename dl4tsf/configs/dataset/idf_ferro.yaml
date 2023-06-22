@@ -20,5 +20,5 @@ name_feats:
   feat_dynamic_real: ["temperature", "rainfall", "pressure"]
   feat_static_cat: ["STATION"]
   feat_static_real: []
-  past_feat_dynamic_real: ["NB_VALD_AMETHYSTE", "NB_VALD_FGT", "NB_VALD_IMAGINE_R", "NB_VALD_NAVIGO", "NB_VALD_NAVIGO_JOUR","NB_VALD_TST", "NB_VALD_AUTRE"]
+  past_feat_dynamic_real: ["NB_VALD_AMETHYSTE", "NB_VALD_FGT", "NB_VALD_IMAGINE_R", "NB_VALD_NAVIGO", "NB_VALD_NAVIGO_JOUR","NB_VALD_TST", "NB_VALD_AUTRE",  "amenity_type=Centers", "amenity_type=Education", "amenity_type=Entertainment", "amenity_type=Services", "amenity_type=Sustenance", "amenity_type=Transport", "amenity_type=WorkPlaces"]
   feat_dynamic_cat : ["barometric_trend"]

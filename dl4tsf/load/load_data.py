@@ -1,16 +1,17 @@
 import glob
-import pandas as pd
-from gluonts.dataset.common import TrainDatasets
-from load.load_data_aifluence import Aifluence
-from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
-from datasets import load_dataset as get_huggingface_dataset
-from functools import partial
-from utils.custom_objects_pydantic import HuggingFaceDataset
-from domain.transformations_pd import transform_start_field
-from load.load_exo_data import add_weather
-from typing import Dict, List, Optional
 import logging
+from functools import partial
+from typing import Dict, List, Optional
+
+import pandas as pd
+from datasets import load_dataset as get_huggingface_dataset
+from domain.transformations_pd import transform_start_field
+from gluonts.dataset.common import TrainDatasets
+from gluonts.dataset.repository.datasets import get_dataset as get_gluonts_dataset
+from load.load_data_aifluence import Aifluence
 from load.load_data_enedis import Enedis
+from load.load_exo_data import Weather
+from utils.custom_objects_pydantic import HuggingFaceDataset
 from utils.utils_gluonts import generate_item_ids_static_features
 
 logger = logging.getLogger(__name__)
@@ -36,7 +37,8 @@ def climate(
     df_climate = df_climate[[target]]
 
     if weather:
-        df_climate = add_weather(df_climate, weather)
+        weather_class = Weather()
+        df_climate = weather_class.add_weather(df_climate, weather)
 
     return df_climate
 
@@ -69,7 +71,8 @@ def energy(
     df_energy = df_energy[["region", "consommation"]]
 
     if weather:
-        df_energy = add_weather(df_energy, weather)
+        weather_class = Weather()
+        df_energy = weather_class.add_weather(df_energy, weather)
 
     return df_energy
 
@@ -99,7 +102,11 @@ def enedis(
     )
 
     if weather:
-        df_enedis, df_forecast = add_weather(df_enedis, weather, prediction_length, freq)
+        logger.info("Add Weather")
+        weather_inst = Weather()
+        df_enedis, df_forecast = weather_inst.add_weather(
+            df_enedis, weather, prediction_length, freq
+        )
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
         # left_index=True, right_index=True, how="left")
@@ -108,7 +115,6 @@ def enedis(
     # Dummy generated dynamic_cat
     # import numpy as np
     # df_enedis['test_dynamic_cat'] = np.random.randint(0, 4, size=865387)
-
     return df_enedis, None
 
 
@@ -116,7 +122,7 @@ def aifluence_public_histo_vrf(
     path: str = "data/idf_mobilites/",
     target: str = "VALD_TOTAL",
     prediction_length: int = 7,
-    freq: str = "30T",
+    freq: str = "1D",
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     p_data_station: float = 0.9,
@@ -167,7 +173,11 @@ def aifluence_public_histo_vrf(
     )
 
     if weather:
-        df_aifluence, df_forecast = add_weather(df_aifluence, weather, prediction_length, freq)
+        logger.info("Add Weather")
+        weather_inst = Weather()
+        df_aifluence, df_forecast = weather_inst.add_weather(
+            df_aifluence, weather, prediction_length, freq
+        )
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
         # left_index=True, right_index=True, how="left")
@@ -193,6 +203,7 @@ def huggingface_dataset(
     dataset = HuggingFaceDataset(train=dataset["train"], test=dataset["test"])
 
     if weather:
-        dataset = add_weather(dataset, weather)
+        weather_class = Weather()
+        dataset = weather_class.add_weather(dataset, weather)
 
     return dataset
