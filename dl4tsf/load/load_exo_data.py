@@ -37,11 +37,9 @@ class Weather:
         df_stations = df_stations[df_stations["Nom"].isin(names)]
 
         if with_regions:
-            df_stations["region"] = str()
-            for i in range(len(df_stations)):
-                latitude = df_stations["Latitude"].iloc[i]
-                longitude = df_stations["Longitude"].iloc[i]
-                df_stations["region"].iloc[i] = self.map_region(latitude, longitude)
+            df_stations["region"] = df_stations.apply(
+                lambda x: self.map_region(x["Latitude"], x["Longitude"]), axis=1
+            )
 
         # for _, name in zip(dict_stations, names):
         #    id_stations.append(dict_stations[name])
