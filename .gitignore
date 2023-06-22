@@ -13,3 +13,4 @@ models/
 *.ipynb
 data/
 .DS_Store
+mlruns/
