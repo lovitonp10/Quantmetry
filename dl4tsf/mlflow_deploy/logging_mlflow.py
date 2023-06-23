@@ -30,6 +30,8 @@ def _explore_recursive(parent_name, element):
             else:
                 mlflow.log_param(f"{parent_name}.{i}", v)
     else:
+        if len(str(element)) > 199:
+            element = str(len(element.split(", "))) + "elements"
         mlflow.log_param(parent_name, element)
 
 
