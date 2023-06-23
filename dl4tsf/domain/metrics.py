@@ -1,9 +1,10 @@
-import numpy as np
-from gluonts.time_feature import get_seasonality
-from gluonts.evaluation import metrics
-from configs import Configs
 from typing import Any, Dict, List, Tuple
+
+import numpy as np
+from configs import Configs
 from evaluate import load
+from gluonts.evaluation import metrics
+from gluonts.time_feature import get_seasonality
 
 
 def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> list:

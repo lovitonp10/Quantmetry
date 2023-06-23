@@ -5,7 +5,7 @@ model_config:
   context_length : 28
   lags_sequence:
     - 1
-    - 168 # 7*24
+    - 168 # 7*24 -> to modify : 7*24*2
   dropout: 0.1
   num_heads:  4
   variable_dim: null

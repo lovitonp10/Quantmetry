@@ -3,6 +3,7 @@ defaults:
   - dataset: enedis
   - model: tft
   - train: dummy
+  - logging: local
 
 
 hydra:

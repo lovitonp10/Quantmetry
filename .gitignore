@@ -1,6 +1,6 @@
 *.log
 outputs/
-
+mlruns/
 */__pycache__/
 */*/__pycache__/
 */*/*/__pycache__/
@@ -13,3 +13,4 @@ models/
 *.ipynb
 data/
 .DS_Store
+mlruns/

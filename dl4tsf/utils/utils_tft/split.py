@@ -1,12 +1,11 @@
-from typing import List, Iterator
-import numpy as np
+from typing import Iterator, List
 
-from gluonts.transform import InstanceSplitter
-from gluonts.transform.sampler import InstanceSampler
+import numpy as np
 from gluonts.core.component import validated
 from gluonts.dataset.common import DataEntry
 from gluonts.dataset.field_names import FieldName
-
+from gluonts.transform import InstanceSplitter
+from gluonts.transform.sampler import InstanceSampler
 
 """
 Description: This file is a modified version of split.py from gluonts that

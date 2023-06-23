@@ -31,7 +31,21 @@
             "env": {
                 "PYTORCH_ENABLE_MPS_FALLBACK": "1"
               },
-            "args": ["model=tft", "dataset=idf_ferro"],
+            "args": ["model=tft", "dataset=enedis"],
+
+        } ,
+        {
+            "name": "inference tft",
+            "type": "python",
+            "request": "launch",
+            "program": "dl4tsf/inference.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": false,
+            "env": {
+                "PYTORCH_ENABLE_MPS_FALLBACK": "1"
+              },
+            "args": ["logging=azure"],
 
         } ,
     ]
