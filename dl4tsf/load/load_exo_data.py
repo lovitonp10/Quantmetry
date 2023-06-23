@@ -1,18 +1,17 @@
-import pandas as pd
-import numpy as np
+import json
+import math
+import os
 from datetime import datetime, timedelta
+from typing import Dict, List
+
+import numpy as np
+import osmnx as ox
+import pandas as pd
 from dateutil import relativedelta
+from geopy.distance import distance as geodist
+from scipy.spatial.distance import cdist
 from sklearn.metrics import DistanceMetric
 from sklearn.neighbors import BallTree
-from scipy.spatial.distance import cdist
-from geopy.distance import distance as geodist
-from typing import Dict, List
-import math
-import json
-import os
-import osmnx as ox
-from unidecode import unidecode
-from geopy.geocoders import Nominatim
 
 
 class Weather:
@@ -22,24 +21,17 @@ class Weather:
     ) -> None:
         self.path_weather = path_weather
 
-    def map_region(self, latitude, longitude) -> str:
+    """def map_region(self, latitude, longitude) -> str:
         geolocator = Nominatim(user_agent="my_reverse_geocoder")
         location = geolocator.reverse([latitude, longitude], exactly_one=True)
         address = location.raw["address"]
         region = address.get("state")
-        return region
+        return region"""
 
-    def get_station_id(
-        self, names: List[str] = ["ORLY"], with_regions: bool = False
-    ) -> pd.DataFrame:
+    def get_station_id(self, station_names: List[str] = ["ORLY"]) -> pd.DataFrame:
         df_stations = pd.read_csv(self.path_weather + "stations.txt", sep=";")
         # dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
-        df_stations = df_stations[df_stations["Nom"].isin(names)]
-
-        if with_regions:
-            df_stations["region"] = df_stations.apply(
-                lambda x: self.map_region(x["Latitude"], x["Longitude"]), axis=1
-            )
+        df_stations = df_stations[df_stations["Nom"].isin(station_names)]
 
         # for _, name in zip(dict_stations, names):
         #    id_stations.append(dict_stations[name])
@@ -53,9 +45,8 @@ class Weather:
         end: str = "1-02-2022",
         station_names: List[str] = ["ORLY"],
         freq: str = "30T",
-        with_regions: bool = False,
     ) -> pd.DataFrame:
-        df_stations = self.get_station_id(names=station_names, with_regions=with_regions)
+        df_stations = self.get_station_id(station_names=station_names)
 
         start_start_month = start.replace(day=1)
         end_start_month = end.replace(day=1)
@@ -89,8 +80,7 @@ class Weather:
             df2 = df2[df2["numer_sta"].isin(df_stations["ID"])]
             df2 = df2.rename(columns={"numer_sta": "ID"})
 
-            if with_regions:
-                df2 = pd.merge(df2, df_stations[["ID", "region"]], on="ID", how="left")
+            df2 = pd.merge(df2, df_stations[["ID", "Nom"]], on="ID", how="left")
 
             if i == 0:
                 df2 = df2[df2["date"] >= start]
@@ -124,18 +114,13 @@ class Weather:
         df_item_ids: List,
         item_col: str = "item_id",
         freq: str = "30T",
-        with_regions: bool = False,
     ) -> pd.DataFrame:
         new_df = pd.DataFrame()
-        if with_regions:
-            df.region = df.region.replace("Nouvelle-Aquitaine", "Nouvelle Aquitaine")
-            df.region = df.region.replace("Grand Est", "Grand-Est")
 
         for item_id in df_item_ids["item_id"]:
             tmp = df.copy()
-            if with_regions:
-                region = df_item_ids[df_item_ids["item_id"] == item_id]["region"][0]
-                tmp = tmp[tmp["region"] == region]
+            station_name = df_item_ids[df_item_ids["item_id"] == item_id]["station_names"][0]
+            tmp = tmp[tmp["Nom"] == station_name]
 
             tmp[item_col] = item_id
             for feat in self.dynamic_features:
@@ -163,11 +148,10 @@ class Weather:
         },
         prediction_length: int = 7,
         frequency: str = "30T",
-        with_regions: bool = False,
     ) -> pd.DataFrame:
         self.dynamic_features = weather["dynamic_features"]
         self.cat_features = weather["cat_features"]
-        station_names = weather["station_names"]
+        station_names = df.station_names.unique()
 
         unique_dates = df.index.unique()
         sorted_dates = unique_dates.sort_values(ascending=True)
@@ -185,22 +169,15 @@ class Weather:
         end = datetime.strptime(last_date_str, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
 
         weather = self.load_weather(
-            start=start,
-            end=end,
-            freq=frequency,
-            with_regions=with_regions,
-            station_names=station_names,
+            start=start, end=end, freq=frequency, station_names=station_names
         )
 
         df.index = df.index.tz_localize(None)
         weather.index = weather.index.tz_localize(None)
 
-        df_item_ids = pd.DataFrame(df.drop_duplicates(subset=["item_id"])["item_id"])
-        if with_regions:
-            df_item_ids = df.drop_duplicates(subset=["item_id"])[["item_id", "region"]]
-        weather = self.generate_itemid_weather(
-            df=weather, df_item_ids=df_item_ids, freq=frequency, with_regions=with_regions
-        )
+        # df_item_ids = pd.DataFrame(df.drop_duplicates(subset=["item_id"])["item_id"])
+        df_item_ids = df.drop_duplicates(subset=["item_id"])[["item_id", "station_names"]]
+        weather = self.generate_itemid_weather(df=weather, df_item_ids=df_item_ids, freq=frequency)
 
         forecast_date_range = pd.date_range(
             start=last_date, periods=prediction_length + 1, freq=frequency
@@ -229,14 +206,26 @@ class Weather:
         return days
 
 
-class Aifluence:
+class Amenities:
     def __init__(
         self,
         path: str = "data/exo_idf_mobilites/",
     ) -> None:
         self.path = path
 
-    def download_amenities(self, json_amenities):
+    def download_amenities(self, json_amenities: json) -> pd.DataFrame:
+        """Download amenities with json file
+
+        Parameters
+        ----------
+        json_amenities : json
+            json file
+
+        Returns
+        -------
+        pd.DataFrame
+            dataframe amenities download
+        """
         list_amenities = [amenity for group in json_amenities.values() for amenity in group]
         lat_stLazare, lon_stLazare = 48.8763, 2.3254
         distance_from_stLazare = 100_000
@@ -267,7 +256,8 @@ class Aifluence:
 
         return amenities_full
 
-    def save_amenities(self):
+    def save_amenities(self) -> None:
+        """Save amenities data download"""
         path_json_amenities = self.path + "amenities.json"
         with open(path_json_amenities, "r") as f:
             json_amenities = json.load(f)
@@ -282,7 +272,31 @@ class Aifluence:
                 file_path = os.path.join(directory, filename)
                 os.remove(file_path)
 
-    def pairwise_distances(self, locations1, locations2, fast, max_radius=None):
+    def pairwise_distances(
+        self,
+        locations1: pd.DataFrame,
+        locations2: pd.DataFrame,
+        fast: bool,
+        max_radius: int = None,
+    ) -> pd.DataFrame:
+        """Matches stations in two datasets with respect to distances between GeoPoints
+
+        Parameters
+        ----------
+        locations1 : pd.DataFrame
+            first dataframe
+        locations2 : pd.DataFrame
+            second dataframe
+        fast : bool
+            boolean for the method to compute distance
+        max_radius : int, optional
+            max radius use for compute distance, by default None
+
+        Returns
+        -------
+        pd.DataFrame
+            dataframe with unique station
+        """
         if fast:
             earth_radius = 6378140
             if max_radius is None:
@@ -313,63 +327,147 @@ class Aifluence:
                 locations2[["latitude", "longitude"]],
                 lambda u, v: geodist(u, v).meters,
             )
-        return pdist
+        df = pd.DataFrame(pdist, index=locations1.index, columns=locations2.index)
+        return df
 
-    def create_amenities(self, df_amenities: pd.DataFrame):
+    def pivot_amenity(self, df: pd.DataFrame, station_col: str, amenity_col: str) -> pd.DataFrame:
+        """Pivot the amenities data
 
-        df_stations_idfm = pd.read_csv(self.path + "stations_idfm.csv", sep=",")
-        infostation_idfm = df_stations_idfm.rename(columns={"nom_long": "station"})
-        infostation_idfm = infostation_idfm.drop_duplicates(subset=["station"])
-        infostation_idfm[["latitude", "longitude"]] = infostation_idfm["Geo Point"].str.split(
+        Parameters
+        ----------
+        df : pd.DataFrame
+            amenities data
+        station_col : str
+            column for station identification
+        amenity_col : str
+            name of json file for pivot on amenities
+
+        Returns
+        -------
+        pd.DataFrame
+            amenities data with pivot
+        """
+        df = df.groupby([station_col, amenity_col]).agg({"in_neighbour": "sum"}).reset_index()
+        df = df.pivot(index=station_col, columns=amenity_col, values="in_neighbour").reset_index()
+        df = df.set_index(station_col)
+        df.columns = [f"{amenity_col}={col}" for col in df.columns]
+        return df
+
+    def load_stations_idfm(self, filename: str = "stations_idfm.csv"):
+        df_stations_idfm = pd.read_csv(self.path + filename, sep=",")
+        df_stations_idfm = df_stations_idfm.rename(columns={"nom_long": "station"})
+        df_stations_idfm = df_stations_idfm.drop_duplicates(subset=["station"])
+        df_stations_idfm[["latitude", "longitude"]] = df_stations_idfm["Geo Point"].str.split(
             ",", expand=True
         )
-        infostation_idfm["latitude"] = infostation_idfm["latitude"].astype(float)
-        infostation_idfm["longitude"] = infostation_idfm["longitude"].astype(float)
-        infostation_idfm = infostation_idfm.loc[
-            ~np.any(infostation_idfm[["longitude", "latitude"]].isnull(), axis=1), :
+        df_stations_idfm["latitude"] = df_stations_idfm["latitude"].astype(float)
+        df_stations_idfm["longitude"] = df_stations_idfm["longitude"].astype(float)
+        df_stations_idfm = df_stations_idfm.loc[
+            ~np.any(df_stations_idfm[["longitude", "latitude"]].isnull(), axis=1), :
         ]
-        infostation_idfm = infostation_idfm.set_index(["id"])
-        df_stations = infostation_idfm[["latitude", "longitude"]]
+        df_stations_idfm = df_stations_idfm.set_index(["id_ref_lda"])
+        df_stations_idfm = df_stations_idfm[["latitude", "longitude"]]
+        return df_stations_idfm
+
+    def create_amenities(self, df_amenities: pd.DataFrame, amenities_type: str) -> pd.DataFrame:
+        """Preprocess the amenities data and prepare for merge in dataset
+
+        Parameters
+        ----------
+        df_amenities : pd.DataFrame
+            amenities data
+
+        Returns
+        -------
+        pd.DataFrame
+            amenities data preprocess and ready for merge
+        """
+        radius_influence = 1_000
+
+        df_stations_idfm = self.load_stations_idfm(filename="stations_idfm.csv")
 
         df_amenities = df_amenities[["amenity", "geometry"]]
         pattern = r"POINT \((-?\d+\.\d+) (-?\d+\.\d+)\)"
         df_tmp = df_amenities.geometry.str.extract(pattern)
         df_amenities[["longitude", "latitude"]] = df_tmp.values.astype(float)
 
-        distances_array = self.pairwise_distances(df_stations, df_amenities, fast=True)
-        distances_array = pd.DataFrame(
-            distances_array, index=df_stations.index, columns=df_amenities.amenity
+        distances_array = self.pairwise_distances(
+            df_stations_idfm, df_amenities.set_index("amenity"), fast=True
         )
         distances_array = distances_array.stack().rename("distance").reset_index()
-        radius_influence = 1_000
         distances_array["in_neighbour"] = (distances_array["distance"] < radius_influence).astype(
             int
         )
-        df = (
-            distances_array.groupby(["station", "amenity"])
-            .agg({"in_neighbour": "sum"})
-            .reset_index()
-        )
-        df = df.pivot(index="station", columns="amenity", values="in_neighbour").reset_index()
-        return df
+        json_amenities = self.load_amenities_json(amenities_type=amenities_type)
+        distances_array["amenity_type"] = distances_array["amenity"].map(json_amenities)
 
-    def get_amenities(self):
-        df_amenities = pd.read_csv(self.path + "amenities_full", sep=",")
-        df_amenities_final = self.create_amenities(df_amenities)
+        df_json = self.pivot_amenity(
+            distances_array, station_col="id_ref_lda", amenity_col="amenity_type"
+        ).reset_index()
+        return df_json
 
-        df_amenities_final.rename(columns={"station": "STATION"}, inplace=True)
-        df_amenities_final["STATION"] = df_amenities_final["STATION"].str.upper().apply(unidecode)
-        df_amenities_final["STATION"] = df_amenities_final["STATION"].str.strip(" ")
-        df_amenities_final["STATION"] = df_amenities_final["STATION"].str.replace(" - ", "-")
-        return df_amenities_final
+    def load_amenities_json(self, amenities_type: str):
+        if amenities_type == "amenities_manual":
+            path_json_amenities_manual = self.path + "amenities_manual.json"
+            with open(path_json_amenities_manual, "r") as f:
+                json_amenities_manual = json.load(f)
 
-    def get_calendar(self):
+            inverse_json_amenities_manual = {
+                item: k for k, v in json_amenities_manual.items() for item in v
+            }
+            return inverse_json_amenities_manual
+        else:
+            path_json_amenities = self.path + "amenities.json"
+            with open(path_json_amenities, "r") as f:
+                json_amenities = json.load(f)
+
+            inverse_json_amenities = {item: k for k, v in json_amenities.items() for item in v}
+            return inverse_json_amenities
+
+    def get_amenities(self) -> pd.DataFrame:
+        """Read the amenities data from csv, if does not exist, create it in _bronze file
+
+        Returns
+        -------
+        pd.DataFrame
+            amenities data
+        """
+        processed_amenities = "data/_bronze/amenities_idf.csv"
+        if not os.path.isfile(processed_amenities):
+            df_amenities = pd.read_csv(self.path + "amenities_full", sep=",")
+            df_amenities_final = self.create_amenities(df_amenities, amenities_type="amenityJSON")
+            df_amenities_final.to_csv(processed_amenities, index=False)
+            return df_amenities_final
+        return pd.read_csv(processed_amenities)
+
+    def get_calendar(self) -> pd.DataFrame:
+        """Read the calendar data
+
+        Returns
+        -------
+        pd.DataFrame
+            calendar data
+        """
         df_load = pd.read_csv(self.path + "Data_Outliers_with_calendar.csv", sep=",")
         df_load.set_index("JOUR", inplace=True, drop=True)
         df_load.index.name = None
         df_load = df_load.drop(columns=["DESCRIPTION_PH", "LIBELLE_ARRET", "NB_VALD"])
         return df_load
 
-    def add_amenities(self):
+    def add_amenities(self) -> pd.DataFrame:
+        """Add amenities data
+
+        Returns
+        -------
+        pd.DataFrame
+            amenities data
+        """
         df_amenities = self.get_amenities()
+        df_amenities["id_ref_lda"] = df_amenities["id_ref_lda"].astype(int)
+        df_amenities.rename(
+            columns={
+                "id_ref_lda": "ID_REFA_LDA",
+            },
+            inplace=True,
+        )
         return df_amenities
