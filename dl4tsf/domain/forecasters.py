@@ -47,10 +47,10 @@ from gluonts.transform import (
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow_deploy.flavor import register_model_mlflow
-from pytorch_lightning.loggers import TensorBoardLogger
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
+from utils.tensorboard_logging import TBLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 from utils.utils_informer.utils_tensorboard import get_summary_writer
@@ -142,11 +142,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
-        self.logger = TensorBoardLogger(
+        self.logger = TBLogger(
             "tensorboard_logs",
             name=cfg_dataset.dataset_name,
             sub_dir="TFT",
-            log_graph=True,
+            default_hp_metric=False,
         )
         self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
         trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
@@ -554,12 +554,13 @@ class InformerForecaster(Forecaster):
             model_name="Informer",
         )
 
-        global_step = 0
+        global_step = -1
         self.model.train()
         if device.type == "cuda":
             self.model.double()
 
         for epoch in range(self.cfg_train.epochs):
+            batch_loss = []
             for idx, batch in enumerate(self.train_dataloader):
                 optimizer.zero_grad()
                 outputs = self.model(
@@ -586,16 +587,16 @@ class InformerForecaster(Forecaster):
                     else None,
                 )
                 loss = outputs.loss
-
+                batch_loss.append(loss.item())
                 # Backpropagation
                 accelerator.backward(loss)
                 optimizer.step()
 
-                self.loss_history.append(loss.item())
-                # if idx % 100 == 0:
-                # print(loss.item())
-                self.writer.add_scalar("train_loss", loss.item(), global_step)
-                global_step += 1
+            self.loss_history.append(loss.item())
+            # if idx % 100 == 0:
+            # print(loss.item())
+            global_step += self.cfg_train.nb_batch_per_epoch
+            self.writer.add_scalar("train_loss", np.mean(batch_loss), global_step)
         self.writer.close()
 
     def predict(
