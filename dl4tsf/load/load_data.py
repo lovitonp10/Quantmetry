@@ -16,6 +16,21 @@ from utils.utils_gluonts import generate_item_ids_static_features
 
 logger = logging.getLogger(__name__)
 
+MAPPING_REGION_WEATHER_STATION = {
+    "Île-de-France": "ORLY",
+    "Hauts-de-France": "LILLE-LESQUIN",
+    "Normandie": "CAEN-CARPIQUET",
+    "Grand-Est": "REIMS-PRUNAY",
+    "Bretagne": "RENNES-ST JACQUES",
+    "Pays de la Loire": "NANTES-BOUGUENAIS",
+    "Centre-Val de Loire": "TOURS",
+    "Bourgogne-Franche-Comté": "DIJON-LONGVIC",
+    "Auvergne-Rhône-Alpes": "CLERMONT-FD",
+    "Nouvelle Aquitaine": "BORDEAUX-MERIGNAC",
+    "Occitanie": "TOULOUSE-BLAGNAC",
+    "Provence-Alpes-Côte d'Azur": "NICE",
+}
+
 
 def climate(
     path: str = "data/climate_delhi/",
@@ -101,29 +116,10 @@ def enedis(
         df=df_enedis, key_columns=name_feats["feat_for_item_id"]
     )
 
-    dict_mapping = {
-        "Île-de-France": "ORLY",
-        "Hauts-de-France": "LILLE-LESQUIN",
-        "Normandie": "CAEN-CARPIQUET",
-        "Grand-Est": "REIMS-PRUNAY",
-        "Bretagne": "RENNES-ST JACQUES",
-        "Pays de la Loire": "NANTES-BOUGUENAIS",
-        "Centre-Val de Loire": "TOURS",
-        "Bourgogne-Franche-Comté": "DIJON-LONGVIC",
-        "Auvergne-Rhône-Alpes": "CLERMONT-FD",
-        "Nouvelle Aquitaine": "BORDEAUX-MERIGNAC",
-        "Occitanie": "TOULOUSE-BLAGNAC",
-        "Provence-Alpes-Côte d'Azur": "NICE",
-    }
-
     if weather:
         logger.info("Add Weather")
-        weather_inst = Weather()
-
-        df_enedis["station_names"] = df_enedis["region"].map(dict_mapping)
-        df_enedis, df_forecast = weather_inst.add_weather(
-            df_enedis, weather, prediction_length, freq
-        )
+        df_enedis["station_name"] = df_enedis["region"].map(MAPPING_REGION_WEATHER_STATION)
+        df_enedis, df_forecast = Weather().add_weather(df_enedis, weather, prediction_length, freq)
         # If you have dynamic_feat (known in the future):
         # df_forecast = pd.merge(forecast_dynamic_feat, df_forecast,
         # left_index=True, right_index=True, how="left")
@@ -191,11 +187,8 @@ def aifluence_public_histo_vrf(
 
     if weather:
         logger.info("Add Weather")
-        weather_inst = Weather()
-
-        df_aifluence["station_names"] = weather["station_names"][0]
-
-        df_aifluence, df_forecast = weather_inst.add_weather(
+        df_aifluence["station_name"] = weather["station_names"][0]
+        df_aifluence, df_forecast = Weather().add_weather(
             df_aifluence, weather, prediction_length, freq
         )
         # If you have dynamic_feat (known in the future):
