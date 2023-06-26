@@ -8,7 +8,6 @@ from gluonts.time_feature import get_seasonality
 
 
 def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> list:
-
     """
     Compute the MAE metric:
     .. math::
@@ -24,7 +23,6 @@ def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> li
 
 
 def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> list:
-
     """
     Compute the RMSE metric:
     .. math::
@@ -42,23 +40,25 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
 
 
 def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> list:
-
     """
     Compute the MAPE metric:
     .. math::
-        mape = 100 * mean(|Y - hat{Y}| / |Y|))
+        mape = mean(|Y - hat{Y}| / |Y|))
     """
     mape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        mape_metrics.append(100 * metrics.mape(true_value, forecast_value))
+        mape_metrics.append(metrics.mape(true_value, forecast_value))
 
     return mape_metrics
 
 
-def estimate_smape(forecasts: list, true_ts: list, prediction_length: float) -> list:
-
+def estimate_smape(
+    forecasts: list,
+    true_ts: list,
+    prediction_length: float,
+) -> list:
     """
     Compute the SMAPE metric:
     .. math::
@@ -69,30 +69,33 @@ def estimate_smape(forecasts: list, true_ts: list, prediction_length: float) -> 
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        smape_metrics.append(100 * metrics.smape(true_value, forecast_value))
+        smape_metrics.append(metrics.smape(true_value, forecast_value))
 
     return smape_metrics
 
 
-def estimate_wmape(forecasts: list, true_ts: list, prediction_length: float) -> list:
-
+def estimate_wmape(
+    forecasts: list,
+    true_ts: list,
+    prediction_length: float,
+) -> list:
     """
     Compute the WMAPE metric:
     .. math::
-        smape = 100 * sum(|Y - hat{Y}|) / sum(|Y|)
+        smape = sum(|Y - hat{Y}|) / sum(|Y|)
     """
     wmape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
         wmape_metrics.append(
-            100 * np.sum(np.abs(true_value - forecast_value)) / np.sum(np.abs(true_value))
+            np.sum(np.abs(true_value - forecast_value)) / np.sum(np.abs(true_value))
         )
+
     return wmape_metrics
 
 
 def estimate_mase(forecasts: list, true_ts: list, prediction_length: float, freq: str) -> list:
-
     """
     Compute the MASE metric:
     .. math::
@@ -116,7 +119,6 @@ def estimate_mase(forecasts: list, true_ts: list, prediction_length: float, freq
 def quantileloss(
     forecasts: list, true_ts: list, prediction_length: float, quantile: float
 ) -> list:
-
     """
     Compute the Quantile Loss metric:
     .. math::

@@ -701,14 +701,14 @@ def create_dict_dataset(
             ),
             **(
                 {"feat_static_cat": np.array(df_feat_static_cat)[i]}
-                if len(df_feat_static_cat.columns) != 0
+                if df_feat_static_cat.shape[1] != 0
                 else {}
             ),
             **(
                 {
                     "feat_static_real": np.array(df_feat_static_real)[i]
                 }  # np.array(df[df["item_id"] == i][static_real].iloc[0])}
-                if len(df_feat_static_real.columns) != 0
+                if df_feat_static_real.shape[1] != 0
                 else {}
             ),
             **(
@@ -722,7 +722,7 @@ def create_dict_dataset(
                         ]
                     )
                 }
-                if len(df_past_feat_dynamic_real.columns) != 0
+                if df_past_feat_dynamic_real.shape[1] != 0
                 else {}
             ),
             **(
@@ -734,7 +734,7 @@ def create_dict_dataset(
                         ]
                     )
                 }
-                if len(df_feat_dynamic_cat.columns) != 0
+                if df_feat_dynamic_cat.shape[1] != 0
                 else {}
             ),
             "item_id": str(i),

@@ -13,7 +13,7 @@ def _explore_recursive(parent_name, element):
             if isinstance(v, DictConfig):
                 _explore_recursive(f"{parent_name}.{k}", v)
             elif isinstance(v, ListConfig):
-                if k == "features":
+                if (k.startswith("feat_")) or (k.startswith("past_feat_")):
                     log_features(k, v)
                 else:
                     _explore_recursive(
@@ -31,7 +31,7 @@ def _explore_recursive(parent_name, element):
                 mlflow.log_param(f"{parent_name}.{i}", v)
     else:
         if len(str(element)) > 199:
-            element = str(len(element.split(", "))) + "elements"
+            element = "LENGTH exceeded"
         mlflow.log_param(parent_name, element)
 
 

@@ -47,12 +47,13 @@ from gluonts.transform import (
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow_deploy.flavor import register_model_mlflow
-from pytorch_lightning.loggers import TensorBoardLogger
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from utils import utils_gluonts
+from utils.tensorboard_logging import TBLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
+from utils.utils_informer.utils_tensorboard import get_summary_writer
 from utils.utils_tft.split import CustomTFTInstanceSplitter
 
 logger = logging.getLogger(__name__)
@@ -111,6 +112,15 @@ class Forecaster:
             model=forecaster, artifact_path="model", model_name=regist_model_name
         )
 
+    def convert_to_percentage(self, agg_metrics: Dict[str, List[float]]):
+        agg_metrics2 = {}
+        for metric_name, values in agg_metrics.items():
+            if metric_name in ["mape", "smape", "wmape"]:
+                agg_metrics2[metric_name] = [val * 100 for val in values]
+            else:
+                agg_metrics2[metric_name] = values
+        return agg_metrics2
+
 
 class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     @validated()
@@ -132,11 +142,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
-        self.logger = TensorBoardLogger(
+        self.logger = TBLogger(
             "tensorboard_logs",
             name=cfg_dataset.dataset_name,
             sub_dir="TFT",
-            log_graph=True,
+            default_hp_metric=False,
         )
         self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
         trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
@@ -233,6 +243,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self,
         test_dataset: gluontsPandasDataset,
         mean: bool = False,
+        percentage: bool = False,
     ) -> Dict[str, Any]:
         true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
@@ -243,27 +254,34 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                 forecasts, true_ts, self.model_config.prediction_length
             ),
             "mape": domain.metrics.estimate_mape(
-                forecasts, true_ts, self.model_config.prediction_length
+                forecasts,
+                true_ts,
+                self.model_config.prediction_length,
             ),
             "smape": domain.metrics.estimate_smape(
-                forecasts, true_ts, self.model_config.prediction_length
+                forecasts,
+                true_ts,
+                self.model_config.prediction_length,
             ),
             "wmape": domain.metrics.estimate_wmape(
-                forecasts, true_ts, self.model_config.prediction_length
+                forecasts,
+                true_ts,
+                self.model_config.prediction_length,
             ),
             "mase": domain.metrics.estimate_mase(
                 forecasts, true_ts, self.model_config.prediction_length, self.freq
             ),
         }
-
+        if percentage:
+            agg_metrics = self.convert_to_percentage(agg_metrics)
         for i in range(1, 10):
             agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
 
         if mean:
-            for name, value in agg_metrics.items():
-                agg_metrics[name] = np.mean(value)
+            for name, values in agg_metrics.items():
+                agg_metrics[name] = np.mean(values)
 
         return agg_metrics, true_ts, forecasts
 
@@ -475,6 +493,8 @@ class InformerForecaster(Forecaster):
             num_static_real_features=len(self.cfg_dataset.name_feats.feat_static_real),
             num_past_dynamic_real_features=len(self.cfg_dataset.name_feats.past_feat_dynamic_real),
             **self.model_config.dict(),
+            report_to="tensorboard",
+            output_dir="tensorboard_logs",
         )
         if from_mlflow is not None:
             self.model = self.load_model(from_mlflow)
@@ -527,11 +547,20 @@ class InformerForecaster(Forecaster):
         )
 
         self.loss_history = []
+
+        self.writer = get_summary_writer(
+            log_dir="tensorboard_logs",
+            dataset_name=self.cfg_dataset.dataset_name,
+            model_name="Informer",
+        )
+
+        global_step = -1
         self.model.train()
         if device.type == "cuda":
             self.model.double()
 
         for epoch in range(self.cfg_train.epochs):
+            batch_loss = []
             for idx, batch in enumerate(self.train_dataloader):
                 optimizer.zero_grad()
                 outputs = self.model(
@@ -558,14 +587,17 @@ class InformerForecaster(Forecaster):
                     else None,
                 )
                 loss = outputs.loss
-
+                batch_loss.append(loss.item())
                 # Backpropagation
                 accelerator.backward(loss)
                 optimizer.step()
 
-                self.loss_history.append(loss.item())
-                # if idx % 100 == 0:
-                # print(loss.item())
+            self.loss_history.append(loss.item())
+            # if idx % 100 == 0:
+            # print(loss.item())
+            global_step += self.cfg_train.nb_batch_per_epoch
+            self.writer.add_scalar("train_loss", np.mean(batch_loss), global_step)
+        self.writer.close()
 
     def predict(
         self,
@@ -632,7 +664,7 @@ class InformerForecaster(Forecaster):
         return self.loss_history
 
     def evaluate(
-        self, test_dataset: List[Dict[str, Any]], forecasts=[]
+        self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
@@ -662,7 +694,8 @@ class InformerForecaster(Forecaster):
         metrics = {}
         metrics["smape"] = smape_metrics
         metrics["mase"] = mase_metrics
-
+        if percentage:
+            metrics = self.convert_to_percentage(metrics)
         df_ts = pd.DataFrame(true_ts.T)
         forecasts_df = {}
 
