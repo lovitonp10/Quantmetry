@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 
 class Feats(BaseModel):
+    feat_for_item_id: List[str]
     feat_dynamic_real: List[str]
     feat_static_cat: List[str]
     feat_static_real: List[str]

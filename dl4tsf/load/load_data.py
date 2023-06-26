@@ -24,7 +24,7 @@ def climate(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
@@ -50,7 +50,7 @@ def energy(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     list_csv = glob.glob(path + "*.csv")
@@ -87,7 +87,7 @@ def enedis(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     logger.info("Loading Data")
@@ -98,12 +98,29 @@ def enedis(
     df_enedis = enedis.get_preprocessed_data()
 
     df_enedis["item_id"] = generate_item_ids_static_features(
-        df=df_enedis, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+        df=df_enedis, key_columns=name_feats["feat_for_item_id"]
     )
+
+    dict_mapping = {
+        "Île-de-France": "ORLY",
+        "Hauts-de-France": "LILLE-LESQUIN",
+        "Normandie": "CAEN-CARPIQUET",
+        "Grand-Est": "REIMS-PRUNAY",
+        "Bretagne": "RENNES-ST JACQUES",
+        "Pays de la Loire": "NANTES-BOUGUENAIS",
+        "Centre-Val de Loire": "TOURS",
+        "Bourgogne-Franche-Comté": "DIJON-LONGVIC",
+        "Auvergne-Rhône-Alpes": "CLERMONT-FD",
+        "Nouvelle Aquitaine": "BORDEAUX-MERIGNAC",
+        "Occitanie": "TOULOUSE-BLAGNAC",
+        "Provence-Alpes-Côte d'Azur": "NICE",
+    }
 
     if weather:
         logger.info("Add Weather")
         weather_inst = Weather()
+
+        df_enedis["station_names"] = df_enedis["region"].map(dict_mapping)
         df_enedis, df_forecast = weather_inst.add_weather(
             df_enedis, weather, prediction_length, freq
         )
@@ -131,7 +148,7 @@ def aifluence_public_histo_vrf(
         "path_weather": "data/all_weather/",
         "dynamic_features": ["temperature", "rainfall", "pressure"],
         "cat_features": ["barometric_trend"],
-        "station_name": "ORLY",
+        "station_names": ["ORLY"],
     },
 ) -> pd.DataFrame:
     """Read a folder for load data from file and save it to a fataframe
@@ -152,7 +169,7 @@ def aifluence_public_histo_vrf(
         weather feature for the dataset, by default {
             "path_weather": "data/all_weather/",
             "dynamic_features": ["temperature", "rainfall", "pressure"],
-            "cat_features": ["barometric_trend"], "station_name": "ORLY", }
+            "cat_features": ["barometric_trend"], "station_names": ["ORLY"], }
 
     Returns
     -------
@@ -169,12 +186,15 @@ def aifluence_public_histo_vrf(
     )
 
     df_aifluence["item_id"] = generate_item_ids_static_features(
-        df=df_aifluence, key_columns=name_feats["feat_static_cat"] + name_feats["feat_static_real"]
+        df=df_aifluence, key_columns=name_feats["feat_for_item_id"]
     )
 
     if weather:
         logger.info("Add Weather")
         weather_inst = Weather()
+
+        df_aifluence["station_names"] = weather["station_names"][0]
+
         df_aifluence, df_forecast = weather_inst.add_weather(
             df_aifluence, weather, prediction_length, freq
         )

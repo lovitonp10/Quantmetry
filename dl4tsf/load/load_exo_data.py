@@ -21,29 +21,37 @@ class Weather:
     ) -> None:
         self.path_weather = path_weather
 
-    def get_station_id(self, name: str = "ORLY") -> int:
+    """def map_region(self, latitude, longitude) -> str:
+        geolocator = Nominatim(user_agent="my_reverse_geocoder")
+        location = geolocator.reverse([latitude, longitude], exactly_one=True)
+        address = location.raw["address"]
+        region = address.get("state")
+        return region"""
+
+    def get_station_id(self, station_names: List[str] = ["ORLY"]) -> pd.DataFrame:
         df_stations = pd.read_csv(self.path_weather + "stations.txt", sep=";")
-        dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
-        id_station = dict_stations[name]
+        # dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
+        df_stations = df_stations[df_stations["Nom"].isin(station_names)]
+
+        # for _, name in zip(dict_stations, names):
+        #    id_stations.append(dict_stations[name])
         # id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
 
-        return id_station
+        return df_stations
 
     def load_weather(
         self,
         start: str = "30-01-2022",
         end: str = "1-02-2022",
-        dynamic_features: list = ["t", "rr3", "pmer"],
-        cat_features: list = ["cod_tend"],
-        station_name: str = "ORLY",
+        station_names: List[str] = ["ORLY"],
         freq: str = "30T",
     ) -> pd.DataFrame:
-        station = self.get_station_id(name=station_name)
+        df_stations = self.get_station_id(station_names=station_names)
 
         start_start_month = start.replace(day=1)
         end_start_month = end.replace(day=1)
 
-        columns = ["numer_sta", "date"] + dynamic_features + cat_features
+        columns = ["numer_sta", "date"] + self.dynamic_features + self.cat_features
 
         diff = relativedelta.relativedelta(end_start_month, start_start_month)
 
@@ -69,7 +77,10 @@ class Weather:
             )
             df2["date"] = df2["date"].apply(lambda x: datetime.strptime(str(x), "%Y%m%d%H%M%S"))
             df2 = df2[columns]
-            df2 = df2[df2["numer_sta"] == station]
+            df2 = df2[df2["numer_sta"].isin(df_stations["ID"])]
+            df2 = df2.rename(columns={"numer_sta": "ID"})
+
+            df2 = pd.merge(df2, df_stations[["ID", "Nom"]], on="ID", how="left")
 
             if i == 0:
                 df2 = df2[df2["date"] >= start]
@@ -79,34 +90,52 @@ class Weather:
 
             df = pd.concat([df, df2], ignore_index=True)
 
-        df.drop(["numer_sta"], axis=1, inplace=True)
+        df.drop(["ID", "numer_sta"], axis=1, inplace=True)
 
-        for feat in dynamic_features:
-            df[feat] = (
-                pd.to_numeric(df[feat], errors="coerce").fillna(method="ffill").astype(float)
-            )
+        # for feat in dynamic_features:
+        #    df[feat] = (
+        #        pd.to_numeric(df[feat], errors="coerce").fillna(method="ffill").astype(float)
+        #    )
         df.replace("mq", np.nan, inplace=True)
-        df[cat_features] = df[cat_features].fillna(method="ffill").astype(int)
+        # df[cat_features] = df[cat_features].fillna(method="ffill").astype(int)
 
         df.set_index("date", inplace=True)
 
-        duplicates = df.index.duplicated()
-        df = df[~duplicates].copy()
-        df = df.resample(freq)
-        df = df.ffill()
+        # duplicates = df.index.duplicated()
+        # df = df[~duplicates].copy()
+        # df = df.resample(freq)
+        # df = df.ffill()
 
         return df
 
     def generate_itemid_weather(
-        self, df: pd.DataFrame, item_ids: List, item_col: str = "item_id"
+        self,
+        df: pd.DataFrame,
+        df_item_ids: List,
+        item_col: str = "item_id",
+        freq: str = "30T",
     ) -> pd.DataFrame:
         new_df = pd.DataFrame()
-        for item_id in item_ids:
+
+        for item_id in df_item_ids["item_id"]:
             tmp = df.copy()
+            station_name = df_item_ids[df_item_ids["item_id"] == item_id]["station_names"][0]
+            tmp = tmp[tmp["Nom"] == station_name]
+
             tmp[item_col] = item_id
+            for feat in self.dynamic_features:
+                tmp[feat] = (
+                    pd.to_numeric(tmp[feat], errors="coerce").fillna(method="ffill").astype(float)
+                )
+            tmp[self.cat_features] = tmp[self.cat_features].fillna(method="ffill").astype(int)
+            duplicates = tmp.index.duplicated()
+            tmp = tmp[~duplicates].copy()
+            tmp = tmp.resample(freq)
+            tmp = tmp.ffill()
+
             new_df = pd.concat([new_df, tmp])
             del tmp
-        return new_df
+        return new_df[[item_col] + self.cat_features + self.dynamic_features]
 
     def add_weather(
         self,
@@ -115,14 +144,14 @@ class Weather:
             "path_weather": "data/all_weather/",
             "dynamic_features": ["t", "rr3", "pmer"],
             "cat_features": ["cod_tend"],
-            "station_name": "ORLY",
+            "station_names": ["ORLY"],
         },
         prediction_length: int = 7,
         frequency: str = "30T",
     ) -> pd.DataFrame:
-        dynamic_features = weather["dynamic_features"]
-        cat_features = weather["cat_features"]
-        station_name = weather["station_name"]
+        self.dynamic_features = weather["dynamic_features"]
+        self.cat_features = weather["cat_features"]
+        station_names = df.station_names.unique()
 
         unique_dates = df.index.unique()
         sorted_dates = unique_dates.sort_values(ascending=True)
@@ -140,23 +169,21 @@ class Weather:
         end = datetime.strptime(last_date_str, "%d-%m-%Y") + timedelta(days=1 + forecast_days)
 
         weather = self.load_weather(
-            start=start,
-            end=end,
-            dynamic_features=dynamic_features,
-            cat_features=cat_features,
-            station_name=station_name,
-            freq=frequency,
+            start=start, end=end, freq=frequency, station_names=station_names
         )
 
         df.index = df.index.tz_localize(None)
         weather.index = weather.index.tz_localize(None)
-        weather = self.generate_itemid_weather(weather, item_ids=df["item_id"].unique())
+
+        # df_item_ids = pd.DataFrame(df.drop_duplicates(subset=["item_id"])["item_id"])
+        df_item_ids = df.drop_duplicates(subset=["item_id"])[["item_id", "station_names"]]
+        weather = self.generate_itemid_weather(df=weather, df_item_ids=df_item_ids, freq=frequency)
 
         forecast_date_range = pd.date_range(
             start=last_date, periods=prediction_length + 1, freq=frequency
         )[1:].tz_localize(None)
         weather_forecast = weather.loc[forecast_date_range][
-            dynamic_features + cat_features + ["item_id"]
+            self.dynamic_features + self.cat_features + ["item_id"]
         ]
 
         index_names = df.index.names
@@ -164,7 +191,9 @@ class Weather:
         df = df.reset_index()
         weather = weather.reset_index()
 
-        df_merge = pd.merge(df, weather, on=["item_id"] + index_names, how="left")
+        merge_on_col = ["item_id"] + index_names
+
+        df_merge = pd.merge(df, weather, on=merge_on_col, how="left")
         df_merge = df_merge.set_index(index_names)
         return df_merge, weather_forecast
 
