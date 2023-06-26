@@ -1,4 +1,6 @@
+from pytorch_lightning import loggers
 from pytorch_lightning.callbacks import Callback
+from pytorch_lightning.utilities import rank_zero_only
 
 
 class MetricsCallback(Callback):
@@ -18,3 +20,10 @@ class MetricsCallback(Callback):
     def on_validation_epoch_end(self, trainer, pl_module):
         val_loss = trainer.callback_metrics["val_loss"].item()
         self.val_losses.append(val_loss)
+
+
+class TBLogger(loggers.TensorBoardLogger):
+    @rank_zero_only
+    def log_metrics(self, metrics, step):
+        metrics.pop("epoch", None)
+        super().log_metrics(metrics, step)

@@ -319,8 +319,8 @@ def create_validation_dataloader(
         PREDICTION_INPUT_NAMES
     )
 
-    # we apply the transformations in test mode
-    testing_instances = instance_sampler.apply(transformed_data, is_train=True)
+    # we apply the transformations in train mode
+    validation_instances = instance_sampler.apply(transformed_data, is_train=True)
 
     # This returns a Dataloader which will go over the dataset once.
-    return DataLoader(IterableDataset(testing_instances), batch_size=batch_size, **kwargs)
+    return DataLoader(IterableDataset(validation_instances), batch_size=batch_size, **kwargs)

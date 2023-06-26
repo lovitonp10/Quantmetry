@@ -199,7 +199,7 @@ class Aifluence:
 
         df_group = df_in.groupby(indexes).sum(numeric_only=False)
         df_unstack = df_group.unstack(["CATEGORIE_TITRE"])
-        new_columns = df_unstack.columns.map("_".join)
+        new_columns = df_unstack.columns.map("=".join)
         df_unstack.columns = new_columns
         df_unstack = df_unstack.fillna(0)
 
