@@ -28,7 +28,8 @@ class CustomDataLoader:
         self.model_name = cfg_model.model_name
 
     def get_map_item_id(self):
-        return self.tmp[["item_id"] + self.name_feats.feat_for_item_id].drop_duplicates()
+        df_map = self.tmp[["item_id"] + self.name_feats.feat_for_item_id].drop_duplicates()
+        return df_map.reset_index(drop=True)
 
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):
