@@ -12,6 +12,7 @@ from geopy.distance import distance as geodist
 from scipy.spatial.distance import cdist
 from sklearn.metrics import DistanceMetric
 from sklearn.neighbors import BallTree
+from utils.utils import resample_df_by_group
 
 
 class Weather:
@@ -30,19 +31,14 @@ class Weather:
 
     def get_station_id(self, station_names: List[str] = ["ORLY"]) -> pd.DataFrame:
         df_stations = pd.read_csv(self.path_weather + "stations.txt", sep=";")
-        # dict_stations = df_stations[["ID", "Nom"]].set_index("Nom")["ID"].to_dict()
-        df_stations = df_stations[df_stations["Nom"].isin(station_names)]
-
-        # for _, name in zip(dict_stations, names):
-        #    id_stations.append(dict_stations[name])
-        # id_station = df_stations[df_stations["Nom"] == name]["ID"].iloc[0]
-
+        df_stations = df_stations.rename(columns={"Nom": "station_name"})
+        df_stations = df_stations[df_stations["station_name"].isin(station_names)]
         return df_stations
 
     def load_weather(
         self,
         start: str = "30-01-2022",
-        end: str = "1-02-2022",
+        end: str = "01-02-2022",
         station_names: List[str] = ["ORLY"],
         freq: str = "30T",
     ) -> pd.DataFrame:
@@ -72,6 +68,7 @@ class Weather:
                     "pmer": "pressure",
                     "cod_tend": "barometric_trend",
                     "rr3": "rainfall",
+                    "Nom": "station_name",
                 },
                 inplace=True,
             )
@@ -80,7 +77,7 @@ class Weather:
             df2 = df2[df2["numer_sta"].isin(df_stations["ID"])]
             df2 = df2.rename(columns={"numer_sta": "ID"})
 
-            df2 = pd.merge(df2, df_stations[["ID", "Nom"]], on="ID", how="left")
+            df2 = pd.merge(df2, df_stations[["ID", "station_name"]], on="ID", how="left")
 
             if i == 0:
                 df2 = df2[df2["date"] >= start]
@@ -92,35 +89,26 @@ class Weather:
 
         df.drop(["ID", "numer_sta"], axis=1, inplace=True)
 
-        # for feat in dynamic_features:
-        #    df[feat] = (
-        #        pd.to_numeric(df[feat], errors="coerce").fillna(method="ffill").astype(float)
-        #    )
+        for feat in self.dynamic_features:
+            df[feat] = pd.to_numeric(df[feat], errors="coerce").astype(float)
         df.replace("mq", np.nan, inplace=True)
-        # df[cat_features] = df[cat_features].fillna(method="ffill").astype(int)
-
+        df[self.cat_features] = df[self.cat_features].fillna(method="ffill").astype(int)
+        df = df.drop_duplicates(subset=["date", "station_name"], ignore_index=True)
         df.set_index("date", inplace=True)
-
-        # duplicates = df.index.duplicated()
-        # df = df[~duplicates].copy()
-        # df = df.resample(freq)
-        # df = df.ffill()
-
+        df = resample_df_by_group(df, grouper="station_name", freq=freq)
         return df
 
     def generate_itemid_weather(
         self,
         df: pd.DataFrame,
-        df_item_ids: List,
+        dict_id_stationname: List,
         item_col: str = "item_id",
         freq: str = "30T",
     ) -> pd.DataFrame:
         new_df = pd.DataFrame()
 
-        for item_id in df_item_ids["item_id"]:
-            tmp = df.copy()
-            station_name = df_item_ids[df_item_ids["item_id"] == item_id]["station_names"][0]
-            tmp = tmp[tmp["Nom"] == station_name]
+        for item_id in dict_id_stationname.keys():
+            tmp = df[df["station_name"] == dict_id_stationname[item_id]].copy()
 
             tmp[item_col] = item_id
             for feat in self.dynamic_features:
@@ -151,7 +139,7 @@ class Weather:
     ) -> pd.DataFrame:
         self.dynamic_features = weather["dynamic_features"]
         self.cat_features = weather["cat_features"]
-        station_names = df.station_names.unique()
+        station_names = df.station_name.unique()
 
         unique_dates = df.index.unique()
         sorted_dates = unique_dates.sort_values(ascending=True)
@@ -175,9 +163,14 @@ class Weather:
         df.index = df.index.tz_localize(None)
         weather.index = weather.index.tz_localize(None)
 
-        # df_item_ids = pd.DataFrame(df.drop_duplicates(subset=["item_id"])["item_id"])
-        df_item_ids = df.drop_duplicates(subset=["item_id"])[["item_id", "station_names"]]
-        weather = self.generate_itemid_weather(df=weather, df_item_ids=df_item_ids, freq=frequency)
+        # Add station_name
+        df_id_stationname = df.drop_duplicates(subset=["item_id"])[["item_id", "station_name"]]
+        weather = (
+            weather.reset_index()
+            .merge(df_id_stationname, how="outer", on="station_name")
+            .set_index("date")
+            .drop(columns=["station_name"])
+        )
 
         forecast_date_range = pd.date_range(
             start=last_date, periods=prediction_length + 1, freq=frequency
