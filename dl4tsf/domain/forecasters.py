@@ -227,12 +227,12 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
                     validation=validation,
                 )
             )
-        if validation is False:
-            list_it = []
-            for ls in list(ts_it):
-                list_it.append(ls[: -self.model_config.prediction_length])
-        else:
-            list_it = list(ts_it)
+        list_it = []
+        for ls in list(ts_it):
+            if validation is False:
+                ls = ls[: -self.model_config.prediction_length]
+            ls.index = ls.index.to_timestamp()
+            list_it.append(ls)
 
         return list_it, forecasts_df
 
@@ -647,6 +647,16 @@ class InformerForecaster(Forecaster):
         df_ts = utils_gluonts.transform_huggingface_to_dict(test_dataset, freq=self.freq)
         forecasts_df = {}
 
+        df_ts = utils_gluonts.sample_df(
+            ts_it,
+            periods=len(ts_it[0]),
+            start_date=test_dataset[0]["start"],
+            freq=self.freq,
+            ts_length=len(test_dataset[0]["target"]) - len(ts_it[0]),
+            pred_length=len(ts_it[0]),
+            validation=validation,
+        )
+
         for i, forecast in enumerate(forecasts):
             forecasts_df[i] = utils_gluonts.sample_df(
                 forecast,
@@ -696,7 +706,17 @@ class InformerForecaster(Forecaster):
         metrics["mase"] = mase_metrics
         if percentage:
             metrics = self.convert_to_percentage(metrics)
-        df_ts = pd.DataFrame(true_ts.T)
+
+        df_ts = utils_gluonts.sample_df(
+            true_ts,
+            periods=len(true_ts[0]),
+            start_date=test_dataset[0]["start"],
+            freq=self.freq,
+            ts_length=len(test_dataset[0]["target"]),
+            pred_length=len(true_ts[0]),
+            validation=True,
+        )
+
         forecasts_df = {}
 
         for i, forecast in enumerate(forecasts):
