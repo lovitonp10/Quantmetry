@@ -1,15 +1,17 @@
+from typing import List
+
 import matplotlib.pyplot as plt
 import mlflow
 import pandas as pd
 from omegaconf import DictConfig, ListConfig
 
 
-def log_params_from_omegaconf_dict(params):
+def log_params_from_omegaconf_dict(params: DictConfig):
     for param_name, element in params.items():
         _explore_recursive(param_name, element)
 
 
-def _explore_recursive(parent_name, element):
+def _explore_recursive(parent_name: str, element: DictConfig):
     if isinstance(element, DictConfig):
         for k, v in element.items():
             if isinstance(v, DictConfig):
@@ -37,12 +39,19 @@ def _explore_recursive(parent_name, element):
         mlflow.log_param(parent_name, element)
 
 
-def log_features(parent_name, v):
+def log_features(parent_name: str, v: List[str]):
     for el in v:
         mlflow.log_param(f"{parent_name}.{el.replace('=', ' ')}", True)
 
 
-def log_plots(item_id, ts_it, forecast_it, map_item_id, nb_past_pts, validation=False):
+def log_plots(
+    item_id: int,
+    ts_it: List[pd.DataFrame],
+    forecast_it: List[pd.DataFrame],
+    map_item_id: pd.DataFrame,
+    nb_past_pts: int,
+    validation=False,
+):
     fig, ax = plt.subplots()
     ts_it = ts_it[item_id].tail(nb_past_pts)
     x0 = ts_it.index  # .to_timestamp()
