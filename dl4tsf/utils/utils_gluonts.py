@@ -126,14 +126,9 @@ def sample_df(
     """
     # samples = forecast.samples
     # ns, h = samples.shape
-    if validation is False:
-        dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
-            ts_length
-        )
-    else:
-        dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(
-            ts_length - pred_length
-        )
+    if validation is True:
+        ts_length = ts_length - pred_length
+    dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(ts_length)
     return pd.DataFrame(samples.T, index=dates)
 
 
