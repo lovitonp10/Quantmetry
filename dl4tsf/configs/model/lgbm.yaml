@@ -1,0 +1,20 @@
+defaults:
+  - _self_
+  - config: default
+
+train_test_pred:
+  date_col: datetime_h
+  date_start_train: 2022-01-01
+  date_split_train_test: 2022-10-31
+  date_split_test_pred: 2022-12-31
+  split_variable: null
+name: SklearnEstimator
+config:
+  model_name: LGBMRegressor
+  target: PMR
+  date_col: datetime_h
+  model_config: {}
+  cv_config:
+    unit: D
+    training_minimum_window: 728
+    test_window: 30

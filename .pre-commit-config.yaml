@@ -26,4 +26,4 @@ repos:
               - --max-line-length=99
               - --ignore=E305,W503,E203
               - --per-file-ignores=
-                - src/utils/getters/getters*:F401,F403
+                - dl4tsf/utils/getters*:F401,F403
