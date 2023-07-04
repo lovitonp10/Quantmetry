@@ -512,6 +512,14 @@ class InformerForecaster(Forecaster):
             num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
             num_workers=2,
         )
+        logger.info("Create validation dataloader")
+        self.val_dataloader = create_validation_dataloader(
+            config=self.model_config_informer,
+            freq=self.freq,
+            data=train_dataset,
+            batch_size=self.cfg_train.batch_size_train,
+            num_batches_per_epoch=1,
+        )
 
     def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
         logger.info("Create test dataloader")
@@ -521,6 +529,7 @@ class InformerForecaster(Forecaster):
                 freq=self.freq,
                 data=test_dataset,
                 batch_size=self.cfg_train.batch_size_test,
+                num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
             )
         else:
             self.test_dataloader = create_test_dataloader(
@@ -529,6 +538,7 @@ class InformerForecaster(Forecaster):
                 data=test_dataset,
                 batch_size=self.cfg_train.batch_size_test,
             )
+
 
     def train(self, input_data: List[Dict[str, Any]]):
         if self.from_mlflow is not None:
@@ -547,6 +557,7 @@ class InformerForecaster(Forecaster):
         )
 
         self.loss_history = []
+        self.val_loss_history = []
 
         self.writer = get_summary_writer(
             log_dir="tensorboard_logs",
@@ -593,11 +604,52 @@ class InformerForecaster(Forecaster):
                 optimizer.step()
 
             self.loss_history.append(loss.item())
+            self.model.train()
+            val_loss = self.eval(device, optimizer)
+            self.val_loss_history.append(np.mean(val_loss))
             # if idx % 100 == 0:
             # print(loss.item())
             global_step += self.cfg_train.nb_batch_per_epoch
             self.writer.add_scalar("train_loss", np.mean(batch_loss), global_step)
+            self.writer.add_scalar("val_loss", np.mean(val_loss), global_step)
         self.writer.close()
+
+
+    def eval(self, device, optimizer):
+        loss_val_epoch = []
+        self.model.eval()
+        for batch in self.val_dataloader:
+            optimizer.zero_grad()
+            outputs = self.model(
+                static_categorical_features=batch["static_categorical_features"].to(device)
+                if self.model_config_informer.num_static_categorical_features > 0
+                else None,
+                static_real_features=batch["static_real_features"].to(device)
+                if self.model_config_informer.num_static_real_features > 0
+                else None,
+                past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+                if device.type == "mps"
+                else batch["past_time_features"].to(device),
+                past_values=batch["past_values"].to(device),
+                future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+                if device.type == "mps"
+                else batch["future_time_features"].to(device),
+                future_values=batch["future_values"].to(device),
+                past_observed_mask=batch["past_observed_mask"].to(device),
+                future_observed_mask=batch["future_observed_mask"].to(device),
+                past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+                if self.model_config_informer.num_past_dynamic_real_features > 0
+                # if device.type == "mps"
+                # else batch["past_dynamic_real_features"].to(device),
+                else None,
+            )
+            loss_val = outputs.loss
+            # print("loss_val", loss_val)
+            if loss_val:
+                loss_val_epoch.append(loss_val.item())
+        return loss_val_epoch
+
+
 
     def predict(
         self,
