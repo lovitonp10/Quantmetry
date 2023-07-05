@@ -319,6 +319,7 @@ def create_validation_dataloader(
 
     transformation = create_transformation(freq, config)
     transformed_data = transformation.apply(data, is_train=True)
+    transformed_data = Cached(transformed_data)
 
     # we create a Test Instance splitter which will sample the very last
     # context window seen during training only for the encoder.
@@ -331,13 +332,18 @@ def create_validation_dataloader(
     )
 
     # we apply the transformations in train mode
-    validation_instances = instance_sampler.apply(transformed_data, is_train=True)
+    # validation_instances = instance_sampler.apply(transformed_data, is_train=True)
 
     # This returns a Dataloader which will go over the dataset once.
+    validation_instances = instance_sampler.apply(Cyclic(transformed_data))
 
     return IterableSlice(
         iter(
-           DataLoader(IterableDataset(validation_instances), batch_size=batch_size, **kwargs)
+            DataLoader(
+                IterableDataset(validation_instances),
+                batch_size=batch_size,
+                **kwargs,
+            )
         ),
         num_batches_per_epoch,
     )

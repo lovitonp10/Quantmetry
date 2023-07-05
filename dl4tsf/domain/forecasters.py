@@ -518,7 +518,7 @@ class InformerForecaster(Forecaster):
             freq=self.freq,
             data=train_dataset,
             batch_size=self.cfg_train.batch_size_train,
-            num_batches_per_epoch=1,
+            num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
         )
 
     def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
@@ -571,7 +571,7 @@ class InformerForecaster(Forecaster):
             self.model.double()
 
         for epoch in range(self.cfg_train.epochs):
-            batch_loss = []
+            loss_train_epoch = []
             for idx, batch in enumerate(self.train_dataloader):
                 optimizer.zero_grad()
                 outputs = self.model(
@@ -593,25 +593,20 @@ class InformerForecaster(Forecaster):
                     future_observed_mask=batch["future_observed_mask"].to(device),
                     past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
                     if self.model_config_informer.num_past_dynamic_real_features > 0
-                    # if device.type == "mps"
-                    # else batch["past_dynamic_real_features"].to(device),
                     else None,
                 )
                 loss = outputs.loss
-                batch_loss.append(loss.item())
+                loss_train_epoch.append(loss.item())
                 # Backpropagation
                 accelerator.backward(loss)
                 optimizer.step()
 
             self.loss_history.append(loss.item())
+            loss_val_epoch = self.eval(device, optimizer)
             self.model.train()
-            val_loss = self.eval(device, optimizer)
-            self.val_loss_history.append(np.mean(val_loss))
-            # if idx % 100 == 0:
-            # print(loss.item())
+            self.val_loss_history.append(np.mean(loss_val_epoch))
             global_step += self.cfg_train.nb_batch_per_epoch
-            self.writer.add_scalar("train_loss", np.mean(batch_loss), global_step)
-            self.writer.add_scalar("val_loss", np.mean(val_loss), global_step)
+            self.writer.add_scalars("loss", {"train_loss": np.mean(loss_train_epoch),"val_loss": np.mean(loss_val_epoch)}, global_step)
         self.writer.close()
 
 
@@ -639,10 +634,8 @@ class InformerForecaster(Forecaster):
                 future_observed_mask=batch["future_observed_mask"].to(device),
                 past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
                 if self.model_config_informer.num_past_dynamic_real_features > 0
-                # if device.type == "mps"
-                # else batch["past_dynamic_real_features"].to(device),
                 else None,
-            )
+                )
             loss_val = outputs.loss
             # print("loss_val", loss_val)
             if loss_val:
