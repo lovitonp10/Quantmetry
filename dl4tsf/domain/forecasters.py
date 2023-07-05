@@ -512,6 +512,7 @@ class InformerForecaster(Forecaster):
             num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
             num_workers=2,
         )
+
         logger.info("Create validation dataloader")
         self.val_dataloader = create_validation_dataloader(
             config=self.model_config_informer,
@@ -570,38 +571,16 @@ class InformerForecaster(Forecaster):
         if device.type == "cuda":
             self.model.double()
 
-        for epoch in range(self.cfg_train.epochs):
+        for _ in range(self.cfg_train.epochs):
             loss_train_epoch = []
-            for idx, batch in enumerate(self.train_dataloader):
-                optimizer.zero_grad()
-                outputs = self.model(
-                    static_categorical_features=batch["static_categorical_features"].to(device)
-                    if self.model_config_informer.num_static_categorical_features > 0
-                    else None,
-                    static_real_features=batch["static_real_features"].to(device)
-                    if self.model_config_informer.num_static_real_features > 0
-                    else None,
-                    past_time_features=batch["past_time_features"].to(torch.float32).to(device)
-                    if device.type == "mps"
-                    else batch["past_time_features"].to(device),
-                    past_values=batch["past_values"].to(device),
-                    future_time_features=batch["future_time_features"].to(torch.float32).to(device)
-                    if device.type == "mps"
-                    else batch["future_time_features"].to(device),
-                    future_values=batch["future_values"].to(device),
-                    past_observed_mask=batch["past_observed_mask"].to(device),
-                    future_observed_mask=batch["future_observed_mask"].to(device),
-                    past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
-                    if self.model_config_informer.num_past_dynamic_real_features > 0
-                    else None,
-                )
-                loss = outputs.loss
-                loss_train_epoch.append(loss.item())
+            for batch in self.train_dataloader:
+                loss_train = self.compile_loss(batch,device,optimizer)
+                loss_train_epoch.append(loss_train.item())
                 # Backpropagation
-                accelerator.backward(loss)
+                accelerator.backward(loss_train)
                 optimizer.step()
 
-            self.loss_history.append(loss.item())
+            self.loss_history.append(loss_train.item())
             loss_val_epoch = self.eval(device, optimizer)
             self.model.train()
             self.val_loss_history.append(np.mean(loss_val_epoch))
@@ -610,39 +589,39 @@ class InformerForecaster(Forecaster):
         self.writer.close()
 
 
-    def eval(self, device, optimizer):
+    def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
         self.model.eval()
         for batch in self.val_dataloader:
-            optimizer.zero_grad()
-            outputs = self.model(
-                static_categorical_features=batch["static_categorical_features"].to(device)
-                if self.model_config_informer.num_static_categorical_features > 0
-                else None,
-                static_real_features=batch["static_real_features"].to(device)
-                if self.model_config_informer.num_static_real_features > 0
-                else None,
-                past_time_features=batch["past_time_features"].to(torch.float32).to(device)
-                if device.type == "mps"
-                else batch["past_time_features"].to(device),
-                past_values=batch["past_values"].to(device),
-                future_time_features=batch["future_time_features"].to(torch.float32).to(device)
-                if device.type == "mps"
-                else batch["future_time_features"].to(device),
-                future_values=batch["future_values"].to(device),
-                past_observed_mask=batch["past_observed_mask"].to(device),
-                future_observed_mask=batch["future_observed_mask"].to(device),
-                past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
-                if self.model_config_informer.num_past_dynamic_real_features > 0
-                else None,
-                )
-            loss_val = outputs.loss
-            # print("loss_val", loss_val)
+            loss_val = self.compile_loss(batch,device,optimizer)
             if loss_val:
                 loss_val_epoch.append(loss_val.item())
         return loss_val_epoch
 
-
+    def compile_loss(self, batch, device, optimizer):
+        optimizer.zero_grad()
+        outputs = self.model(
+            static_categorical_features=batch["static_categorical_features"].to(device)
+            if self.model_config_informer.num_static_categorical_features > 0
+            else None,
+            static_real_features=batch["static_real_features"].to(device)
+            if self.model_config_informer.num_static_real_features > 0
+            else None,
+            past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+            if device.type == "mps"
+            else batch["past_time_features"].to(device),
+            past_values=batch["past_values"].to(device),
+            future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+            if device.type == "mps"
+            else batch["future_time_features"].to(device),
+            future_values=batch["future_values"].to(device),
+            past_observed_mask=batch["past_observed_mask"].to(device),
+            future_observed_mask=batch["future_observed_mask"].to(device),
+            past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+            if self.model_config_informer.num_past_dynamic_real_features > 0
+            else None,
+        )
+        return outputs.loss
 
     def predict(
         self,
