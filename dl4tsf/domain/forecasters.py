@@ -49,6 +49,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow_deploy.flavor import register_model_mlflow
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+from tqdm import trange
 from utils import utils_gluonts
 from utils.tensorboard_logging import TBLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
@@ -540,7 +541,6 @@ class InformerForecaster(Forecaster):
                 batch_size=self.cfg_train.batch_size_test,
             )
 
-
     def train(self, input_data: List[Dict[str, Any]]):
         if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
@@ -571,10 +571,10 @@ class InformerForecaster(Forecaster):
         if device.type == "cuda":
             self.model.double()
 
-        for _ in range(self.cfg_train.epochs):
+        for epoch in trange(self.cfg_train.epochs):
             loss_train_epoch = []
             for batch in self.train_dataloader:
-                loss_train = self.compile_loss(batch,device,optimizer)
+                loss_train = self.compile_loss(batch, device, optimizer)
                 loss_train_epoch.append(loss_train.item())
                 # Backpropagation
                 accelerator.backward(loss_train)
@@ -584,16 +584,23 @@ class InformerForecaster(Forecaster):
             loss_val_epoch = self.eval(device, optimizer)
             self.model.train()
             self.val_loss_history.append(np.mean(loss_val_epoch))
+            print(
+                f"epoch: {epoch}/{self.cfg_train.epochs} train: \\\
+                {np.mean(loss_train_epoch)}, val: {np.mean(loss_val_epoch)}"
+            )
             global_step += self.cfg_train.nb_batch_per_epoch
-            self.writer.add_scalars("loss", {"train_loss": np.mean(loss_train_epoch),"val_loss": np.mean(loss_val_epoch)}, global_step)
+            self.writer.add_scalars(
+                "loss",
+                {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
+                global_step,
+            )
         self.writer.close()
-
 
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
         self.model.eval()
         for batch in self.val_dataloader:
-            loss_val = self.compile_loss(batch,device,optimizer)
+            loss_val = self.compile_loss(batch, device, optimizer)
             if loss_val:
                 loss_val_epoch.append(loss_val.item())
         return loss_val_epoch
@@ -700,6 +707,8 @@ class InformerForecaster(Forecaster):
     def evaluate(
         self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
     ) -> Tuple[Dict[str, Any], List[float]]:
+        print(len(forecasts))
+        print(len(test_dataset))
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)

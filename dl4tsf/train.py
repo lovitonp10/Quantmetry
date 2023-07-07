@@ -2,7 +2,6 @@ import logging
 import os
 from urllib.parse import urlparse
 
-import torch
 import hydra
 import mlflow
 from configs import Configs
@@ -20,12 +19,6 @@ logger.info("Start")
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
-    
-    if torch.cuda.is_available():
-
-        print("CUDA is available on this device.")
-    else:
-        print("CUDA is not available on this device.")
 
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
