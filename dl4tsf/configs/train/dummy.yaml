@@ -1,7 +1,7 @@
-epochs: 1000
-batch_size_train: 128 # must be exponent of 2
-batch_size_test: 32
-nb_batch_per_epoch: 100 # keep as it
+epochs: 50
+batch_size_train: 16 # must be exponent of 2
+batch_size_test: 2
+nb_batch_per_epoch: 5 # keep as it
 train_sampler: null
 validation_sampler: null
 time_features: null

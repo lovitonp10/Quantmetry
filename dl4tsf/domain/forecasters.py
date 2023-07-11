@@ -278,6 +278,8 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
+        for name, values in agg_metrics.items():
+            agg_metrics[name] = [value for value in values if not np.isinf(value)]
 
         if mean:
             for name, values in agg_metrics.items():
@@ -540,7 +542,6 @@ class InformerForecaster(Forecaster):
                 batch_size=self.cfg_train.batch_size_test,
             )
 
-
     def train(self, input_data: List[Dict[str, Any]]):
         if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
@@ -587,7 +588,6 @@ class InformerForecaster(Forecaster):
             global_step += self.cfg_train.nb_batch_per_epoch
             self.writer.add_scalars("loss", {"train_loss": np.mean(loss_train_epoch),"val_loss": np.mean(loss_val_epoch)}, global_step)
         self.writer.close()
-
 
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
