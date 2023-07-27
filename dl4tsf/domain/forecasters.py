@@ -522,7 +522,6 @@ class InformerForecaster(Forecaster):
             freq=self.freq,
             data=train_dataset,
             batch_size=self.cfg_train.batch_size_train,
-            num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
         )
 
     def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
@@ -533,7 +532,6 @@ class InformerForecaster(Forecaster):
                 freq=self.freq,
                 data=test_dataset,
                 batch_size=self.cfg_train.batch_size_test,
-                num_batches_per_epoch=self.cfg_train.nb_batch_per_epoch,
             )
         else:
             self.test_dataloader = create_test_dataloader(
