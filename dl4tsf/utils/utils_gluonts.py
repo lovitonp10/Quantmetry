@@ -815,7 +815,7 @@ def add_past_forecast(
         The DataFrame with the added 0 to past_dynamic_real.
     """
     if len(past_dynamic_real) == 0:
-        return pd.DataFrame
+        return pd.DataFrame()
     if dataset_type == "hugging_face":
         return df_pivot[past_dynamic_real]
     elif dataset_type == "gluonts":

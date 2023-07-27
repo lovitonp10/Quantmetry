@@ -4,6 +4,8 @@ from urllib.parse import urlparse
 
 import hydra
 import mlflow
+import numpy as np
+import torch
 from configs import Configs
 from domain import forecasters
 from load.dataloaders import CustomDataLoader
@@ -19,6 +21,11 @@ logger.info("Start")
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
+
+    if torch.cuda.is_available():
+        print("CUDA is available on this device.")
+    else:
+        print("CUDA is not available on this device.")
 
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
@@ -93,6 +100,7 @@ def main(cfgHydra: DictConfig):
 
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
+    logger.info(np.mean(forecast_it))
 
     logging_mlflow.log_plots(
         item_id=0,

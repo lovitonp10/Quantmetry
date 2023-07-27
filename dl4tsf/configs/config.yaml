@@ -1,7 +1,7 @@
 defaults:
   - _self_
   - dataset: enedis
-  - model: tft
+  - model: informer
   - train: dummy
   - logging: local
 
