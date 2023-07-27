@@ -202,11 +202,13 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             min_future=self.model_config.prediction_length
         )
 
-    def train(self, input_data: gluontsPandasDataset):
+    def train(
+        self, input_data: gluontsPandasDataset, validation_data: gluontsPandasDataset = None
+    ):
         if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
-        self.model = super().train(training_data=input_data)
+        self.model = super().train(training_data=input_data, validation_data=validation_data)
 
     def predict(
         self, test_dataset: gluontsPandasDataset, validation=True

@@ -578,7 +578,8 @@ def train_val_test_split(
     )
 
     # validation
-    df_val = df_pivot[: -test_length_rows * 2].copy()
+    # df_val = df_pivot[len(df_train): -test_length_rows].copy()
+    df_val = df_pivot[:-test_length_rows].copy()
     item_ids = df["item_id"].unique()
     val = create_dict_dataset(
         target=df_val[target],
@@ -592,6 +593,7 @@ def train_val_test_split(
     )
 
     # test
+    # df_test = df_pivot[len(df_train)+len(df_val):].copy()
     df_test = df_pivot.copy()
     df_feat_dynamic_real = pd.concat(
         [
