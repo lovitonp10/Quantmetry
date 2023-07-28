@@ -79,7 +79,7 @@ def main(cfgHydra: DictConfig):
 
     logger.info("Compute Validation & Evaluation")
     # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
-    metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.validation)
+    metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.test)
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
 
@@ -96,10 +96,11 @@ def main(cfgHydra: DictConfig):
     # logger.info(metrics)
 
     logger.info("Compute Prediction")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.inf, validation=False)
 
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
+    forecast_it = list(forecast_it.values())
     logger.info(np.mean(forecast_it))
 
     logging_mlflow.log_plots(
