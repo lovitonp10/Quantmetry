@@ -52,7 +52,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import trange
 from utils import utils_gluonts
-from utils.tensorboard_logging import MLFLogger, TBLogger
+from utils.training_logging import MLFLogger, TBLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 from utils.utils_tft.split import CustomTFTInstanceSplitter
