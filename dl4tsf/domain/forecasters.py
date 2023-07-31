@@ -565,12 +565,6 @@ class InformerForecaster(Forecaster):
         self.loss_history = []
         self.val_loss_history = []
 
-        """self.writer = get_summary_writer(
-            log_dir="tensorboard_logs",
-            dataset_name=self.cfg_dataset.dataset_name,
-            model_name="Informer",
-        )"""
-
         global_step = -1
         self.model.train()
         if device.type == "cuda":
@@ -594,16 +588,10 @@ class InformerForecaster(Forecaster):
                 {np.mean(loss_train_epoch)}, val: {np.mean(loss_val_epoch)}"
             )
             global_step += self.cfg_train.nb_batch_per_epoch
-            """self.writer.add_scalars(
-                "loss",
-                {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
-                global_step,
-            )"""
             self.logger.log_metrics(
                 {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
                 epoch,
             )
-        # self.writer.close()
 
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
