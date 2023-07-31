@@ -375,6 +375,7 @@ def gluonts_format(
     test = cast(Dataset, Map(process, df_test))
 
     dataset = TrainDatasets(metadata=meta, train=train, validation=validation, test=test)
+
     return dataset
 
 
@@ -409,15 +410,18 @@ def hugging_face_format(
     train_dataset = datasets.Dataset.from_dict(train)
     validation_dataset = datasets.Dataset.from_dict(validation)
     test_dataset = datasets.Dataset.from_dict(test)
+
     # dataset = datasets.DatasetDict({"train":train_dataset,"test":test_dataset})
 
     train_dataset.set_transform(partial(transform_start_field, freq=freq))
     validation_dataset.set_transform(partial(transform_start_field, freq=freq))
     test_dataset.set_transform(partial(transform_start_field, freq=freq))
+
     dataset = HuggingFaceDataset
     dataset.train = train_dataset
     dataset.validation = validation_dataset
     dataset.test = test_dataset
+
     return dataset
 
 
@@ -578,8 +582,7 @@ def train_val_test_split(
     )
 
     # validation
-    # df_val = df_pivot[len(df_train): -test_length_rows].copy()
-    df_val = df_pivot[:-test_length_rows].copy()
+    df_val = df_pivot[: -test_length_rows * 1].copy()
     item_ids = df["item_id"].unique()
     val = create_dict_dataset(
         target=df_val[target],
@@ -817,7 +820,7 @@ def add_past_forecast(
         The DataFrame with the added 0 to past_dynamic_real.
     """
     if len(past_dynamic_real) == 0:
-        return pd.DataFrame
+        return pd.DataFrame()
     if dataset_type == "hugging_face":
         return df_pivot[past_dynamic_real]
     elif dataset_type == "gluonts":

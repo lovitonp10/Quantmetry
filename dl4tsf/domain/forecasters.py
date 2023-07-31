@@ -676,7 +676,7 @@ class InformerForecaster(Forecaster):
                 validation=validation,
             )
 
-        return df_ts, forecasts_df
+        return df_ts, list(forecasts_df.values())
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.loss_history
