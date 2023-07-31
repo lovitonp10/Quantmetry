@@ -309,14 +309,17 @@ def create_validation_dataloader(
 
     if config.num_past_dynamic_real_features > 0:
         PREDICTION_INPUT_NAMES.append("past_dynamic_real_features")
-
+    TRAINING_INPUT_NAMES = PREDICTION_INPUT_NAMES + [
+        "future_values",
+        "future_observed_mask",
+    ]
     transformation = create_transformation(freq, config)
     transformed_data = transformation.apply(data, is_train=True)
 
     # we create a Test Instance splitter which will sample the very last
     # context window seen during training only for the encoder.
     instance_sampler = create_instance_splitter(config, "validation") + SelectFields(
-        PREDICTION_INPUT_NAMES
+        TRAINING_INPUT_NAMES
     )
 
     # we apply the transformations in train mode

@@ -2,6 +2,7 @@ import logging
 import os
 from urllib.parse import urlparse
 
+import torch
 import hydra
 import mlflow
 import numpy as np
@@ -21,6 +22,12 @@ logger.info("Start")
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
+    
+    if torch.cuda.is_available():
+
+        print("CUDA is available on this device.")
+    else:
+        print("CUDA is not available on this device.")
 
     if torch.cuda.is_available():
         print("CUDA is available on this device.")

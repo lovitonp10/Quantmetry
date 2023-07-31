@@ -27,3 +27,10 @@ class TBLogger(loggers.TensorBoardLogger):
     def log_metrics(self, metrics, step):
         metrics.pop("epoch", None)
         super().log_metrics(metrics, step)
+
+
+class MLFLogger(loggers.MLFlowLogger):
+    @rank_zero_only
+    def log_metrics(self, metrics, step):
+        metrics.pop("epoch", None)
+        super().log_metrics(metrics, step)
