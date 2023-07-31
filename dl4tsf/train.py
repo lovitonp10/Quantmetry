@@ -93,12 +93,6 @@ def main(cfgHydra: DictConfig):
     # logger.info("Compute Validation & Evaluation")
     logger.info("Compute Train & Validation")
     forecaster.train(input_data=dataset.train, validation_data=dataset.validation)
-    losses = forecaster.get_callback_losses(type="train")
-    logger.info(losses[:10])
-    mlflow.log_metrics({"loss_train": losses[-1]})
-    losses = forecaster.get_callback_losses(type="val")
-    logger.info(losses[:10])
-    mlflow.log_metrics({"loss_val": losses[-1]})
 
     logger.info("Compute Prediction")
     # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
