@@ -293,9 +293,6 @@ def create_validation_dataloader(
     freq,
     data,
     batch_size: int,
-    num_batches_per_epoch: int,
-    shuffle_buffer_length: Optional[int] = None,
-    cache_data: bool = True,
     **kwargs,
 ):
     PREDICTION_INPUT_NAMES = [
@@ -312,16 +309,12 @@ def create_validation_dataloader(
 
     if config.num_past_dynamic_real_features > 0:
         PREDICTION_INPUT_NAMES.append("past_dynamic_real_features")
-
     TRAINING_INPUT_NAMES = PREDICTION_INPUT_NAMES + [
         "future_values",
         "future_observed_mask",
     ]
-
     transformation = create_transformation(freq, config)
     transformed_data = transformation.apply(data, is_train=True)
-    if cache_data:
-        transformed_data = Cached(transformed_data)
 
     # we create a Test Instance splitter which will sample the very last
     # context window seen during training only for the encoder.
@@ -329,23 +322,8 @@ def create_validation_dataloader(
         TRAINING_INPUT_NAMES
     )
 
-    # we apply the transformations
-    validation_instances = instance_sampler.apply(
-        Cyclic(transformed_data)
-        if shuffle_buffer_length is None
-        else PseudoShuffled(
-            Cyclic(transformed_data),
-            shuffle_buffer_length=shuffle_buffer_length,
-        )
-    )
+    # we apply the transformations in train mode
+    validation_instances = instance_sampler.apply(transformed_data, is_train=True)
+
     # This returns a Dataloader which will go over the dataset once.
-    return IterableSlice(
-        iter(
-            DataLoader(
-                IterableDataset(validation_instances),
-                batch_size=batch_size,
-                **kwargs,
-            )
-        ),
-        num_batches_per_epoch,
-    )
+    return DataLoader(IterableDataset(validation_instances), batch_size=batch_size, **kwargs)
