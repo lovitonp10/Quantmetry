@@ -1,4 +1,4 @@
 mlflow:
   tracking_uri: "https://quantmetry-mlflow.azurewebsites.net/"
-  experiment_name: test_dl4tsf
+  experiment_name: dl4tsf_experiments
   AZURE_STORAGE_CONNECTION_STRING: "DefaultEndpointsProtocol=https;AccountName=qmmlflowblobstorage;AccountKey=9h59gGzrmnn9bDttkR1aJAKlTJOG2BpCkmWT7pBl+ipkv6rn55TwsC4oIvOWH1JRUKCbVDBs5bogK8hfS/PbKQ==;EndpointSuffix=core.windows.net"

@@ -7,6 +7,7 @@ import configs
 import domain.metrics
 import evaluate
 import hydra
+import mlflow
 import numpy as np
 import pandas as pd
 import torch
@@ -51,10 +52,9 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import trange
 from utils import utils_gluonts
-from utils.tensorboard_logging import TBLogger
+from utils.tensorboard_logging import MLFLogger, TBLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
-from utils.utils_informer.utils_tensorboard import get_summary_writer
 from utils.utils_tft.split import CustomTFTInstanceSplitter
 
 logger = logging.getLogger(__name__)
@@ -485,6 +485,11 @@ class InformerForecaster(Forecaster):
             cfg_dataset=cfg_dataset,
             from_mlflow=from_mlflow,
         )
+        self.logger = MLFLogger(
+            experiment_name="dl4tsf_experiments",
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=mlflow.last_active_run().info.run_id,
+        )
         self.from_mlflow = from_mlflow
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
@@ -560,11 +565,11 @@ class InformerForecaster(Forecaster):
         self.loss_history = []
         self.val_loss_history = []
 
-        self.writer = get_summary_writer(
+        """self.writer = get_summary_writer(
             log_dir="tensorboard_logs",
             dataset_name=self.cfg_dataset.dataset_name,
             model_name="Informer",
-        )
+        )"""
 
         global_step = -1
         self.model.train()
@@ -589,12 +594,16 @@ class InformerForecaster(Forecaster):
                 {np.mean(loss_train_epoch)}, val: {np.mean(loss_val_epoch)}"
             )
             global_step += self.cfg_train.nb_batch_per_epoch
-            self.writer.add_scalars(
+            """self.writer.add_scalars(
                 "loss",
                 {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
                 global_step,
+            )"""
+            self.logger.log_metrics(
+                {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
+                epoch,
             )
-        self.writer.close()
+        # self.writer.close()
 
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
