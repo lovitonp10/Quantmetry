@@ -50,7 +50,7 @@ class TrainDatasets(NamedTuple):
     train: Dataset
     validation: Optional[Dataset] = None
     test: Optional[Dataset] = None
-    inference:Optional[Dataset]=None
+    inference: Optional[Dataset] = None
 
     def save(
         self,
@@ -92,8 +92,8 @@ class TrainDatasets(NamedTuple):
             writer.write_to_folder(self.test, test)
 
         if self.inference is not None:
-            test = path / "inference"
-            test.mkdir(parents=True)
+            inference = path / "inference"
+            inference.mkdir(parents=True)
             writer.write_to_folder(self.inference, inference)
 
 
