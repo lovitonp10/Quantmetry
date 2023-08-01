@@ -203,11 +203,15 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             min_future=self.model_config.prediction_length
         )
 
-    def train(self, input_data: gluontsPandasDataset):
+    def train(
+        self,
+        input_data_train: gluontsPandasDataset,
+        input_data_valid: Optional[gluontsPandasDataset] = None,
+    ):
         if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
-        self.model = super().train(training_data=input_data)
+        self.model = super().train(training_data=input_data_train)
 
     def predict(
         self, test_dataset: gluontsPandasDataset, validation=True
@@ -521,11 +525,12 @@ class InformerForecaster(Forecaster):
             num_workers=2,
         )
 
+    def get_valid_dataloader(self, valid_dataset: List[Dict[str, Any]]):
         logger.info("Create validation dataloader")
         self.val_dataloader = create_validation_dataloader(
             config=self.model_config_informer,
             freq=self.freq,
-            data=train_dataset,
+            data=valid_dataset,
             batch_size=self.cfg_train.batch_size_train,
         )
 
@@ -546,11 +551,14 @@ class InformerForecaster(Forecaster):
                 batch_size=self.cfg_train.batch_size_test,
             )
 
-    def train(self, input_data: List[Dict[str, Any]]):
+    def train(
+        self, input_data_train: List[Dict[str, Any]], input_data_valid: List[Dict[str, Any]]
+    ):
         if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
             return
-        self.get_train_dataloader(input_data)
+        self.get_train_dataloader(input_data_train)
+        self.get_valid_dataloader(input_data_valid)
         accelerator = Accelerator()
         device = accelerator.device
         self.model.to(device)
@@ -696,7 +704,7 @@ class InformerForecaster(Forecaster):
                 validation=validation,
             )
 
-        return df_ts,  list(forecasts_df.values())
+        return df_ts, list(forecasts_df.values())
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.loss_history

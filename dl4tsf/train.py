@@ -2,7 +2,6 @@ import logging
 import os
 from urllib.parse import urlparse
 
-import torch
 import hydra
 import mlflow
 import numpy as np
@@ -22,7 +21,7 @@ logger.info("Start")
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
-    
+
     if torch.cuda.is_available():
 
         print("CUDA is available on this device.")
@@ -76,7 +75,7 @@ def main(cfgHydra: DictConfig):
     logger.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
     forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-    forecaster.train(input_data=dataset.train)
+    forecaster.train(input_data_train=dataset.train, input_data_valid=dataset.validation)
     logger.info("Training Completed")
 
     logger.info("Compute First 10 Losses")
@@ -106,7 +105,7 @@ def main(cfgHydra: DictConfig):
     ts_it, forecast_it = forecaster.predict(test_dataset=dataset.inference, validation=False)
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
-    #forecast_it = list(forecast_it.values())
+    # forecast_it = list(forecast_it.values())
     logger.info(np.mean(forecast_it))
 
     logging_mlflow.log_plots(
