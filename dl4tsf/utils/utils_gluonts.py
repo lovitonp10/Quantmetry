@@ -50,7 +50,7 @@ class TrainDatasets(NamedTuple):
     train: Dataset
     validation: Optional[Dataset] = None
     test: Optional[Dataset] = None
-    inf:Optional[Dataset]=None
+    inference:Optional[Dataset]=None
 
     def save(
         self,
@@ -91,10 +91,10 @@ class TrainDatasets(NamedTuple):
             test.mkdir(parents=True)
             writer.write_to_folder(self.test, test)
 
-        if self.inf is not None:
-            test = path / "inf"
+        if self.inference is not None:
+            test = path / "inference"
             test.mkdir(parents=True)
-            writer.write_to_folder(self.inf, inf)
+            writer.write_to_folder(self.inference, inference)
 
 
 def sample_df(
@@ -277,7 +277,7 @@ def create_ts_with_features(
     )
 
     logger.info("Create train/val/test dfs")
-    train, val, test, inf = train_val_test_inf_split(
+    train, val, test, inference = train_val_test_inf_split(
         dataset_type=dataset_type,
         df=df,
         df_pivot=df_pivot,
@@ -295,7 +295,7 @@ def create_ts_with_features(
             df_train=train,
             df_validation=val,
             df_test=test,
-            df_inf=inf,
+            df_inference=inference,
             name_feats=name_feats,
             static_cardinality=static_cardinality,
             dynamic_cardinality=dynamic_cardinality,
@@ -308,7 +308,7 @@ def create_ts_with_features(
             df_train=train,
             df_validation=val,
             df_test=test,
-            df_inf=inf,
+            df_inference=inference,
             freq=freq,
         )
 
@@ -319,7 +319,7 @@ def gluonts_format(
     df_train: pd.DataFrame,
     df_validation: pd.DataFrame,
     df_test: pd.DataFrame,
-    df_inf: pd.DataFrame,
+    df_inference: pd.DataFrame,
     name_feats: configs.Feats,
     static_cardinality: List[int],
     dynamic_cardinality: List[int],
@@ -382,10 +382,10 @@ def gluonts_format(
     train = cast(Dataset, Map(process, df_train))
     validation = cast(Dataset, Map(process, df_validation))
     test = cast(Dataset, Map(process, df_test))
-    inference = cast(Dataset, Map(process, df_inf))
+    inference = cast(Dataset, Map(process, df_inference))
 
     dataset = TrainDatasets(
-        metadata=meta, train=train, validation=validation, test=test, inf=inference
+        metadata=meta, train=train, validation=validation, test=test, inference=inference
     )
     return dataset
 
@@ -394,7 +394,7 @@ def hugging_face_format(
     df_train: pd.DataFrame,
     df_validation: pd.DataFrame,
     df_test: pd.DataFrame,
-    df_inf: pd.DataFrame,
+    df_inference: pd.DataFrame,
     freq: str,
 ) -> HuggingFaceDataset:
     """Formats the data into a Hugging Face-compatible format.
@@ -418,12 +418,12 @@ def hugging_face_format(
     train = pd.DataFrame(df_train)
     validation = pd.DataFrame(df_validation)
     test = pd.DataFrame(df_test)
-    inf = pd.DataFrame(df_inf)
+    inference = pd.DataFrame(df_inference)
 
     train_dataset = datasets.Dataset.from_dict(train)
     validation_dataset = datasets.Dataset.from_dict(validation)
     test_dataset = datasets.Dataset.from_dict(test)
-    inference_dataset = datasets.Dataset.from_dict(inf)
+    inference_dataset = datasets.Dataset.from_dict(inference)
 
     # dataset = datasets.DatasetDict({"train":train_dataset,"test":test_dataset})
 
@@ -436,7 +436,7 @@ def hugging_face_format(
     dataset.train = train_dataset
     dataset.validation = validation_dataset
     dataset.test = test_dataset
-    dataset.inf = inference_dataset
+    dataset.inference = inference_dataset
 
     return dataset
 
@@ -625,18 +625,18 @@ def train_val_test_inf_split(
         item_ids=item_ids,
     )
 
-    # inf
-    df_inf = df_pivot.copy()
+    # inference
+    df_inference = df_pivot.copy()
     df_feat_dynamic_real = pd.concat(
         [
-            df_inf[name_feats.feat_dynamic_real],
+            df_inference[name_feats.feat_dynamic_real],
             df_dynamic_feat_forecast[name_feats.feat_dynamic_real],
         ],
         axis=0,
     )
     df_feat_dynamic_cat = pd.concat(
         [
-            df_inf[name_feats.feat_dynamic_cat],
+            df_inference[name_feats.feat_dynamic_cat],
             df_dynamic_feat_forecast[name_feats.feat_dynamic_cat],
         ],
         axis=0,
@@ -645,7 +645,7 @@ def train_val_test_inf_split(
     df_feat_static_cat = df_static_features[name_feats.feat_static_cat]
     df_feat_static_real = df_static_features[name_feats.feat_static_real]
     target = add_target_forecast(
-        df_pivot=df_inf,
+        df_pivot=df_inference,
         target=target,
         prediction_length=prediction_length,
         item_id=df["item_id"],
@@ -653,16 +653,16 @@ def train_val_test_inf_split(
     )
 
     df_past_feat_dynamic_real = add_past_forecast(
-        df_pivot=df_inf,
+        df_pivot=df_inference,
         past_dynamic_real=name_feats.past_feat_dynamic_real,
         prediction_length=prediction_length,
         item_id=df["item_id"],
         dataset_type=dataset_type,
     )
 
-    inf = create_dict_dataset(
+    inference = create_dict_dataset(
         target=target,
-        start_date=df_inf.index[0],
+        start_date=df_inference.index[0],
         df_feat_dynamic_real=df_feat_dynamic_real,
         df_feat_static_cat=df_feat_static_cat,
         df_feat_static_real=df_feat_static_real,
@@ -671,7 +671,7 @@ def train_val_test_inf_split(
         item_ids=df["item_id"].unique(),
     )
 
-    return train, val, test, inf
+    return train, val, test, inference
 
 
 def create_dict_dataset(

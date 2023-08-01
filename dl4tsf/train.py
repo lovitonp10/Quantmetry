@@ -103,7 +103,7 @@ def main(cfgHydra: DictConfig):
     # logger.info(metrics)
 
     logger.info("Compute Prediction")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.inf, validation=False)
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.inference, validation=False)
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
     #forecast_it = list(forecast_it.values())
