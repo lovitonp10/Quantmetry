@@ -50,6 +50,7 @@ class TrainDatasets(NamedTuple):
     train: Dataset
     validation: Optional[Dataset] = None
     test: Optional[Dataset] = None
+    inf:Optional[Dataset]=None
 
     def save(
         self,
@@ -89,6 +90,11 @@ class TrainDatasets(NamedTuple):
             test = path / "test"
             test.mkdir(parents=True)
             writer.write_to_folder(self.test, test)
+
+        if self.inf is not None:
+            test = path / "inf"
+            test.mkdir(parents=True)
+            writer.write_to_folder(self.inf, inf)
 
 
 def sample_df(
@@ -379,7 +385,7 @@ def gluonts_format(
     inference = cast(Dataset, Map(process, df_inf))
 
     dataset = TrainDatasets(
-        metadata=meta, train=train, validation=validation, test=test, inference=inference
+        metadata=meta, train=train, validation=validation, test=test, inf=inference
     )
     return dataset
 
