@@ -10,4 +10,4 @@ trainer_kwargs:
     limit_train_batches: ${train.batch_size_train}
     gradient_clip_val : 10.
 callback:
-  _target_: utils.tensorboard_logging.MetricsCallback
+  _target_: utils.training_logging.MetricsCallback
