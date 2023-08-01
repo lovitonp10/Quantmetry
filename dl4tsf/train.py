@@ -104,10 +104,9 @@ def main(cfgHydra: DictConfig):
 
     logger.info("Compute Prediction")
     ts_it, forecast_it = forecaster.predict(test_dataset=dataset.inf, validation=False)
-
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
-    forecast_it = list(forecast_it.values())
+    #forecast_it = list(forecast_it.values())
     logger.info(np.mean(forecast_it))
 
     logging_mlflow.log_plots(
