@@ -206,7 +206,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     def train(
         self,
         input_data_train: gluontsPandasDataset,
-        input_data_valid: Optional[gluontsPandasDataset] = None,
+        input_data_validation: Optional[gluontsPandasDataset] = None,
     ):
         if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
@@ -552,13 +552,13 @@ class InformerForecaster(Forecaster):
             )
 
     def train(
-        self, input_data_train: List[Dict[str, Any]], input_data_valid: List[Dict[str, Any]]
+        self, input_data_train: List[Dict[str, Any]], input_data_validation: List[Dict[str, Any]]
     ):
         if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
             return
         self.get_train_dataloader(input_data_train)
-        self.get_valid_dataloader(input_data_valid)
+        self.get_valid_dataloader(input_data_validation)
         accelerator = Accelerator()
         device = accelerator.device
         self.model.to(device)
