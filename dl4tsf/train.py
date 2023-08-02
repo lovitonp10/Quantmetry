@@ -75,7 +75,7 @@ def main(cfgHydra: DictConfig):
     logger.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
     forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-    forecaster.train(input_data_train=dataset.train, input_data_valid=dataset.validation)
+    forecaster.train(input_data_train=dataset.train, input_data_validation=dataset.validation)
     logger.info("Training Completed")
 
     logger.info("Compute First 10 Losses")
