@@ -23,6 +23,12 @@ logger.info("Start")
 def main(cfgHydra: DictConfig):
 
     if torch.cuda.is_available():
+
+        print("CUDA is available on this device.")
+    else:
+        print("CUDA is not available on this device.")
+
+    if torch.cuda.is_available():
         print("CUDA is available on this device.")
     else:
         print("CUDA is not available on this device.")
@@ -69,7 +75,7 @@ def main(cfgHydra: DictConfig):
     logger.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
     forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
-    forecaster.train(input_data=dataset.train)
+    forecaster.train(input_data_train=dataset.train, input_data_validation=dataset.validation)
     logger.info("Training Completed")
 
     logger.info("Compute First 10 Losses")
@@ -96,8 +102,7 @@ def main(cfgHydra: DictConfig):
     # logger.info(metrics)
 
     logger.info("Compute Prediction")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
-
+    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.inference, validation=False)
     logger.info(ts_it[0].tail())
     logger.info(forecast_it[0].head())
     # forecast_it = list(forecast_it.values())
