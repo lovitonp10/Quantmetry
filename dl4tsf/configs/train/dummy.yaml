@@ -1,4 +1,4 @@
-epochs: 50
+epochs: 2
 batch_size_train: 16 # must be exponent of 2
 batch_size_test: 2
 nb_batch_per_epoch: 5 # keep as it
