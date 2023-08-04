@@ -54,8 +54,8 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.mean(axis=1))
-        mse_metrics = rmse(forecast_value, true_value)
-        rmse_metrics.append(mse_metrics)
+        rmse_metrics = rmse(forecast_value, true_value)
+        rmse_metrics.append(rmse_metrics)
 
     return rmse_metrics
 
@@ -95,7 +95,7 @@ def estimate_smape(
     return smape_metrics
 
 
-def estimate_val_wmape(forecasts: list, true_ts: list) -> list:
+def wmape(forecasts: list, true_ts: list) -> list:
     """
     Compute the WMAPE metric:
     .. math::
@@ -121,7 +121,7 @@ def estimate_wmape(
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        wmape_metrics.append(estimate_val_wmape(forecast_value, true_value))
+        wmape_metrics.append(wmape(forecast_value, true_value))
 
     return wmape_metrics
 

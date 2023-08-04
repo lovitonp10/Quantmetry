@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 import torch
-from domain.metrics import estimate_val_wmape, mae, rmse
+from domain.metrics import mae, rmse, wmape
 from domain.module import TFTModel
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import weighted_average
@@ -105,7 +105,7 @@ class TFTLightningModule(pl.LightningModule):
         if is_validation is True:
             val_mae = mae(distr.mean, future_target)
             val_rmse = rmse(distr.mean, future_target)
-            val_wmape = estimate_val_wmape(distr.mean, future_target)
+            val_wmape = wmape(distr.mean, future_target)
             return (
                 weighted_average(loss_values, weights=loss_weights),
                 val_mae,

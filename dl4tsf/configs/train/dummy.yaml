@@ -7,7 +7,6 @@ validation_sampler: null
 time_features: null
 trainer_kwargs:
     max_epochs: ${train.epochs}
-    # limit_train_batches: ${train.nb_batch_per_epoch}
     gradient_clip_val: 10.
 callback:
   _target_: utils.training_logging.MetricsCallback
