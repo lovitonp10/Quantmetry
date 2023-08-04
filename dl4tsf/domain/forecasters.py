@@ -52,7 +52,7 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import trange
 from utils import utils_gluonts
-from utils.training_logging import MLFLogger, TBLogger
+from utils.training_logging import MLFLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
 from utils.utils_tft.split import CustomTFTInstanceSplitter
@@ -143,11 +143,10 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
-        self.logger = TBLogger(
-            "tensorboard_logs",
-            name=cfg_dataset.dataset_name,
-            sub_dir="TFT",
-            default_hp_metric=False,
+        self.logger = MLFLogger(
+            experiment_name="test_dl4tsf",
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=mlflow.last_active_run().info.run_id,
         )
         self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
         trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
