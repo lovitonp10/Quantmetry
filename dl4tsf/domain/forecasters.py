@@ -50,11 +50,11 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow_deploy.flavor import register_model_mlflow
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
+from tqdm import trange
 from utils import utils_gluonts
-from utils.tensorboard_logging import MLFLogger
+from utils.training_logging import MLFLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
-from utils.utils_informer.utils_tensorboard import get_summary_writer
 from utils.utils_tft.split import CustomTFTInstanceSplitter
 
 logger = logging.getLogger(__name__)
@@ -143,16 +143,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
-        """self.logger = TBLogger(
-            "tensorboard_logs",
-            name=cfg_dataset.dataset_name,
-            sub_dir="TFT",
-            default_hp_metric=False,
-        )"""
+        run_info = mlflow.active_run().info
         self.logger = MLFLogger(
-            experiment_name="dl4tsf_experiments",
+            experiment_name=mlflow.get_experiment(run_info.experiment_id).name,
             tracking_uri=mlflow.get_tracking_uri(),
-            run_id=mlflow.last_active_run().info.run_id,
+            run_id=run_info.run_id,
         )
         self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
         trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
@@ -209,12 +204,16 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         )
 
     def train(
-        self, input_data: gluontsPandasDataset, validation_data: gluontsPandasDataset = None
+        self,
+        input_data_train: gluontsPandasDataset,
+        input_data_validation: gluontsPandasDataset = None,
     ):
         if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
-        self.model = super().train(training_data=input_data, validation_data=validation_data)
+        self.model = super().train(
+            training_data=input_data_train, validation_data=input_data_validation
+        )
 
     def predict(
         self, test_dataset: gluontsPandasDataset, validation=True
@@ -286,6 +285,8 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
+        for name, values in agg_metrics.items():
+            agg_metrics[name] = [value for value in values if not np.isinf(value)]
 
         if mean:
             for name, values in agg_metrics.items():
@@ -490,6 +491,12 @@ class InformerForecaster(Forecaster):
             cfg_dataset=cfg_dataset,
             from_mlflow=from_mlflow,
         )
+        run_info = mlflow.active_run().info
+        self.logger = MLFLogger(
+            experiment_name=mlflow.get_experiment(run_info.experiment_id).name,
+            tracking_uri=mlflow.get_tracking_uri(),
+            run_id=run_info.run_id,
+        )
         self.from_mlflow = from_mlflow
         self.freq = self.cfg_dataset.freq
         time_features = time_features_from_frequency_str(self.freq)
@@ -521,6 +528,15 @@ class InformerForecaster(Forecaster):
             num_workers=2,
         )
 
+    def get_valid_dataloader(self, valid_dataset: List[Dict[str, Any]]):
+        logger.info("Create validation dataloader")
+        self.val_dataloader = create_validation_dataloader(
+            config=self.model_config_informer,
+            freq=self.freq,
+            data=valid_dataset,
+            batch_size=self.cfg_train.batch_size_train,
+        )
+
     def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
         logger.info("Create test dataloader")
         if validation is True:
@@ -538,11 +554,14 @@ class InformerForecaster(Forecaster):
                 batch_size=self.cfg_train.batch_size_test,
             )
 
-    def train(self, input_data: List[Dict[str, Any]]):
+    def train(
+        self, input_data_train: List[Dict[str, Any]], input_data_validation: List[Dict[str, Any]]
+    ):
         if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
             return
-        self.get_train_dataloader(input_data)
+        self.get_train_dataloader(input_data_train)
+        self.get_valid_dataloader(input_data_validation)
         accelerator = Accelerator()
         device = accelerator.device
         self.model.to(device)
@@ -555,57 +574,69 @@ class InformerForecaster(Forecaster):
         )
 
         self.loss_history = []
-
-        self.writer = get_summary_writer(
-            log_dir="tensorboard_logs",
-            dataset_name=self.cfg_dataset.dataset_name,
-            model_name="Informer",
-        )
+        self.val_loss_history = []
 
         global_step = -1
         self.model.train()
         if device.type == "cuda":
             self.model.double()
 
-        for epoch in range(self.cfg_train.epochs):
-            batch_loss = []
-            for idx, batch in enumerate(self.train_dataloader):
-                optimizer.zero_grad()
-                outputs = self.model(
-                    static_categorical_features=batch["static_categorical_features"].to(device)
-                    if self.model_config_informer.num_static_categorical_features > 0
-                    else None,
-                    static_real_features=batch["static_real_features"].to(device)
-                    if self.model_config_informer.num_static_real_features > 0
-                    else None,
-                    past_time_features=batch["past_time_features"].to(torch.float32).to(device)
-                    if device.type == "mps"
-                    else batch["past_time_features"].to(device),
-                    past_values=batch["past_values"].to(device),
-                    future_time_features=batch["future_time_features"].to(torch.float32).to(device)
-                    if device.type == "mps"
-                    else batch["future_time_features"].to(device),
-                    future_values=batch["future_values"].to(device),
-                    past_observed_mask=batch["past_observed_mask"].to(device),
-                    future_observed_mask=batch["future_observed_mask"].to(device),
-                    past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
-                    if self.model_config_informer.num_past_dynamic_real_features > 0
-                    # if device.type == "mps"
-                    # else batch["past_dynamic_real_features"].to(device),
-                    else None,
-                )
-                loss = outputs.loss
-                batch_loss.append(loss.item())
+        for epoch in trange(self.cfg_train.epochs):
+            loss_train_epoch = []
+            for batch in self.train_dataloader:
+                loss_train = self.compile_loss(batch, device, optimizer)
+                loss_train_epoch.append(loss_train.item())
                 # Backpropagation
-                accelerator.backward(loss)
+                accelerator.backward(loss_train)
                 optimizer.step()
 
-            self.loss_history.append(loss.item())
-            # if idx % 100 == 0:
-            # print(loss.item())
+            self.loss_history.append(loss_train.item())
+            loss_val_epoch = self.eval(device, optimizer)
+            self.model.train()
+            self.val_loss_history.append(np.mean(loss_val_epoch))
+            print(
+                f"epoch: {epoch}/{self.cfg_train.epochs} train: \\\
+                {np.mean(loss_train_epoch)}, val: {np.mean(loss_val_epoch)}"
+            )
             global_step += self.cfg_train.nb_batch_per_epoch
-            self.writer.add_scalar("train_loss", np.mean(batch_loss), global_step)
-        self.writer.close()
+            self.logger.log_metrics(
+                {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
+                epoch,
+            )
+
+    def eval(self, device, optimizer) -> List:
+        loss_val_epoch = []
+        self.model.eval()
+        for batch in self.val_dataloader:
+            loss_val = self.compile_loss(batch, device, optimizer)
+            if loss_val:
+                loss_val_epoch.append(loss_val.item())
+        return loss_val_epoch
+
+    def compile_loss(self, batch, device, optimizer):
+        optimizer.zero_grad()
+        outputs = self.model(
+            static_categorical_features=batch["static_categorical_features"].to(device)
+            if self.model_config_informer.num_static_categorical_features > 0
+            else None,
+            static_real_features=batch["static_real_features"].to(device)
+            if self.model_config_informer.num_static_real_features > 0
+            else None,
+            past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+            if device.type == "mps"
+            else batch["past_time_features"].to(device),
+            past_values=batch["past_values"].to(device),
+            future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+            if device.type == "mps"
+            else batch["future_time_features"].to(device),
+            future_values=batch["future_values"].to(device),
+            past_observed_mask=batch["past_observed_mask"].to(device),
+            future_observed_mask=batch["future_observed_mask"].to(device),
+            past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+            if self.model_config_informer.num_past_dynamic_real_features > 0
+            else None,
+        )
+        return outputs.loss
 
     def predict(
         self,

@@ -115,7 +115,7 @@ def estimate_wmape(
     """
     Compute the WMAPE metric:
     .. math::
-        smape = sum(|Y - hat{Y}|) / sum(|Y|)
+        wmape = sum(|Y - hat{Y}|) / sum(|Y|)
     """
     wmape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):

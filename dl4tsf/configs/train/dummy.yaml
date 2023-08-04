@@ -1,13 +1,13 @@
-epochs: 10
-batch_size_train: 2 # must be exponent of 2
-batch_size_test: 4
-nb_batch_per_epoch: 100 # keep as it
+epochs: 2
+batch_size_train: 16 # must be exponent of 2
+batch_size_test: 2
+nb_batch_per_epoch: 20 # keep as it
 train_sampler: null
 validation_sampler: null
 time_features: null
 trainer_kwargs:
     max_epochs: ${train.epochs}
-    limit_train_batches: ${train.batch_size_train}
-    gradient_clip_val : 10.
+    # limit_train_batches: ${train.nb_batch_per_epoch}
+    gradient_clip_val: 10.
 callback:
-  _target_: utils.tensorboard_logging.MetricsCallback
+  _target_: utils.training_logging.MetricsCallback
