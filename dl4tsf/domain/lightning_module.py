@@ -1,5 +1,6 @@
 import pytorch_lightning as pl
 import torch
+from domain.metrics import estimate_val_wmape, mae, rmse
 from domain.module import TFTModel
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import weighted_average
@@ -36,9 +37,12 @@ class TFTLightningModule(pl.LightningModule):
     def validation_step(self, batch, batch_idx: int):
         """Execute validation step"""
         with torch.inference_mode():
-            val_loss = self(batch)
+            val_loss, val_mae, val_rmse, val_wmape = self(batch, is_validation=True)
         self.log("val_loss", val_loss, on_epoch=True, on_step=False, prog_bar=True)
-        return val_loss
+        self.log("val_mae", val_mae, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("val_rmse", val_rmse, on_epoch=True, on_step=False, prog_bar=True)
+        self.log("val_wmape", val_wmape, on_epoch=True, on_step=False, prog_bar=True)
+        return val_loss  # , val_mae, val_rmse, val_wmape
 
     def configure_optimizers(self):
         """Returns the optimizer to use"""
@@ -48,7 +52,7 @@ class TFTLightningModule(pl.LightningModule):
             weight_decay=self.weight_decay,
         )
 
-    def forward(self, batch):
+    def forward(self, batch, is_validation=False):
         feat_static_cat = batch["feat_static_cat"]
         feat_static_real = batch["feat_static_real"]
         past_time_feat = batch["past_time_feat"]
@@ -97,5 +101,16 @@ class TFTLightningModule(pl.LightningModule):
             loss_weights = future_observed_values
         else:
             loss_weights, _ = future_observed_values.min(dim=-1, keepdim=False)
+
+        if is_validation is True:
+            val_mae = mae(distr.mean, future_target)
+            val_rmse = rmse(distr.mean, future_target)
+            val_wmape = estimate_val_wmape(distr.mean, future_target)
+            return (
+                weighted_average(loss_values, weights=loss_weights),
+                val_mae,
+                val_rmse,
+                val_wmape,
+            )
 
         return weighted_average(loss_values, weights=loss_weights)
