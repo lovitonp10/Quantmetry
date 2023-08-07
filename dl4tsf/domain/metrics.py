@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Tuple
 
 import numpy as np
+import torch
 from configs import Configs
 from evaluate import load
 from gluonts.evaluation import metrics
@@ -13,8 +14,8 @@ def mae(forecasts: list, true_ts: list):
     .. math::
         MAE = mean(|Y - hat{Y}|)
     """
-    val_mae = np.array(np.abs(true_ts - forecasts))
-    return np.mean(val_mae)
+    val_mae = torch.abs(true_ts - forecasts)
+    return torch.mean(val_mae)
 
 
 def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> list:
@@ -39,7 +40,7 @@ def rmse(forecasts: list, true_ts: list):
     .. math::
         rmse = sqrt(mean((Y - hat{Y})^2))
     """
-    mse_metrics = np.mean(np.square(np.array(true_ts - forecasts)))
+    mse_metrics = torch.mean(torch.square(true_ts - forecasts))
     return mse_metrics ** (0.5)
 
 
@@ -101,9 +102,7 @@ def wmape(forecasts: list, true_ts: list) -> list:
     .. math::
         smape = sum(|Y - hat{Y}|) / sum(|Y|)
     """
-    wmape_metric = np.sum(np.abs(np.array(true_ts - forecasts))) / np.sum(
-        np.abs(np.array(true_ts))
-    )
+    wmape_metric = torch.sum(torch.abs(true_ts - forecasts)) / torch.sum(torch.abs(true_ts))
     return wmape_metric
 
 
