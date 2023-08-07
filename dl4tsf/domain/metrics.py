@@ -14,6 +14,8 @@ def mae(forecasts: list, true_ts: list):
     .. math::
         MAE = mean(|Y - hat{Y}|)
     """
+    true_ts = torch.tensor(true_ts)
+    forecasts = torch.tensor(forecasts)
     val_mae = torch.abs(true_ts - forecasts)
     return torch.mean(val_mae)
 
@@ -40,6 +42,8 @@ def rmse(forecasts: list, true_ts: list):
     .. math::
         rmse = sqrt(mean((Y - hat{Y})^2))
     """
+    true_ts = torch.tensor(true_ts)
+    forecasts = torch.tensor(forecasts)
     mse_metrics = torch.mean(torch.square(true_ts - forecasts))
     return mse_metrics ** (0.5)
 
@@ -102,6 +106,8 @@ def wmape(forecasts: list, true_ts: list) -> list:
     .. math::
         smape = sum(|Y - hat{Y}|) / sum(|Y|)
     """
+    true_ts = torch.tensor(true_ts)
+    forecasts = torch.tensor(forecasts)
     wmape_metric = torch.sum(torch.abs(true_ts - forecasts)) / torch.sum(torch.abs(true_ts))
     return wmape_metric
 
