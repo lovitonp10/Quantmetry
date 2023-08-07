@@ -54,8 +54,8 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.mean(axis=1))
-        rmse_metrics = rmse(forecast_value, true_value)
-        rmse_metrics.append(rmse_metrics)
+        rmse_metric = rmse(forecast_value, true_value)
+        rmse_metrics.append(rmse_metric)
 
     return rmse_metrics
 
