@@ -1,4 +1,4 @@
 mlflow:
   tracking_uri: "mlruns"
-  experiment_name: test_dl4tsf
+  experiment_name: dl4tsf_experiments
   AZURE_STORAGE_CONNECTION_STRING: ""

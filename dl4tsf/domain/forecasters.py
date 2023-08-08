@@ -143,10 +143,11 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             from_mlflow=from_mlflow,
         )
         self.callback = hydra.utils.instantiate(cfg_train.callback, _convert_="all")
+        run_info = mlflow.active_run().info
         self.logger = MLFLogger(
-            experiment_name="test_dl4tsf",
+            experiment_name=mlflow.get_experiment(run_info.experiment_id).name,
             tracking_uri=mlflow.get_tracking_uri(),
-            run_id=mlflow.last_active_run().info.run_id,
+            run_id=run_info.run_id,
         )
         self.add_kwargs = {"callbacks": [self.callback], "logger": self.logger}
         trainer_kwargs = {**cfg_train.trainer_kwargs, **self.add_kwargs}
@@ -205,12 +206,14 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
     def train(
         self,
         input_data_train: gluontsPandasDataset,
-        input_data_validation: Optional[gluontsPandasDataset] = None,
+        input_data_validation: gluontsPandasDataset = None,
     ):
         if self.from_mlflow is not None:
             logging.error("Model already trained, cannot be retrained from scratch")
             return
-        self.model = super().train(training_data=input_data_train)
+        self.model = super().train(
+            training_data=input_data_train, validation_data=input_data_validation
+        )
 
     def predict(
         self, test_dataset: gluontsPandasDataset, validation=True
@@ -488,10 +491,11 @@ class InformerForecaster(Forecaster):
             cfg_dataset=cfg_dataset,
             from_mlflow=from_mlflow,
         )
+        run_info = mlflow.active_run().info
         self.logger = MLFLogger(
-            experiment_name="dl4tsf_experiments",
+            experiment_name=mlflow.get_experiment(run_info.experiment_id).name,
             tracking_uri=mlflow.get_tracking_uri(),
-            run_id=mlflow.last_active_run().info.run_id,
+            run_id=run_info.run_id,
         )
         self.from_mlflow = from_mlflow
         self.freq = self.cfg_dataset.freq
@@ -711,8 +715,6 @@ class InformerForecaster(Forecaster):
     def evaluate(
         self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
     ) -> Tuple[Dict[str, Any], List[float]]:
-        print(len(forecasts))
-        print(len(test_dataset))
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)

@@ -12,6 +12,7 @@ from load.load_data_aifluence import Aifluence
 from load.load_data_enedis import Enedis
 from load.load_exo_data import Weather
 from utils.custom_objects_pydantic import HuggingFaceDataset
+from utils.utils import resample_df_by_group
 from utils.utils_gluonts import generate_item_ids_static_features
 
 logger = logging.getLogger(__name__)
@@ -116,6 +117,8 @@ def enedis(
         df=df_enedis, key_columns=name_feats["feat_for_item_id"]
     )
 
+    df_enedis = resample_df_by_group(df=df_enedis, grouper="item_id", freq=freq)
+
     if weather:
         logger.info("Add Weather")
         df_enedis["station_name"] = df_enedis["region"].map(MAPPING_REGION_WEATHER_STATION)
@@ -185,6 +188,7 @@ def aifluence_public_histo_vrf(
         df=df_aifluence, key_columns=name_feats["feat_for_item_id"]
     )
 
+    df_aifluence = resample_df_by_group(df=df_aifluence, grouper="item_id", freq=freq)
     if weather:
         logger.info("Add Weather")
         df_aifluence["station_name"] = weather["station_names"][0]
