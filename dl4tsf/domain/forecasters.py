@@ -193,7 +193,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             else time_features_from_frequency_str(self.freq)
         )
 
-        self.batch_size = self.cfg_train.batch_size_train
+        self.batch_size_train = self.cfg_train.batch_size_train
+        self.batch_size_test = self.cfg_train.batch_size_test
+
         self.nb_batch_per_epoch = self.cfg_train.nb_batch_per_epoch
 
         self.train_sampler = self.cfg_train.train_sampler or ExpectedNumInstanceSampler(
@@ -427,7 +429,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             iter(
                 DataLoader(
                     IterableDataset(training_instances),
-                    batch_size=self.batch_size,
+                    batch_size=self.batch_size_train,
                     **kwargs,
                 )
             ),
@@ -448,7 +450,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
 
         return DataLoader(
             IterableDataset(validation_instances),
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_train,
             **kwargs,
         )
 
@@ -463,7 +465,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             input_transform=transformation + prediction_splitter,
             input_names=PREDICTION_INPUT_NAMES,
             prediction_net=module.model,
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_test,
             prediction_length=self.model_config.prediction_length,
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         )
