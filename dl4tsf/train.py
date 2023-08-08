@@ -21,7 +21,7 @@ logger.info("Start")
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
-    torch.cuda.empty_cache
+    torch.cuda.empty_cache()
 
     if torch.cuda.is_available():
         print("CUDA is available on this device.")
