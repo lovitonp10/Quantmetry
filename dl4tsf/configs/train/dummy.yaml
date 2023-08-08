@@ -1,13 +1,12 @@
 epochs: 2
 batch_size_train: 16 # must be exponent of 2
 batch_size_test: 2
-nb_batch_per_epoch: 5 # keep as it
+nb_batch_per_epoch: 20 # keep as it
 train_sampler: null
 validation_sampler: null
 time_features: null
 trainer_kwargs:
     max_epochs: ${train.epochs}
-    limit_train_batches: ${train.batch_size_train}
-    gradient_clip_val : 10.
+    gradient_clip_val: 10.
 callback:
   _target_: utils.training_logging.MetricsCallback
