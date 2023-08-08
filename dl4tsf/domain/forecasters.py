@@ -251,38 +251,45 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         test_dataset: gluontsPandasDataset,
         mean: bool = False,
         percentage: bool = False,
+        prefix: str = "test_",
     ) -> Dict[str, Any]:
         true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
-            "mae": domain.metrics.estimate_mae(
+            prefix
+            + "mae": domain.metrics.estimate_mae(
                 forecasts, true_ts, self.model_config.prediction_length
             ),
-            "rmse": domain.metrics.estimate_rmse(
+            prefix
+            + "rmse": domain.metrics.estimate_rmse(
                 forecasts, true_ts, self.model_config.prediction_length
             ),
-            "mape": domain.metrics.estimate_mape(
+            prefix
+            + "mape": domain.metrics.estimate_mape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
             ),
-            "smape": domain.metrics.estimate_smape(
+            prefix
+            + "smape": domain.metrics.estimate_smape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
             ),
-            "wmape": domain.metrics.estimate_wmape(
+            prefix
+            + "wmape": domain.metrics.estimate_wmape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
             ),
-            "mase": domain.metrics.estimate_mase(
+            prefix
+            + "mase": domain.metrics.estimate_mase(
                 forecasts, true_ts, self.model_config.prediction_length, self.freq
             ),
         }
         if percentage:
             agg_metrics = self.convert_to_percentage(agg_metrics)
         for i in range(1, 10):
-            agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
+            agg_metrics[prefix + f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
         for name, values in agg_metrics.items():
@@ -713,14 +720,23 @@ class InformerForecaster(Forecaster):
         return self.loss_history
 
     def evaluate(
-        self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
+        self,
+        test_dataset: List[Dict[str, Any]],
+        forecasts=[],
+        percentage: bool = False,
+        prefix: str = "test_",
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
+        mae_metric = evaluate.load("evaluate-metric/mae")
+        mse_metric = evaluate.load("evaluate-metric/mse")
         smape_metric = evaluate.load("evaluate-metric/smape")
         mase_metrics = []
+        mae_metrics = []
+        rmse_metrics = []
+        wmape_metrics = []
         smape_metrics = []
 
         for item_id, ts in enumerate(test_dataset):
@@ -734,6 +750,21 @@ class InformerForecaster(Forecaster):
             )
             mase_metrics.append(mase["mase"])
 
+            mae = mae_metric.compute(
+                predictions=forecast_median[item_id], references=np.array(ground_truth)
+            )
+            mae_metrics.append(mae["mae"])
+
+            rmse = mse_metric.compute(
+                predictions=forecast_median[item_id],
+                references=np.array(ground_truth),
+                squared=False,
+            )
+            rmse_metrics.append(rmse["mse"])
+
+            wmape_metric = domain.metrics.wmape(forecast_median[item_id], np.array(ground_truth))
+            wmape_metrics.append(wmape_metric)
+
             smape = smape_metric.compute(
                 predictions=forecast_median[item_id],
                 references=np.array(ground_truth),
@@ -741,8 +772,11 @@ class InformerForecaster(Forecaster):
             smape_metrics.append(smape["smape"])
 
         metrics = {}
-        metrics["smape"] = smape_metrics
-        metrics["mase"] = mase_metrics
+        metrics[prefix + "smape"] = smape_metrics
+        metrics[prefix + "mae"] = mae_metrics
+        metrics[prefix + "rmse"] = rmse_metrics
+        metrics[prefix + "wmape"] = wmape_metrics
+        metrics[prefix + "mase"] = mase_metrics
         if percentage:
             metrics = self.convert_to_percentage(metrics)
 
