@@ -5,7 +5,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import configs
 import domain.metrics
-import evaluate
 import hydra
 import mlflow
 import numpy as np
@@ -25,7 +24,7 @@ from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
 from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
-from gluonts.time_feature import get_seasonality, time_features_from_frequency_str
+from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
@@ -731,8 +730,6 @@ class InformerForecaster(Forecaster):
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
-        mase_metric = evaluate.load("evaluate-metric/mase")
-        smape_metric = evaluate.load("evaluate-metric/smape")
         mase_metrics = []
         mae_metrics = []
         rmse_metrics = []
@@ -742,13 +739,14 @@ class InformerForecaster(Forecaster):
         for item_id, ts in enumerate(test_dataset):
             training_data = ts["target"][: -self.model_config.prediction_length]
             ground_truth = ts["target"][-self.model_config.prediction_length :]
-            mase = mase_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
-                training=np.array(training_data),
-                periodicity=get_seasonality(self.freq),
+
+            mase_metric = domain.metrics.mase(
+                forecasts=forecast_median[item_id],
+                true_ts=np.array(ground_truth),
+                training_data=np.array(training_data),
+                freq=self.freq,
             )
-            mase_metrics.append(mase["mase"])
+            mase_metrics.append(mase_metric)
 
             mae_metric = domain.metrics.mae(forecast_median[item_id], np.array(ground_truth))
             mae_metrics.append(mae_metric)
@@ -759,11 +757,8 @@ class InformerForecaster(Forecaster):
             wmape_metric = domain.metrics.wmape(forecast_median[item_id], np.array(ground_truth))
             wmape_metrics.append(wmape_metric)
 
-            smape = smape_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
-            )
-            smape_metrics.append(smape["smape"])
+            smape_metric = domain.metrics.smape(forecast_median[item_id], np.array(ground_truth))
+            smape_metrics.append(smape_metric)
 
         metrics = {}
         metrics[prefix + "smape"] = smape_metrics

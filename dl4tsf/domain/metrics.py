@@ -80,6 +80,20 @@ def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> l
     return mape_metrics
 
 
+def smape(forecasts: list, true_ts: list) -> list:
+    """
+    Compute the SMAPE metric:
+    .. math::
+        smape = 200 * mean(|Y - hat{Y}| / (|Y| + |hat{Y}|))
+    """
+    true_ts = torch.tensor(true_ts)
+    forecasts = torch.tensor(forecasts)
+    wmape_metric = 2 * torch.mean(
+        torch.abs(true_ts - forecasts) / (torch.abs(true_ts) + torch.abs(forecasts))
+    )
+    return wmape_metric
+
+
 def estimate_smape(
     forecasts: list,
     true_ts: list,
@@ -95,7 +109,7 @@ def estimate_smape(
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        smape_metrics.append(metrics.smape(true_value, forecast_value))
+        smape_metrics.append(smape(true_value, forecast_value))
 
     return smape_metrics
 
@@ -131,6 +145,24 @@ def estimate_wmape(
     return wmape_metrics
 
 
+def mase(forecasts: list, true_ts: list, training_data: list, freq: str) -> list:
+    """
+    Compute the MASE metric:
+    .. math::
+        mase = mean(|Y - hat{Y}|) / seasonal_error
+    """
+    true_ts = torch.tensor(true_ts)
+    forecasts = torch.tensor(forecasts)
+    training_data = torch.tensor(training_data)
+    season_error = metrics.calculate_seasonal_error(
+        past_data=np.array(training_data),
+        freq=freq,
+        seasonality=get_seasonality(freq),
+    )
+    mase_metric = torch.mean(torch.abs(true_ts - forecasts)) / season_error
+    return mase_metric
+
+
 def estimate_mase(forecasts: list, true_ts: list, prediction_length: float, freq: str) -> list:
     """
     Compute the MASE metric:
@@ -142,12 +174,10 @@ def estimate_mase(forecasts: list, true_ts: list, prediction_length: float, freq
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
         forecast_value = np.array(forecast.median(axis=1))
-        season_error = metrics.calculate_seasonal_error(
-            past_data=np.array(ts[:-prediction_length][0]),
-            freq=freq,
-            seasonality=get_seasonality(freq),
+
+        mase_metrics.append(
+            mase(forecast_value, true_value, np.array(ts[:-prediction_length][0]), freq)
         )
-        mase_metrics.append(metrics.mase(true_value, forecast_value, season_error))
 
     return mase_metrics
 
