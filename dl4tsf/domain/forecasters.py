@@ -732,8 +732,6 @@ class InformerForecaster(Forecaster):
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
-        mae_metric = evaluate.load("evaluate-metric/mae")
-        mse_metric = evaluate.load("evaluate-metric/mse")
         smape_metric = evaluate.load("evaluate-metric/smape")
         mase_metrics = []
         mae_metrics = []
@@ -752,17 +750,11 @@ class InformerForecaster(Forecaster):
             )
             mase_metrics.append(mase["mase"])
 
-            mae = mae_metric.compute(
-                predictions=forecast_median[item_id], references=np.array(ground_truth)
-            )
-            mae_metrics.append(mae["mae"])
+            mae_metric = domain.metrics.mae(forecast_median[item_id], np.array(ground_truth))
+            mae_metrics.append(mae_metric)
 
-            rmse = mse_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
-                squared=False,
-            )
-            rmse_metrics.append(rmse["mse"])
+            rmse_metric = domain.metrics.rmse(forecast_median[item_id], np.array(ground_truth))
+            rmse_metrics.append(rmse_metric)
 
             wmape_metric = domain.metrics.wmape(forecast_median[item_id], np.array(ground_truth))
             wmape_metrics.append(wmape_metric)
