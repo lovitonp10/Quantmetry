@@ -552,7 +552,7 @@ class InformerForecaster(Forecaster):
                 config=self.model_config_informer,
                 freq=self.freq,
                 data=test_dataset,
-                batch_size=self.cfg_train.batch_size_test,
+                batch_size=self.cfg_train.batch_size_train,
             )
         else:
             self.test_dataloader = create_test_dataloader(
