@@ -5,7 +5,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import configs
 import domain.metrics
-import evaluate
 import hydra
 import mlflow
 import numpy as np
@@ -25,7 +24,7 @@ from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
 from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
-from gluonts.time_feature import get_seasonality, time_features_from_frequency_str
+from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
@@ -193,7 +192,9 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             else time_features_from_frequency_str(self.freq)
         )
 
-        self.batch_size = self.cfg_train.batch_size_train
+        self.batch_size_train = self.cfg_train.batch_size_train
+        self.batch_size_test = self.cfg_train.batch_size_test
+
         self.nb_batch_per_epoch = self.cfg_train.nb_batch_per_epoch
 
         self.train_sampler = self.cfg_train.train_sampler or ExpectedNumInstanceSampler(
@@ -251,38 +252,45 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         test_dataset: gluontsPandasDataset,
         mean: bool = False,
         percentage: bool = False,
+        prefix: str = "test_",
     ) -> Dict[str, Any]:
         true_ts, forecasts = self.predict(test_dataset)
         agg_metrics = {
-            "mae": domain.metrics.estimate_mae(
+            prefix
+            + "mae": domain.metrics.estimate_mae(
                 forecasts, true_ts, self.model_config.prediction_length
             ),
-            "rmse": domain.metrics.estimate_rmse(
+            prefix
+            + "rmse": domain.metrics.estimate_rmse(
                 forecasts, true_ts, self.model_config.prediction_length
             ),
-            "mape": domain.metrics.estimate_mape(
+            prefix
+            + "mape": domain.metrics.estimate_mape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
             ),
-            "smape": domain.metrics.estimate_smape(
+            prefix
+            + "smape": domain.metrics.estimate_smape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
             ),
-            "wmape": domain.metrics.estimate_wmape(
+            prefix
+            + "wmape": domain.metrics.estimate_wmape(
                 forecasts,
                 true_ts,
                 self.model_config.prediction_length,
             ),
-            "mase": domain.metrics.estimate_mase(
+            prefix
+            + "mase": domain.metrics.estimate_mase(
                 forecasts, true_ts, self.model_config.prediction_length, self.freq
             ),
         }
         if percentage:
             agg_metrics = self.convert_to_percentage(agg_metrics)
         for i in range(1, 10):
-            agg_metrics[f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
+            agg_metrics[prefix + f"QuantileLoss_{i/10}"] = domain.metrics.quantileloss(
                 forecasts, true_ts, self.model_config.prediction_length, i / 10
             )
         for name, values in agg_metrics.items():
@@ -420,7 +428,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             iter(
                 DataLoader(
                     IterableDataset(training_instances),
-                    batch_size=self.batch_size,
+                    batch_size=self.batch_size_train,
                     **kwargs,
                 )
             ),
@@ -441,7 +449,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
 
         return DataLoader(
             IterableDataset(validation_instances),
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_train,
             **kwargs,
         )
 
@@ -456,7 +464,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             input_transform=transformation + prediction_splitter,
             input_names=PREDICTION_INPUT_NAMES,
             prediction_net=module.model,
-            batch_size=self.batch_size,
+            batch_size=self.batch_size_test,
             prediction_length=self.model_config.prediction_length,
             device=torch.device("cuda" if torch.cuda.is_available() else "cpu"),
         )
@@ -544,7 +552,7 @@ class InformerForecaster(Forecaster):
                 config=self.model_config_informer,
                 freq=self.freq,
                 data=test_dataset,
-                batch_size=self.cfg_train.batch_size_test,
+                batch_size=self.cfg_train.batch_size_train,
             )
         else:
             self.test_dataloader = create_test_dataloader(
@@ -713,36 +721,51 @@ class InformerForecaster(Forecaster):
         return self.loss_history
 
     def evaluate(
-        self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
+        self,
+        test_dataset: List[Dict[str, Any]],
+        forecasts=[],
+        percentage: bool = False,
+        prefix: str = "test_",
     ) -> Tuple[Dict[str, Any], List[float]]:
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
-        mase_metric = evaluate.load("evaluate-metric/mase")
-        smape_metric = evaluate.load("evaluate-metric/smape")
         mase_metrics = []
+        mae_metrics = []
+        rmse_metrics = []
+        wmape_metrics = []
         smape_metrics = []
 
         for item_id, ts in enumerate(test_dataset):
             training_data = ts["target"][: -self.model_config.prediction_length]
             ground_truth = ts["target"][-self.model_config.prediction_length :]
-            mase = mase_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
-                training=np.array(training_data),
-                periodicity=get_seasonality(self.freq),
-            )
-            mase_metrics.append(mase["mase"])
 
-            smape = smape_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
+            mase_metric = domain.metrics.mase(
+                forecasts=forecast_median[item_id],
+                true_ts=np.array(ground_truth),
+                training_data=np.array(training_data),
+                freq=self.freq,
             )
-            smape_metrics.append(smape["smape"])
+            mase_metrics.append(mase_metric)
+
+            mae_metric = domain.metrics.mae(forecast_median[item_id], np.array(ground_truth))
+            mae_metrics.append(mae_metric)
+
+            rmse_metric = domain.metrics.rmse(forecast_median[item_id], np.array(ground_truth))
+            rmse_metrics.append(rmse_metric)
+
+            wmape_metric = domain.metrics.wmape(forecast_median[item_id], np.array(ground_truth))
+            wmape_metrics.append(wmape_metric)
+
+            smape_metric = domain.metrics.smape(forecast_median[item_id], np.array(ground_truth))
+            smape_metrics.append(smape_metric)
 
         metrics = {}
-        metrics["smape"] = smape_metrics
-        metrics["mase"] = mase_metrics
+        metrics[prefix + "smape"] = smape_metrics
+        metrics[prefix + "mae"] = mae_metrics
+        metrics[prefix + "rmse"] = rmse_metrics
+        metrics[prefix + "wmape"] = wmape_metrics
+        metrics[prefix + "mase"] = mase_metrics
         if percentage:
             metrics = self.convert_to_percentage(metrics)
 
