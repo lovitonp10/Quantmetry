@@ -1,3 +1,5 @@
+from typing import Any, Dict
+
 import configs
 import hydra
 import pandas as pd
@@ -14,17 +16,22 @@ class CustomDataLoader:
         feats: configs.Feats,
         cfg_model: configs.Model,
         test_length: str,
+        cfg_fe: Dict[str, Any],
     ) -> None:
         self.tmp, self.df_forecast = hydra.utils.instantiate(cfg_dataset.load, _convert_="all")
         self.register_data()
-        self.prediction_length = cfg_model.model_config.prediction_length
+        self.prediction_length = getattr(cfg_model.model_config, "prediction_length", None)
         self.freq = cfg_dataset.freq
         self.cfg_dataset = cfg_dataset
         self.target = target if target else "target"
         self.name_feats = feats
         self.test_length = test_length
-        self.static_cardinality = cfg_model.model_config.static_cardinality
-        self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
+        self.cfg_fe = cfg_fe
+
+        if hasattr(cfg_model.model_config, "static_cardinality"):
+            self.static_cardinality = cfg_model.model_config.static_cardinality
+        if hasattr(cfg_model.model_config, "dynamic_cardinality"):
+            self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
         self.model_name = cfg_model.model_name
         self.mapping_item_id = self.tmp[
             ["item_id"] + self.name_feats.feat_for_item_id
@@ -74,15 +81,27 @@ class CustomDataLoader:
             self.df_forecast,
         )
 
+    def create_sklearn_from_pandas(self):
+        self.df_sklearn = create_ts_with_features(
+            dataset_type="sklearn", df=self.df_pandas, target=self.target, cfg_fe=self.cfg_fe
+        )
+
     def get_dataset(self):
         if self.model_name == "TFTForecaster":
             return self.get_gluonts_format()
         elif self.model_name == "InformerForecaster":
             return self.get_huggingface_format()
+        elif self.model_name == "SklearnForecaster":
+            df_out = self.get_sklearn_format()
 
-    def get_pandas_format(self) -> pd.DataFrame:
-        if self.df_pandas:
-            return self.df_pandas
+            return df_out
+
+    def get_sklearn_format(self) -> pd.DataFrame:
+        if hasattr(self, "df_sklearn"):
+            return self.df_sklearn
+        elif hasattr(self, "df_pandas") and (self.df_pandas is not None):
+            self.create_sklearn_from_pandas()
+            return self.get_sklearn_format()
 
     def get_gluonts_format(self) -> TrainDatasets:
         if hasattr(self, "df_gluonts") and (self.df_gluonts is not None):

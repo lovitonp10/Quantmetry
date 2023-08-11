@@ -1,0 +1,111 @@
+defaults:
+  - _self_
+  - pipeline: default
+
+pipeline:
+  Create_calendar_features:
+    _target_: domain.feature_engineering.calendar_features.CalendarFeatures
+    column_name: date
+  Create_holidays_features:
+    _target_: domain.feature_engineering.calendar_features.AddHolidays
+    date_col: date
+    config_country_holidays:
+      country: FR
+      subdiv: Métropole
+    replace_values: ${_constants.holidaysrenaming}
+    year_start: 2018
+    year_end: 2024
+    features:
+      - isholiday
+      - is_vacances_zone=B
+      - is_vacances_zone=C
+  Create_lagsfeatures:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name:  ${dataset.load.target}
+    date_col: date
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+    groupers:
+      - item_id
+  Create_lagsfeatures_imaginer:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name: NB_VALD=IMAGINE_R
+    date_col: date
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+    groupers:
+      - item_id
+  Create_lagsfeatures_navigo:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name: NB_VALD=NAVIGO
+    date_col: date
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+    groupers:
+      - item_id
+  Create_lagsfeatures_navigojour:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name: NB_VALD=NAVIGO_JOUR
+    date_col: date
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+    groupers:
+      - item_id
+  Create_lagsfeatures_AMETHYSTE:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name: NB_VALD=AMETHYSTE
+    date_col: date
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+    groupers:
+      - item_id
+  Create_roll_mean_features:
+    _target_: domain.feature_engineering.lags_features.RollingFeatures
+    column_name: ${dataset.load.target}_prev=7D
+    date_col: date
+    min_periods: 7
+    aggregate_func_name : mean
+    groupers:
+      - item_id
+      - hour
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+  Create_roll_median_features:
+    _target_: domain.feature_engineering.lags_features.RollingFeatures
+    column_name: ${dataset.load.target}_prev=7D
+    date_col: date
+    min_periods: 7
+    aggregate_func_name : median
+    groupers:
+      - item_id
+      - hour
+    lags:
+      - 7D
+      - 14D
+      - 21D
+      - 28D
+
+train_test_pred:
+  date_col: date
+  date_start_train: 2016-01-01
+  date_split_train_test: 2019-06-30
+  date_split_test_pred: 2019-06-30
+  split_variable: null

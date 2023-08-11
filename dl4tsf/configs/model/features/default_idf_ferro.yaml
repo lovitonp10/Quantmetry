@@ -1,0 +1,70 @@
+# - date
+# - item_id
+# - STATION
+# - NB_VALD=AMETHYSTE # never add this as feature
+# - NB_VALD=AUTRE # never add this as feature
+# - NB_VALD=FGT # never add this as feature
+# - NB_VALD=IMAGINE_R # never add this as feature
+# - NB_VALD=NAVIGO # never add this as feature
+# - NB_VALD=NAVIGO_JOUR # never add this as feature
+# - NB_VALD=TST # never add this as feature
+- amenity_type=Centers
+- amenity_type=Education
+- amenity_type=Entertainment
+- amenity_type=Services
+- amenity_type=Sustenance
+- amenity_type=Transport
+- amenity_type=WorkPlaces
+- quarter
+- month
+- day
+- dayofweek
+- hour
+- week
+- isweekend
+- isholiday
+- season_north=Fall
+- season_north=Spring
+- season_north=Summer
+- season_north=Winter
+- season_south=Fall
+- season_south=Spring
+- season_south=Summer
+- season_south=Winter
+- is_vacances_zone=B
+- is_vacances_zone=C
+- VALD_TOTAL_prev=7D
+- VALD_TOTAL_prev=14D
+- VALD_TOTAL_prev=21D
+- VALD_TOTAL_prev=28D
+
+- NB_VALD=IMAGINE_R_prev=7D
+- NB_VALD=IMAGINE_R_prev=14D
+- NB_VALD=IMAGINE_R_prev=21D
+- NB_VALD=IMAGINE_R_prev=28D
+
+- NB_VALD=NAVIGO_prev=7D
+- NB_VALD=NAVIGO_prev=14D
+- NB_VALD=NAVIGO_prev=21D
+- NB_VALD=NAVIGO_prev=28D
+
+- NB_VALD=NAVIGO_JOUR_prev=7D
+- NB_VALD=NAVIGO_JOUR_prev=14D
+- NB_VALD=NAVIGO_JOUR_prev=21D
+- NB_VALD=NAVIGO_JOUR_prev=28D
+
+
+- NB_VALD=AMETHYSTE_prev=7D
+- NB_VALD=AMETHYSTE_prev=14D
+- NB_VALD=AMETHYSTE_prev=21D
+- NB_VALD=AMETHYSTE_prev=28D
+
+
+- VALD_TOTAL_prev=7D_rolling_mean=7D
+- VALD_TOTAL_prev=7D_rolling_mean=14D
+- VALD_TOTAL_prev=7D_rolling_mean=21D
+- VALD_TOTAL_prev=7D_rolling_mean=28D
+- VALD_TOTAL_prev=7D_rolling_median=7D
+- VALD_TOTAL_prev=7D_rolling_median=14D
+- VALD_TOTAL_prev=7D_rolling_median=21D
+- VALD_TOTAL_prev=7D_rolling_median=28D

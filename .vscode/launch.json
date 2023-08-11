@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
 
+        {
+            "name": "training lgbm",
+            "type": "python",
+            "request": "launch",
+            "program": "dl4tsf/train.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "args": ["model=lgbm", "model/features=default_idf_ferro", "train=train_lgbm","dataset=idf_ferro"],
+
+        } ,
 
         {
             "name": "training informer",
@@ -17,7 +28,7 @@
             "env": {
                 "PYTORCH_ENABLE_MPS_FALLBACK": "1"
               },
-            "args": ["model=informer", "dataset=enedis"],
+            "args": ["model=informer", "dataset=idf_ferro"],
 
         } ,
         {

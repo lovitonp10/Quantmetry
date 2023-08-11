@@ -1,0 +1,8 @@
+Dummies:
+  _target_: domain.feature_engineering.categorical_features.GetDummies
+  column_names:
+      # - STATION
+      # - item_id
+      - season_north
+      - season_south
+  drop_original: True

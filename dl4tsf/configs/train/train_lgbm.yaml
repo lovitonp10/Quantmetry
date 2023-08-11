@@ -1,0 +1,7 @@
+# train_test_pred:
+#   date_col: date
+#   date_start_train: 2016-01-01
+#   date_split_train_test: 2018-06-30
+#   date_split_test_pred: 2019-06-30
+#   split_variable: null
+name: ${model.model_name}

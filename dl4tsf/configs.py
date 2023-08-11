@@ -1,6 +1,15 @@
-from typing import Any, Dict, List, Optional, Union
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel
+
+
+class Metrics(str, Enum):
+    mae = "mae"
+    mse = "mse"
+    rmse = "rmse"
+    mape = "mape"
+    smape = "smape"
 
 
 class Feats(BaseModel):
@@ -46,6 +55,30 @@ class Model(BaseModel):
     optimizer_config: Dict[str, Any]
 
 
+class TrainTestSplitConfig(BaseModel):
+    date_col: str
+    date_start_train: str
+    date_split_train_test: str
+    date_split_test_pred: str
+    split_variable: Optional[str]
+
+
+class CrossValConfig(BaseModel):
+    unit: Literal["M", "D", "W"]
+    training_minimum_window: int
+    test_window: int
+
+
+class SKLearnModel(BaseModel):
+    model_name: str
+    model_config: Dict[str, Any]
+    target: str
+    date_col: str
+    error_metrics: List[Metrics]
+    features: Optional[List[str]]
+    cv_config: Optional[CrossValConfig]
+
+
 class Train(BaseModel):
     epochs: int
     batch_size_train: int
@@ -58,7 +91,18 @@ class Train(BaseModel):
     callback: Dict[str, Any]
 
 
+class TrainSklean(BaseModel):
+    # train_test_pred: TrainTestSplitConfig
+    name: str
+
+
+class Preprocess(BaseModel):
+    pipeline: Dict[str, Any]
+    train_test_pred: TrainTestSplitConfig
+
+
 class Configs(BaseModel):
     dataset: Dataset
-    model: Model
-    train: Train
+    feature_engineering: Preprocess
+    model: Union[Model, SKLearnModel]
+    train: Union[Train, TrainSklean]

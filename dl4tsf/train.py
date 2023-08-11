@@ -55,6 +55,7 @@ def main(cfgHydra: DictConfig):
         feats=cfg.dataset.name_feats,
         cfg_model=cfg.model,
         test_length=cfg.dataset.test_length,
+        cfg_fe=cfg.feature_engineering,
     )
     dataset = loader_data.get_dataset()
     logger.info("Prepare Completed")
@@ -65,25 +66,15 @@ def main(cfgHydra: DictConfig):
     forecaster.train(input_data=dataset.train)
     logger.info("Training Completed")
 
-    logger.info("Compute First 10 Losses")
-    losses = forecaster.get_callback_losses(type="train")
-    logger.info(losses[:10])
-    mlflow.log_metrics({"loss": losses[-1]})
-
     logger.info("Compute Validation & Evaluation")
     # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
-    metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.validation)
-    logger.info(ts_it[0].tail())
-    logger.info(forecast_it[0].head())
-
+    metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.test)
+    metrics = {"test_" + k: v for k, v in metrics.items()}
     mlflow.log_metrics(get_mean_metrics(metrics))
     # logger.info(metrics)
 
-    logger.info("Compute Prediction")
-    ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
-
-    logger.info(ts_it[0].tail())
-    logger.info(forecast_it[0].head())
+    # logger.info("Compute Prediction")
+    # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.test, validation=False)
 
     # logger.info("Plot first TS predictions")
     # plot_timeseries(

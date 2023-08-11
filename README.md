@@ -159,7 +159,13 @@ To check the loss evolution during training run this command:
 
 then open this link: [localhost:8889/](localhost:8889/)
 
+### Training LGBM
 
+IDF Ferro :
+`python dl4tsf/train.py dataset=idf_ferro model=lgbm model/features=default_idf_ferro feature_engineering=default_idf_mobilite train=train_lgbm`
+
+par exemple pour Enedis: (yamls not available)
+python dl4tsf/train.py dataset=idf_ferro feature_engineering=default_enedis model=lgbm model/features=default_enedis  train=train_lgbm
 ## Usage
 Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 

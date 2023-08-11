@@ -1,0 +1,9 @@
+boosting_type: gbdt
+colsample_bytree: 1.0
+min_child_samples: 100
+min_child_weight: 10.0
+n_estimators: 100
+num_leaves: 138
+reg_alpha: 10.0
+reg_lambda: 1e-08
+subsample: 1.0

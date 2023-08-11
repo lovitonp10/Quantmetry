@@ -1,3 +1,6 @@
+from typing import Union
+
+import pandas as pd
 from datasets.arrow_dataset import Dataset
 from pydantic import BaseModel as PydanticBaseModel
 
@@ -8,6 +11,6 @@ class BaseModel(PydanticBaseModel):
 
 
 class HuggingFaceDataset(BaseModel):
-    train: Dataset
-    validation: Dataset
-    test: Dataset
+    train: Union[Dataset, pd.DataFrame]
+    validation: Union[Dataset, pd.DataFrame]
+    test: Union[Dataset, pd.DataFrame]

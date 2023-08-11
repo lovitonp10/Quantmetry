@@ -20,6 +20,7 @@ from gluonts.dataset.common import (
 from gluonts.itertools import Map
 from pandas import Period
 from utils.custom_objects_pydantic import HuggingFaceDataset
+from utils.utils_lgbm import apply_processing
 
 logger = logging.getLogger(__name__)
 
@@ -206,13 +207,14 @@ def create_ts_with_features(
     dataset_type: str,
     df: pd.DataFrame,
     target: str,
-    name_feats: configs.Feats,
-    freq: str,
-    test_length_rows: int,
-    prediction_length: int,
-    static_cardinality: List[int],
-    dynamic_cardinality: List[int],
-    df_forecast: pd.DataFrame,
+    name_feats: configs.Feats = None,
+    freq: str = "7D",
+    test_length_rows: int = 0,
+    prediction_length: int = 0,
+    static_cardinality: List[int] = [],
+    dynamic_cardinality: List[int] = [],
+    df_forecast: pd.DataFrame = None,
+    cfg_fe: Dict[str, Any] = [],
 ) -> TrainDatasets:
     """
     Create time series datasets with different features.
@@ -246,6 +248,10 @@ def create_ts_with_features(
         The created dataset in gluonts or hugging face format.
 
     """
+
+    if dataset_type == "sklearn":
+        dataset = apply_processing(cfg=cfg_fe, df=df)
+        return dataset
     dynamic_real = name_feats.feat_dynamic_real
     static_cat = name_feats.feat_static_cat
     static_real = name_feats.feat_static_real
@@ -419,10 +425,9 @@ def hugging_face_format(
     train_dataset.set_transform(partial(transform_start_field, freq=freq))
     validation_dataset.set_transform(partial(transform_start_field, freq=freq))
     test_dataset.set_transform(partial(transform_start_field, freq=freq))
-    dataset = HuggingFaceDataset
-    dataset.train = train_dataset
-    dataset.validation = validation_dataset
-    dataset.test = test_dataset
+    dataset = HuggingFaceDataset(
+        train=train_dataset, validation=validation_dataset, test=test_dataset
+    )
     return dataset
 
 
@@ -583,7 +588,7 @@ def train_val_test_split(
     )
 
     # validation
-    df_val = df_pivot[: -test_length_rows * 2].copy()
+    df_val = df_pivot[:-test_length_rows].copy()
     item_ids = df["item_id"].unique()
     val = create_dict_dataset(
         target=df_val[target],
