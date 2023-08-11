@@ -17,7 +17,7 @@
             "env": {
                 "PYTORCH_ENABLE_MPS_FALLBACK": "1"
               },
-            "args": ["model=informer", "dataset=enedis", "logging=azure"],
+            "args": ["model=informer", "dataset=enedis"],
 
         } ,
         {
@@ -31,7 +31,7 @@
             "env": {
                 "PYTORCH_ENABLE_MPS_FALLBACK": "1"
               },
-            "args": ["model=tft", "dataset=enedis", "logging=azure"],
+            "args": ["model=tft", "dataset=enedis"],
 
         } ,
         {
