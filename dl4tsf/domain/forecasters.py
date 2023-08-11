@@ -544,7 +544,7 @@ class InformerForecaster(Forecaster):
                 config=self.model_config_informer,
                 freq=self.freq,
                 data=test_dataset,
-                batch_size=self.cfg_train.batch_size_test,
+                batch_size=self.cfg_train.batch_size_train,
             )
         else:
             self.test_dataloader = create_test_dataloader(
@@ -584,7 +584,7 @@ class InformerForecaster(Forecaster):
         for epoch in trange(self.cfg_train.epochs):
             loss_train_epoch = []
             for batch in self.train_dataloader:
-                loss_train = self.compile_loss(batch, device, optimizer)
+                loss_train = self.compile_loss(batch, device, optimizer).loss
                 loss_train_epoch.append(loss_train.item())
                 # Backpropagation
                 accelerator.backward(loss_train)
@@ -607,8 +607,14 @@ class InformerForecaster(Forecaster):
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
         self.model.eval()
-        for batch in self.val_dataloader:
-            loss_val = self.compile_loss(batch, device, optimizer)
+        for batch in self.val_dataloader:  # ici
+            outputs = self.compile_loss(batch, device, optimizer)
+            # distribution = self.model.output_distribution(
+            #   outputs["params"], loc=outputs[-3], scale=outputs[-2]
+            # )
+            # prediction = distribution.mean
+            loss_val = outputs.loss
+            # equences = outputs.sequences
             if loss_val:
                 loss_val_epoch.append(loss_val.item())
         return loss_val_epoch
@@ -636,7 +642,7 @@ class InformerForecaster(Forecaster):
             if self.model_config_informer.num_past_dynamic_real_features > 0
             else None,
         )
-        return outputs.loss
+        return outputs
 
     def predict(
         self,
