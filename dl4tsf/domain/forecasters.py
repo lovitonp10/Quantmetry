@@ -592,14 +592,19 @@ class InformerForecaster(Forecaster):
         for epoch in trange(self.cfg_train.epochs):
             loss_train_epoch = []
             for batch in self.train_dataloader:
-                loss_train = self.compile_loss(batch, device, optimizer)
+                loss_train = self.compile_loss(batch, device, optimizer).loss
                 loss_train_epoch.append(loss_train.item())
                 # Backpropagation
                 accelerator.backward(loss_train)
                 optimizer.step()
 
             self.loss_history.append(loss_train.item())
-            loss_val_epoch = self.eval(device, optimizer)
+            metrics = self.eval(device, optimizer)
+            loss_val_epoch = metrics["loss_val"]
+            mae_val_epoch = metrics["mae_val"]
+            rmse_val_epoch = metrics["rmse_val"]
+            wmape_val_epoch = metrics["wmape_val"]
+
             self.model.train()
             self.val_loss_history.append(np.mean(loss_val_epoch))
             print(
@@ -608,18 +613,85 @@ class InformerForecaster(Forecaster):
             )
             global_step += self.cfg_train.nb_batch_per_epoch
             self.logger.log_metrics(
-                {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
+                {
+                    "train_loss": np.mean(loss_train_epoch),
+                    "val_loss": np.mean(loss_val_epoch),
+                    "val_mae": np.mean(mae_val_epoch),
+                    "val_rmse": np.mean(rmse_val_epoch),
+                    "val_wmape": np.mean(wmape_val_epoch),
+                },
                 epoch,
             )
 
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
+        mae_val_epoch = []
+        rmse_val_epoch = []
+        wmape_val_epoch = []
         self.model.eval()
-        for batch in self.val_dataloader:
-            loss_val = self.compile_loss(batch, device, optimizer)
+        for batch in self.val_dataloader:  # ici
+
+            outputs = self.compile_loss(batch, device, optimizer)
+            distribution = self.model.output_distribution(
+                outputs["params"], loc=outputs[-3], scale=outputs[-2]
+            )
+            forecasts = distribution.sample()
+            true_ts = batch["future_values"]
+            loss_val = outputs.loss
+            mae_val = domain.metrics.mae(forecasts, true_ts)
+            rmse_val = domain.metrics.rmse(forecasts, true_ts)
+            wmape_val = domain.metrics.wmape(forecasts, true_ts)
+
             if loss_val:
                 loss_val_epoch.append(loss_val.item())
-        return loss_val_epoch
+            if mae_val:
+                mae_val_epoch.append(mae_val.item())
+            if rmse_val:
+                rmse_val_epoch.append(rmse_val.item())
+            if wmape_val:
+                wmape_val_epoch.append(wmape_val.item())
+
+        """
+            with torch.no_grad():
+                outputs = self.model.eval().generate(
+                    static_categorical_features=batch["static_categorical_features"].to(device)
+                    if self.model_config_informer.num_static_categorical_features > 0
+                    else None,
+                    static_real_features=batch["static_real_features"].to(device)
+                    if self.model_config_informer.num_static_real_features > 0
+                    else None,
+                    past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+                    if device.type == "mps"
+                    else batch["past_time_features"].to(device),
+                    past_values=batch["past_values"].to(device),
+                    future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+                    if device.type == "mps"
+                    else batch["future_time_features"].to(device),
+                    past_observed_mask=batch["past_observed_mask"].to(device),
+                    past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+                    if self.model_config_informer.num_past_dynamic_real_features > 0
+                    else None,
+                    # if device.type == "mps"
+                    # else batch["past_dynamic_real_features"].to(device),
+                )
+
+
+            predictions = outputs.sequences
+            forecasts=torch.median(predictions, dim=1).values
+            true_ts=batch['future_values']
+            mae_val=domain.metrics.mae(forecasts,true_ts)
+            rmse_val=domain.metrics.rmse(forecasts,true_ts)
+            wmape_val=domain.metrics.wmape(forecasts,true_ts)
+
+        """
+
+        metrics = {
+            "mae_val": mae_val_epoch,
+            "rmse_val": rmse_val_epoch,
+            "wmape_val": wmape_val_epoch,
+            "loss_val": loss_val_epoch,
+        }
+        return metrics
 
     def compile_loss(self, batch, device, optimizer):
         optimizer.zero_grad()
@@ -644,7 +716,7 @@ class InformerForecaster(Forecaster):
             if self.model_config_informer.num_past_dynamic_real_features > 0
             else None,
         )
-        return outputs.loss
+        return outputs
 
     def predict(
         self,
