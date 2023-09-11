@@ -40,6 +40,7 @@ def plot_timeseries(
     )
     ax.legend()
     fig.autofmt_xdate()
+    # plt.gcf().autofmt_xdate()
 
     plt.savefig("test.png")
     plt.close()
