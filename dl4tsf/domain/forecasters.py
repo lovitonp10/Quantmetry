@@ -627,12 +627,25 @@ class InformerForecaster(Forecaster):
             distribution = self.model.output_distribution(
                 outputs["params"], loc=outputs[-3], scale=outputs[-2]
             )
-            forecasts = distribution.sample()
+            forecasts = distribution.mean
             true_ts = batch["future_values"]
             loss_val = outputs.loss
+
             mae_val = domain.metrics.mae(forecasts, true_ts)
             rmse_val = domain.metrics.rmse(forecasts, true_ts)
             wmape_val = domain.metrics.wmape(forecasts, true_ts)
+
+            """
+            mae_val = domain.metrics.estimate_mae(forecasts,
+                                                  true_ts,
+                                                  self.model_config.prediction_length)
+            rmse_val = domain.metrics.estimate_rmse(forecasts,
+                                                    true_ts,
+                                                    self.model_config.prediction_length)
+            wmape_val = domain.metrics.estimate_wmape(forecasts,
+                                                      true_ts,
+                                                      self.model_config.prediction_length)
+            """
 
             if loss_val:
                 loss_val_epoch.append(loss_val.item())
@@ -792,8 +805,10 @@ class InformerForecaster(Forecaster):
         forecast_median = np.median(forecasts, 1)
         mase_metric = evaluate.load("evaluate-metric/mase")
         smape_metric = evaluate.load("evaluate-metric/smape")
+        # rmse_metric=evaluate.load("evaluate-metric/rmse")
         mase_metrics = []
         smape_metrics = []
+        rmse_metrics = []
 
         for item_id, ts in enumerate(test_dataset):
             training_data = ts["target"][: -self.model_config.prediction_length]
@@ -812,9 +827,16 @@ class InformerForecaster(Forecaster):
             )
             smape_metrics.append(smape["smape"])
 
+            """rmse = rmse_metric.compute(
+            predictions=forecast_median[item_id],
+            references=np.array(ground_truth),
+            )
+            rmse_metrics.append(rmse["rmse"])"""
+
         metrics = {}
         metrics["smape"] = smape_metrics
         metrics["mase"] = mase_metrics
+        metrics["rmse"] = rmse_metrics
         if percentage:
             metrics = self.convert_to_percentage(metrics)
 
