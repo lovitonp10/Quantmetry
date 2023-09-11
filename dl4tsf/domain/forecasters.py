@@ -617,10 +617,17 @@ class InformerForecaster(Forecaster):
 
     def eval(self, device, optimizer) -> List:
         loss_val_epoch = []
+        """
         mae_val_epoch = []
         rmse_val_epoch = []
         wmape_val_epoch = []
+        """
         self.model.eval()
+
+        forecasts_all = []
+        true_ts_all = []
+
+        """forecasts_all=torch.empty((0, 25)"""
         for batch in self.val_dataloader:  # ici
 
             outputs = self.compile_loss(batch, device, optimizer)
@@ -629,32 +636,39 @@ class InformerForecaster(Forecaster):
             )
             forecasts = distribution.mean
             true_ts = batch["future_values"]
+            print(forecasts.shape)
+            print(true_ts.shape)
             loss_val = outputs.loss
 
-            mae_val = domain.metrics.mae(forecasts, true_ts)
-            rmse_val = domain.metrics.rmse(forecasts, true_ts)
-            wmape_val = domain.metrics.wmape(forecasts, true_ts)
+            forecasts_all.extend(forecasts)
+            true_ts_all.extend(true_ts)
 
-            """
-            mae_val = domain.metrics.estimate_mae(forecasts,
-                                                  true_ts,
-                                                  self.model_config.prediction_length)
-            rmse_val = domain.metrics.estimate_rmse(forecasts,
-                                                    true_ts,
-                                                    self.model_config.prediction_length)
-            wmape_val = domain.metrics.estimate_wmape(forecasts,
-                                                      true_ts,
-                                                      self.model_config.prediction_length)
-            """
+        forecasts_all = torch.stack(forecasts_all)
+        true_ts_all = torch.stack(true_ts_all)
+        # forecasts_all=forecasts_all.reshape(forecasts_all.shape[1],forecasts_all.shape[0])
+        # true_ts_all=true_ts_all.reshape(true_ts_all.shape[1],true_ts_all.shape[0])
 
-            if loss_val:
-                loss_val_epoch.append(loss_val.item())
-            if mae_val:
-                mae_val_epoch.append(mae_val.item())
-            if rmse_val:
-                rmse_val_epoch.append(rmse_val.item())
-            if wmape_val:
-                wmape_val_epoch.append(wmape_val.item())
+        mae_val = domain.metrics.estimate_mae(
+            forecasts_all, true_ts_all, self.model_config.prediction_length
+        )
+        rmse_val = domain.metrics.estimate_rmse(
+            forecasts_all, true_ts_all, self.model_config.prediction_length
+        )
+        wmape_val = domain.metrics.estimate_wmape(
+            forecasts_all, true_ts_all, self.model_config.prediction_length
+        )
+
+        if loss_val:
+            loss_val_epoch.append(loss_val.item())
+
+        """
+        if mae_val:
+            mae_val_epoch.append(mae_val.item())
+        if rmse_val:
+            rmse_val_epoch.append(rmse_val.item())
+        if wmape_val:
+            wmape_val_epoch.append(wmape_val.item())
+        """
 
         """
             with torch.no_grad():
@@ -691,9 +705,9 @@ class InformerForecaster(Forecaster):
         """
 
         metrics = {
-            "mae_val": mae_val_epoch,
-            "rmse_val": rmse_val_epoch,
-            "wmape_val": wmape_val_epoch,
+            "mae_val": mae_val,
+            "rmse_val": rmse_val,
+            "wmape_val": wmape_val,
             "loss_val": loss_val_epoch,
         }
         return metrics

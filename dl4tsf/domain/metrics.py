@@ -15,7 +15,7 @@ def mae(forecasts: list, true_ts: list):
         MAE = mean(|Y - hat{Y}|)
     """
     true_ts = torch.tensor(true_ts)
-    forecasts = forecasts.to("cpu")
+    # forecasts = forecasts.to("cpu")
     forecasts = torch.tensor(forecasts)
     val_mae = torch.abs(true_ts - forecasts)
     return torch.mean(val_mae)
@@ -30,9 +30,14 @@ def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> li
     mae_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
-        forecast_value = np.array(forecast.median(axis=1))
+        # try et except
+        if forecast.ndim == 2:
+            forecast_value = np.array(forecast.median(axis=1))
+        else:
+            forecast_value = np.array(forecast.to("cpu").detach().numpy())
         # mae_metrics.append(metrics.abs_error(true_value, forecast_value) / prediction_length)
         mae_metrics.append(mae(forecast_value, true_value))
+    print(len(mae_metrics))
 
     return mae_metrics
 
@@ -44,9 +49,10 @@ def rmse(forecasts: list, true_ts: list):
         rmse = sqrt(mean((Y - hat{Y})^2))
     """
     true_ts = torch.tensor(true_ts)
-    forecasts = forecasts.to("cpu")
+    # forecasts = forecasts.to("cpu")
     forecasts = torch.tensor(forecasts)
     mse_metrics = torch.mean(torch.square(true_ts - forecasts))
+
     return mse_metrics ** (0.5)
 
 
@@ -60,7 +66,10 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
     rmse_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
-        forecast_value = np.array(forecast.mean(axis=1))
+        if forecast.ndim == 2:
+            forecast_value = np.array(forecast.median(axis=1))
+        else:
+            forecast_value = np.array(forecast.to("cpu").detach().numpy())
         rmse_metric = rmse(forecast_value, true_value)
         rmse_metrics.append(rmse_metric)
 
@@ -76,7 +85,10 @@ def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> l
     mape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
-        forecast_value = np.array(forecast.median(axis=1))
+        if forecast.ndim == 2:
+            forecast_value = np.array(forecast.median(axis=1))
+        else:
+            forecast_value = np.array(forecast.to("cpu").detach().numpy())
         mape_metrics.append(metrics.mape(true_value, forecast_value))
 
     return mape_metrics
@@ -109,7 +121,7 @@ def wmape(forecasts: list, true_ts: list) -> list:
         smape = sum(|Y - hat{Y}|) / sum(|Y|)
     """
     true_ts = torch.tensor(true_ts)
-    forecasts = forecasts.to("cpu")
+    # forecasts = forecasts.to("cpu")
     forecasts = torch.tensor(forecasts)
     wmape_metric = torch.sum(torch.abs(true_ts - forecasts)) / torch.sum(torch.abs(true_ts))
     return wmape_metric
@@ -128,7 +140,10 @@ def estimate_wmape(
     wmape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
         true_value = np.array(ts[-prediction_length:][0])
-        forecast_value = np.array(forecast.median(axis=1))
+        if forecast.ndim == 2:
+            forecast_value = np.array(forecast.median(axis=1))
+        else:
+            forecast_value = np.array(forecast.to("cpu").detach().numpy())
         wmape_metrics.append(wmape(forecast_value, true_value))
 
     return wmape_metrics
