@@ -52,37 +52,59 @@ def log_plots(
     nb_past_pts: int,
     validation=False,
 ):
+
     fig, ax = plt.subplots()
+
     ts_it = ts_it[item_id].tail(nb_past_pts)
+
     x0 = ts_it.index  # .to_timestamp()
+
     y0 = ts_it.values
 
     forecast_it = forecast_it[item_id].mean(axis=1)
+
     if type(ts_it) == pd.DataFrame:
+
         ts_it = ts_it[0]
+
     last_value = ts_it[-1]  # .iloc[-1]
+
     last_index = x0[-1]
-    pred_color = "red"
+
+    pred_color = "green"
 
     if validation:
+
         last_value = ts_it[-len(forecast_it)]  # .iloc[-1]
+
         last_index = x0[-len(forecast_it)]
-        pred_color = "green"
+
+        pred_color = "red"
 
     last_value = pd.Series([last_value], index=[last_index])
+
     # Concatenate the new series with the second series
+
     forecast_it = pd.concat([last_value, forecast_it])
 
     x1, y1 = forecast_it.index, forecast_it.values
 
     ax.plot(x0, y0, color="blue", label="Target")
+
     ax.plot(x1, y1, color=pred_color, label="Forecast")
+
     ax.legend()
 
-    title = ", ".join(str(value) for value in map_item_id[map_item_id["item_id"] == 0].values)
+    title = ", ".join(
+        str(value) for value in map_item_id[map_item_id["item_id"] == item_id].values
+    )
+
     ax.set_title(title)
 
-    name = "forecast.png"
+    name = "forecast" + str(item_id) + ".png"
+
     if validation:
-        name = "evaluation.png"
+
+        name = "evaluation" + str(item_id) + ".png"
+
     mlflow.log_figure(fig, name)
