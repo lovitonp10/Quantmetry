@@ -7,7 +7,7 @@
 
 
         {
-            "name": "training informer",
+            "name": "training informer enedis",
             "type": "python",
             "request": "launch",
             "program": "dl4tsf/train.py",
@@ -21,7 +21,7 @@
 
         } ,
         {
-            "name": "training tft",
+            "name": "training tft enedis",
             "type": "python",
             "request": "launch",
             "program": "dl4tsf/train.py",
@@ -32,6 +32,38 @@
                 "PYTORCH_ENABLE_MPS_FALLBACK": "1"
               },
             "args": ["model=tft", "dataset=enedis"],
+
+        } ,
+
+
+        {
+            "name": "training informer idf_ferro",
+            "type": "python",
+            "request": "launch",
+            "program": "dl4tsf/train.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTORCH_ENABLE_MPS_FALLBACK": "1"
+              },
+            "args": ["model=informer", "dataset=idf_ferro"],
+
+        } ,
+
+
+        {
+            "name": "training tft idf_ferro",
+            "type": "python",
+            "request": "launch",
+            "program": "dl4tsf/train.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "justMyCode": true,
+            "env": {
+                "PYTORCH_ENABLE_MPS_FALLBACK": "1"
+              },
+            "args": ["model=tft", "dataset=idf_ferro","logging=azure"],
 
         } ,
         {
