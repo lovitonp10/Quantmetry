@@ -47,7 +47,8 @@ class Enedis:
 
     def filter_data(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.sort_values(by=["region", "profil", "power", "date"]).copy()
-        df_out["date"] = pd.to_datetime(df_out["date"])
+        # df_out["date"] = pd.to_datetime(df_out["date"])
+        df_out["date"] = pd.to_datetime(df_out["date"], utc=True, infer_datetime_format=True)
         df_out = df_out.set_index("date")
         # df = df[["region", "profil", "power", self.target, "soutirage"]]
         df_na = df_out[df_out.total_energy.isna()]
