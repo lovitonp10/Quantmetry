@@ -99,6 +99,7 @@ def main(cfgHydra: DictConfig):
     # forecast_it = list(forecast_it.values())
     logger.info(np.mean(forecast_it))
 
+    """
     logging_mlflow.log_plots(
         item_id=0,
         ts_it=ts_it,
@@ -106,6 +107,16 @@ def main(cfgHydra: DictConfig):
         map_item_id=loader_data.get_map_item_id(),
         nb_past_pts=cfg.model.model_config.prediction_length * 10,
     )
+    """
+
+    for i in range(10):
+        logging_mlflow.log_plots(
+            item_id=i,
+            ts_it=ts_it,
+            forecast_it=forecast_it,
+            map_item_id=loader_data.get_map_item_id(),
+            nb_past_pts=cfg.model.model_config.prediction_length * 10,
+        )
 
     # logger.info("Plot first TS predictions")
     # plot_timeseries(
