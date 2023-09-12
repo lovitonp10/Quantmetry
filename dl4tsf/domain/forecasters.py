@@ -636,8 +636,8 @@ class InformerForecaster(Forecaster):
             )
             forecasts = distribution.mean
             true_ts = batch["future_values"]
-            print(forecasts.shape)
-            print(true_ts.shape)
+            # print(forecasts.shape)
+            # print(true_ts.shape)
             loss_val = outputs.loss
 
             forecasts_all.extend(forecasts)
@@ -654,6 +654,7 @@ class InformerForecaster(Forecaster):
         rmse_val = domain.metrics.estimate_rmse(
             forecasts_all, true_ts_all, self.model_config.prediction_length
         )
+
         wmape_val = domain.metrics.estimate_wmape(
             forecasts_all, true_ts_all, self.model_config.prediction_length
         )
