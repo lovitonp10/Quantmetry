@@ -18,6 +18,7 @@ def mae(forecasts: list, true_ts: list):
     # forecasts = forecasts.to("cpu")
     forecasts = torch.tensor(forecasts)
     val_mae = torch.abs(true_ts - forecasts)
+    """print(torch.mean(val_mae))"""
     return torch.mean(val_mae)
 
 
@@ -38,9 +39,16 @@ def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> li
             forecast_value = np.array(forecast.median(axis=1))
         else:
             forecast_value = np.array(forecast.to("cpu").detach().numpy())
+
         # mae_metrics.append(metrics.abs_error(true_value, forecast_value) / prediction_length)
         mae_metrics.append(mae(forecast_value, true_value))
+
+    """
+    print("MAE")
+    print(true_value)
+    print(forecast_value)
     print(len(mae_metrics))
+    """
 
     return mae_metrics
 
@@ -55,6 +63,7 @@ def rmse(forecasts: list, true_ts: list):
     # forecasts = forecasts.to("cpu")
     forecasts = torch.tensor(forecasts)
     mse_metrics = torch.mean(torch.square(true_ts - forecasts))
+    """print(mse_metrics ** (0.5))"""
 
     return mse_metrics ** (0.5)
 
@@ -78,10 +87,11 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
         else:
             forecast_value = np.array(forecast.to("cpu").detach().numpy())
         rmse_metric = rmse(forecast_value, true_value)
-        print("shape")
-        print(forecast_value.shape)
-        print(true_value.shape)
+
         rmse_metrics.append(rmse_metric)
+    """print("RMSE")
+    print(true_value)
+    print(forecast_value)"""
 
     return rmse_metrics
 
@@ -102,7 +112,11 @@ def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> l
             forecast_value = np.array(forecast.median(axis=1))
         else:
             forecast_value = np.array(forecast.to("cpu").detach().numpy())
+
         mape_metrics.append(metrics.mape(true_value, forecast_value))
+    # print("MAPE")
+    # print(true_value)
+    # print(forecast_value)
 
     return mape_metrics
 
@@ -160,6 +174,9 @@ def estimate_wmape(
             forecast_value = np.array(forecast.median(axis=1))
         else:
             forecast_value = np.array(forecast.to("cpu").detach().numpy())
+        # print("WMAPE")
+        # print(true_value)
+        # print(forecast_value)
         wmape_metrics.append(wmape(forecast_value, true_value))
 
     return wmape_metrics

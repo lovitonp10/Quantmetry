@@ -5,7 +5,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import configs
 import domain.metrics
-import evaluate
+
+# import evaluate
 import hydra
 import mlflow
 import numpy as np
@@ -25,7 +26,9 @@ from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
 from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
-from gluonts.time_feature import get_seasonality, time_features_from_frequency_str
+
+# from gluonts.time_feature import get_seasonality, time_features_from_frequency_str
+from gluonts.time_feature import time_features_from_frequency_str
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
@@ -615,7 +618,7 @@ class InformerForecaster(Forecaster):
                 epoch,
             )
 
-    def eval(self, device, optimizer) -> List:
+    def eval_prev(self, device, optimizer) -> List:
         loss_val_epoch = []
         """
         mae_val_epoch = []
@@ -634,7 +637,7 @@ class InformerForecaster(Forecaster):
             distribution = self.model.output_distribution(
                 outputs["params"], loc=outputs[-3], scale=outputs[-2]
             )
-            forecasts = distribution.mean
+            forecasts = distribution.sample()
             true_ts = batch["future_values"]
             # print(forecasts.shape)
             # print(true_ts.shape)
@@ -657,6 +660,173 @@ class InformerForecaster(Forecaster):
 
         wmape_val = domain.metrics.estimate_wmape(
             forecasts_all, true_ts_all, self.model_config.prediction_length
+        )
+
+        if loss_val:
+            loss_val_epoch.append(loss_val.item())
+
+        """
+        if mae_val:
+            mae_val_epoch.append(mae_val.item())
+        if rmse_val:
+            rmse_val_epoch.append(rmse_val.item())
+        if wmape_val:
+            wmape_val_epoch.append(wmape_val.item())
+        """
+
+        """
+            with torch.no_grad():
+                outputs = self.model.eval().generate(
+                    static_categorical_features=batch["static_categorical_features"].to(device)
+                    if self.model_config_informer.num_static_categorical_features > 0
+                    else None,
+                    static_real_features=batch["static_real_features"].to(device)
+                    if self.model_config_informer.num_static_real_features > 0
+                    else None,
+                    past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+                    if device.type == "mps"
+                    else batch["past_time_features"].to(device),
+                    past_values=batch["past_values"].to(device),
+                    future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+                    if device.type == "mps"
+                    else batch["future_time_features"].to(device),
+                    past_observed_mask=batch["past_observed_mask"].to(device),
+                    past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+                    if self.model_config_informer.num_past_dynamic_real_features > 0
+                    else None,
+                    # if device.type == "mps"
+                    # else batch["past_dynamic_real_features"].to(device),
+                )
+
+
+            predictions = outputs.sequences
+            forecasts=torch.median(predictions, dim=1).values
+            true_ts=batch['future_values']
+            mae_val=domain.metrics.mae(forecasts,true_ts)
+            rmse_val=domain.metrics.rmse(forecasts,true_ts)
+            wmape_val=domain.metrics.wmape(forecasts,true_ts)
+
+        """
+
+        metrics = {
+            "mae_val": mae_val,
+            "rmse_val": rmse_val,
+            "wmape_val": wmape_val,
+            "loss_val": loss_val_epoch,
+        }
+        return metrics
+
+    def eval(self, device, optimizer) -> List:
+        loss_val_epoch = []
+        """
+        mae_val_epoch = []
+        rmse_val_epoch = []
+        wmape_val_epoch = []
+        """
+
+        accelerator = Accelerator()
+        device = accelerator.device
+
+        self.model.to(device)
+        self.model.eval()
+        forecasts_ = []
+        ts_it_ = []
+        i = 0
+        forecasts_all = []
+        true_ts_all = []
+
+        """forecasts_all=torch.empty((0, 25)"""
+        for batch in self.val_dataloader:
+            outputs = self.model.eval().generate(
+                static_categorical_features=batch["static_categorical_features"].to(device)
+                if self.model_config_informer.num_static_categorical_features > 0
+                else None,
+                static_real_features=batch["static_real_features"].to(device)
+                if self.model_config_informer.num_static_real_features > 0
+                else None,
+                past_time_features=batch["past_time_features"].to(torch.float32).to(device)
+                if device.type == "mps"
+                else batch["past_time_features"].to(device),
+                past_values=batch["past_values"].to(device),
+                future_time_features=batch["future_time_features"].to(torch.float32).to(device)
+                if device.type == "mps"
+                else batch["future_time_features"].to(device),
+                past_observed_mask=batch["past_observed_mask"].to(device),
+                past_dynamic_real_features=batch["past_dynamic_real_features"].to(device)
+                if self.model_config_informer.num_past_dynamic_real_features > 0
+                else None,
+                # if device.type == "mps"
+                # else batch["past_dynamic_real_features"].to(device),
+            )  # ici
+
+            forecasts_.append(outputs.sequences.cpu().numpy())
+            ts_it_.append(batch["past_values"].numpy())
+            i = i + 1
+        forecasts = np.vstack(forecasts_)
+        true_ts = np.vstack(ts_it_)
+        """
+            if not transform_df:
+        return ts_it, forecasts
+        # periods = len(test_dataset[0]["target"])
+        df_ts = utils_gluonts.transform_huggingface_to_dict(test_dataset, freq=self.freq)
+        forecasts_df = {}
+
+        df_ts = utils_gluonts.sample_df(
+            ts_it,
+            periods=len(ts_it[0]),
+            start_date=test_dataset[0]["start"],
+            freq=self.freq,
+            ts_length=len(test_dataset[0]["target"]) - len(ts_it[0]),
+            pred_length=len(ts_it[0]),
+            validation=validation,
+        )
+
+        for i, forecast in enumerate(forecasts):
+            forecasts_df[i] = utils_gluonts.sample_df(
+                forecast,
+                periods=forecast.shape[1],
+                start_date=test_dataset[0]["start"],
+                freq=self.freq,
+                ts_length=len(test_dataset[0]["target"]),
+                pred_length=self.model_config.prediction_length,
+                validation=validation,
+            )
+        """
+
+        out_loss = self.compile_loss(batch, device, optimizer)
+        loss_val = out_loss.loss
+
+        forecasts_all.extend(forecasts)
+        true_ts_all.extend(true_ts)
+
+        # true_ts_all=pd.DataFrame(true_ts_all)
+
+        Forecasts_all = []
+        True_ts_all = []
+
+        for i in range(len(forecasts_all[0])):
+            element = forecasts_all[i]
+            df_element = pd.DataFrame(element)
+            df_element = df_element.T
+
+            df_true = pd.DataFrame(true_ts_all[i])
+            Forecasts_all.append(df_element)
+            True_ts_all.append(df_true)
+
+        # forecasts_all = torch.stack(forecasts_all)
+        # true_ts_all = torch.stack(true_ts_all)
+        # forecasts_all=forecasts_all.reshape(forecasts_all.shape[1],forecasts_all.shape[0])
+        # true_ts_all=true_ts_all.reshape(true_ts_all.shape[1],true_ts_all.shape[0])
+
+        mae_val = domain.metrics.estimate_mae(
+            Forecasts_all, True_ts_all, self.model_config.prediction_length
+        )
+        rmse_val = domain.metrics.estimate_rmse(
+            Forecasts_all, True_ts_all, self.model_config.prediction_length
+        )
+
+        wmape_val = domain.metrics.estimate_wmape(
+            Forecasts_all, True_ts_all, self.model_config.prediction_length
         )
 
         if loss_val:
@@ -818,16 +988,28 @@ class InformerForecaster(Forecaster):
         if len(forecasts) == 0:
             true_ts, forecasts = self.predict(test_dataset, transform_df=False)
         forecast_median = np.median(forecasts, 1)
-        mase_metric = evaluate.load("evaluate-metric/mase")
-        smape_metric = evaluate.load("evaluate-metric/smape")
+        # mase_metric = evaluate.load("evaluate-metric/mase")
+        # smape_metric = evaluate.load("evaluate-metric/smape")
         # rmse_metric=evaluate.load("evaluate-metric/rmse")
-        mase_metrics = []
-        smape_metrics = []
+        mae_metrics = []
+        # mase_metrics = []
+        wmape_metrics = []
         rmse_metrics = []
 
-        for item_id, ts in enumerate(test_dataset):
-            training_data = ts["target"][: -self.model_config.prediction_length]
+        for item_id, ts in enumerate(test_dataset):  # utiliser estimate
+            # training_data = ts["target"][: -self.model_config.prediction_length]
             ground_truth = ts["target"][-self.model_config.prediction_length :]
+
+            mae = domain.metrics.mae(forecast_median[item_id], np.array(ground_truth))
+            mae_metrics.append(mae)
+
+            rmse = domain.metrics.rmse(forecast_median[item_id], np.array(ground_truth))
+            rmse_metrics.append(rmse)
+
+            wmape = domain.metrics.wmape(forecast_median[item_id], np.array(ground_truth))
+            wmape_metrics.append(wmape)
+
+            """
             mase = mase_metric.compute(
                 predictions=forecast_median[item_id],
                 references=np.array(ground_truth),
@@ -842,16 +1024,35 @@ class InformerForecaster(Forecaster):
             )
             smape_metrics.append(smape["smape"])
 
-            """rmse = rmse_metric.compute(
+            rmse = rmse_metric.compute(
             predictions=forecast_median[item_id],
             references=np.array(ground_truth),
             )
-            rmse_metrics.append(rmse["rmse"])"""
+            rmse_metrics.append(rmse["rmse"])
+
+            """
 
         metrics = {}
-        metrics["smape"] = smape_metrics
-        metrics["mase"] = mase_metrics
-        metrics["rmse"] = rmse_metrics
+        metrics["test_mae"] = mae_metrics
+        metrics["test_rmse"] = rmse_metrics
+        metrics["test_wmape"] = wmape_metrics
+
+        mlflow.log_metric("test_mae", np.mean(mae_metrics))
+        mlflow.log_metric("test_rmse", np.mean(rmse_metrics))
+        mlflow.log_metric("test_wmape", np.mean(wmape_metrics))
+
+        print("Metrics test")
+        print(np.mean(mae_metrics))
+        print(np.mean(rmse_metrics))
+
+        """
+        self.logger.log_metrics(
+            {
+                "val_mae": np.mean(mae_metrics),
+                "val_rmse": np.mean(rmse_metrics),
+            }
+        )
+        """
         if percentage:
             metrics = self.convert_to_percentage(metrics)
 
