@@ -30,3 +30,7 @@ def mape(true, pred):
 
 def smape(true, pred):
     return np.mean((np.abs(true - pred)) / (np.abs(true) + np.abs(pred)))
+
+
+def wmape(true, pred):
+    return np.sum(np.abs(true - pred)) / np.sum(np.abs(true))

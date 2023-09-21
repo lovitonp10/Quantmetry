@@ -8,6 +8,9 @@
 # - NB_VALD=NAVIGO # never add this as feature
 # - NB_VALD=NAVIGO_JOUR # never add this as feature
 # - NB_VALD=TST # never add this as feature
+- temperature
+- pressure
+- rainfall
 - amenity_type=Centers
 - amenity_type=Education
 - amenity_type=Entertainment
@@ -43,28 +46,28 @@
 - NB_VALD=IMAGINE_R_prev=21D
 - NB_VALD=IMAGINE_R_prev=28D
 
-- NB_VALD=NAVIGO_prev=7D
-- NB_VALD=NAVIGO_prev=14D
-- NB_VALD=NAVIGO_prev=21D
-- NB_VALD=NAVIGO_prev=28D
+# - NB_VALD=NAVIGO_prev=7D
+# - NB_VALD=NAVIGO_prev=14D
+# - NB_VALD=NAVIGO_prev=21D
+# - NB_VALD=NAVIGO_prev=28D
 
-- NB_VALD=NAVIGO_JOUR_prev=7D
-- NB_VALD=NAVIGO_JOUR_prev=14D
-- NB_VALD=NAVIGO_JOUR_prev=21D
-- NB_VALD=NAVIGO_JOUR_prev=28D
-
-
-- NB_VALD=AMETHYSTE_prev=7D
-- NB_VALD=AMETHYSTE_prev=14D
-- NB_VALD=AMETHYSTE_prev=21D
-- NB_VALD=AMETHYSTE_prev=28D
+# - NB_VALD=NAVIGO_JOUR_prev=7D
+# - NB_VALD=NAVIGO_JOUR_prev=14D
+# - NB_VALD=NAVIGO_JOUR_prev=21D
+# - NB_VALD=NAVIGO_JOUR_prev=28D
 
 
-- VALD_TOTAL_prev=7D_rolling_mean=7D
-- VALD_TOTAL_prev=7D_rolling_mean=14D
-- VALD_TOTAL_prev=7D_rolling_mean=21D
-- VALD_TOTAL_prev=7D_rolling_mean=28D
-- VALD_TOTAL_prev=7D_rolling_median=7D
-- VALD_TOTAL_prev=7D_rolling_median=14D
-- VALD_TOTAL_prev=7D_rolling_median=21D
-- VALD_TOTAL_prev=7D_rolling_median=28D
+# - NB_VALD=AMETHYSTE_prev=7D
+# - NB_VALD=AMETHYSTE_prev=14D
+# - NB_VALD=AMETHYSTE_prev=21D
+# - NB_VALD=AMETHYSTE_prev=28D
+
+
+# - VALD_TOTAL_prev=7D_rolling_mean=7D
+# - VALD_TOTAL_prev=7D_rolling_mean=14D
+# - VALD_TOTAL_prev=7D_rolling_mean=21D
+# - VALD_TOTAL_prev=7D_rolling_mean=28D
+# - VALD_TOTAL_prev=7D_rolling_median=7D
+# - VALD_TOTAL_prev=7D_rolling_median=14D
+# - VALD_TOTAL_prev=7D_rolling_median=21D
+# - VALD_TOTAL_prev=7D_rolling_median=28D

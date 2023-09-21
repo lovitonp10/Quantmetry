@@ -13,7 +13,7 @@
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}",
             "justMyCode": true,
-            "args": ["model=lgbm", "model/features=default_idf_ferro", "train=train_lgbm","dataset=idf_ferro"],
+            "args": ["model=lgbm", "model/features=default_idf_ferro", "train=train_lgbm","dataset=idf_ferro", "feature_engineering=default_idf_mobilite"],
 
         } ,
 

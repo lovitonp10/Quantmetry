@@ -10,6 +10,7 @@ class Metrics(str, Enum):
     rmse = "rmse"
     mape = "mape"
     smape = "smape"
+    wmape = "wmape"
 
 
 class Feats(BaseModel):

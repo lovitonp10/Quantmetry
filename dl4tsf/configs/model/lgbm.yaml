@@ -16,5 +16,5 @@ error_metrics:
   - wmape
 cv_config:
   unit: D
-  training_minimum_window: 728
+  training_minimum_window: 60
   test_window: 30

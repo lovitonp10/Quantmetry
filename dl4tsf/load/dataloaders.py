@@ -37,6 +37,10 @@ class CustomDataLoader:
             ["item_id"] + self.name_feats.feat_for_item_id
         ].drop_duplicates()
 
+    def get_map_item_id(self):
+        df_map = self.tmp[["item_id"] + self.name_feats.feat_for_item_id].drop_duplicates()
+        return df_map.reset_index(drop=True)
+
     def register_data(self):
         if isinstance(self.tmp, pd.DataFrame):
             self.df_pandas = self.tmp

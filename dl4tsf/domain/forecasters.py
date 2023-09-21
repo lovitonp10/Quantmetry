@@ -5,7 +5,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import configs
 import domain.metrics
-import evaluate
 import hydra
 import mlflow
 import numpy as np
@@ -28,7 +27,7 @@ from gluonts.dataset.field_names import FieldName
 from gluonts.dataset.pandas import PandasDataset as gluontsPandasDataset
 from gluonts.evaluation import make_evaluation_predictions
 from gluonts.itertools import Cyclic, IterableSlice, PseudoShuffled
-from gluonts.time_feature import get_seasonality, time_features_from_frequency_str
+from gluonts.time_feature import time_features_from_frequency_str  # get_seasonality,
 from gluonts.torch.distributions import DistributionOutput, StudentTOutput
 from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
@@ -824,51 +823,51 @@ class InformerForecaster(Forecaster):
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.loss_history
 
-    def evaluate(
-        self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
-    ) -> Tuple[Dict[str, Any], List[float]]:
-        if len(forecasts) == 0:
-            true_ts, forecasts = self.predict(test_dataset, transform_df=False)
-        forecast_median = np.median(forecasts, 1)
-        mase_metric = evaluate.load("evaluate-metric/mase")
-        smape_metric = evaluate.load("evaluate-metric/smape")
-        mase_metrics = []
-        smape_metrics = []
+    # def evaluate(
+    #     self, test_dataset: List[Dict[str, Any]], forecasts=[], percentage: bool = False
+    # ) -> Tuple[Dict[str, Any], List[float]]:
+    #     if len(forecasts) == 0:
+    #         true_ts, forecasts = self.predict(test_dataset, transform_df=False)
+    #     forecast_median = np.median(forecasts, 1)
+    #     mase_metric = evaluate.load("evaluate-metric/mase")
+    #     smape_metric = evaluate.load("evaluate-metric/smape")
+    #     mase_metrics = []
+    #     smape_metrics = []
 
-        for item_id, ts in enumerate(test_dataset):
-            training_data = ts["target"][: -self.model_config.prediction_length]
-            ground_truth = ts["target"][-self.model_config.prediction_length :]
-            mase = mase_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
-                training=np.array(training_data),
-                periodicity=get_seasonality(self.freq),
-            )
-            mase_metrics.append(mase["mase"])
+    #     for item_id, ts in enumerate(test_dataset):
+    #         training_data = ts["target"][: -self.model_config.prediction_length]
+    #         ground_truth = ts["target"][-self.model_config.prediction_length :]
+    #         mase = mase_metric.compute(
+    #             predictions=forecast_median[item_id],
+    #             references=np.array(ground_truth),
+    #             training=np.array(training_data),
+    #             periodicity=get_seasonality(self.freq),
+    #         )
+    #         mase_metrics.append(mase["mase"])
 
-            smape = smape_metric.compute(
-                predictions=forecast_median[item_id],
-                references=np.array(ground_truth),
-            )
-            smape_metrics.append(smape["smape"])
+    #         smape = smape_metric.compute(
+    #             predictions=forecast_median[item_id],
+    #             references=np.array(ground_truth),
+    #         )
+    #         smape_metrics.append(smape["smape"])
 
-        metrics = {}
-        metrics["smape"] = smape_metrics
-        metrics["mase"] = mase_metrics
-        if percentage:
-            metrics = self.convert_to_percentage(metrics)
-        df_ts = pd.DataFrame(true_ts.T)
-        forecasts_df = {}
+    #     metrics = {}
+    #     metrics["smape"] = smape_metrics
+    #     metrics["mase"] = mase_metrics
+    #     if percentage:
+    #         metrics = self.convert_to_percentage(metrics)
+    #     df_ts = pd.DataFrame(true_ts.T)
+    #     forecasts_df = {}
 
-        for i, forecast in enumerate(forecasts):
-            forecasts_df[i] = utils_gluonts.sample_df(
-                forecast,
-                periods=forecast.shape[1],
-                start_date=test_dataset[0]["start"],
-                freq=self.freq,
-                ts_length=len(test_dataset[0]["target"]),
-                pred_length=self.model_config.prediction_length,
-                validation=True,
-            )
+    #     for i, forecast in enumerate(forecasts):
+    #         forecasts_df[i] = utils_gluonts.sample_df(
+    #             forecast,
+    #             periods=forecast.shape[1],
+    #             start_date=test_dataset[0]["start"],
+    #             freq=self.freq,
+    #             ts_length=len(test_dataset[0]["target"]),
+    #             pred_length=self.model_config.prediction_length,
+    #             validation=True,
+    #         )
 
-        return metrics, df_ts, forecasts_df
+    #     return metrics, df_ts, forecasts_df

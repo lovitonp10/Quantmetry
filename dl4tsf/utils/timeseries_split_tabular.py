@@ -9,7 +9,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection._split import _BaseKFold, _num_samples, indexable
 from sklearn.utils.validation import _deprecate_positional_args
 
-pd.options.mode.chained_assignment = None  # default "warn"
+# pd.options.mode.chained_assignment = None  # default "warn"
 logger = logging.getLogger(__name__)
 
 
@@ -199,6 +199,8 @@ def cv_timeseries(
         test_df = pd.concat([test_df, test_x[["y_pred"]]])
         training_end_date = training_end_date + pd.DateOffset(days=incremental_window)
         test_end_date = training_end_date + pd.DateOffset(days=test_window)
+
+    print(feature_importance)
     feature_importance = (
         feature_importance.groupby(["feature"])["importance"].sum()
         / feature_importance["importance"].sum()

@@ -1,6 +1,5 @@
 import logging
 import os
-from urllib.parse import urlparse
 
 import hydra
 import mlflow
@@ -13,6 +12,9 @@ from mlflow_deploy import logging_mlflow
 from omegaconf import DictConfig, OmegaConf
 from utils.utils_gluonts import get_mean_metrics
 
+# from urllib.parse import urlparse
+
+
 logger = logging.getLogger(__name__)
 logger.info("Start")
 
@@ -22,6 +24,7 @@ def main(cfgHydra: DictConfig):
 
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
+
     cfg: Configs = Configs(**cfg)
 
     hydra_output_dir = hydra.core.hydra_config.HydraConfig.get()["runtime"]["output_dir"]
@@ -69,6 +72,27 @@ def main(cfgHydra: DictConfig):
     logger.info("Compute Validation & Evaluation")
     # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
     metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.test)
+    items = ts_it.reset_index()["item_id"].unique().tolist()
+    # for i in range(10):
+    for i in items:
+        logging_mlflow.log_plots_lgbm(
+            item_id=i,
+            ts_it=ts_it,
+            forecast_it=forecast_it,
+            map_item_id=loader_data.get_map_item_id(),
+            nb_past_pts=cfg.model.model_config["prediction_length"] * 10,
+            validation=True,
+        )
+        # logging_mlflow.log_plots(
+        #     item_id=i,
+        #     ts_it=ts_it_2,
+        #     forecast_it=forecast_it_2,
+        #     map_item_id=loader_data.get_map_item_id(),
+        #     nb_past_pts=50,
+        #     # nb_past_pts=cfg.model.model_config.prediction_length * 10,
+        #     validation=True,
+        # )
+
     metrics = {"test_" + k: v for k, v in metrics.items()}
     mlflow.log_metrics(get_mean_metrics(metrics))
     # logger.info(metrics)
@@ -83,8 +107,8 @@ def main(cfgHydra: DictConfig):
     #     prediction_length=cfg.model.model_config.prediction_length,
     #     forecasts=forecast_it,
     # )
-    tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
-    forecaster.save_mlflow_model(tracking_url_type_store, forecaster)
+    # tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
+    # forecaster.save_mlflow_model(tracking_url_type_store, forecaster)
 
     last_run = mlflow.last_active_run().info.run_id
     print(last_run)
