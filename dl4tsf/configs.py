@@ -28,6 +28,7 @@ class Dataset(BaseModel):
     test_length: str
     ts_length: Optional[int]
     freq: str
+    freq_increm: str
     static_cardinality: Optional[List[int]]
     dynamic_cardinality: Optional[List[int]]
     name_feats: Feats

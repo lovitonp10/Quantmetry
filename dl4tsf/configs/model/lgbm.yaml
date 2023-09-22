@@ -6,7 +6,8 @@ defaults:
 model_name: SklearnForecaster
 model_config:
   _target_: lightgbm.LGBMRegressor
-  prediction_length: 7
+  prediction_length: ${dataset.load.prediction_length}
+  freq_increm: ${dataset.freq_increm}
 target: ${dataset.load.target}
 date_col: date
 error_metrics:

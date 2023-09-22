@@ -17,7 +17,8 @@ from utils.utils_gluonts import get_mean_metrics
 
 logger = logging.getLogger(__name__)
 logger.info("Start")
-
+ 
+OmegaConf.register_new_resolver("eval", eval)
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):

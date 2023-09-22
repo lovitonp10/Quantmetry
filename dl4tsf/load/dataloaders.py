@@ -22,6 +22,7 @@ class CustomDataLoader:
         self.register_data()
         self.prediction_length = getattr(cfg_model.model_config, "prediction_length", None)
         self.freq = cfg_dataset.freq
+        self.freq_increm = cfg_dataset.freq_increm
         self.cfg_dataset = cfg_dataset
         self.target = target if target else "target"
         self.name_feats = feats
