@@ -31,6 +31,19 @@ pipeline:
       - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*4'}D
     groupers:
       - item_id
+  Create_lagsfeatures_week:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name:  ${dataset.load.target}
+    date_col: date
+    lags:
+      - ${eval:'${model.model_config.prediction_length}'}D
+      - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+      - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+      - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
+      - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*4'}D
+    groupers:
+      - item_id
+      - day
   Create_lagsfeatures_imaginer:
     _target_: domain.feature_engineering.lags_features.LagsFeatures
     column_name: NB_VALD=IMAGINE_R
@@ -87,7 +100,7 @@ pipeline:
     aggregate_func_name : mean
     groupers:
       - item_id
-      - hour
+      - dayofweek
     lags:
       - ${eval:'${model.model_config.prediction_length}'}D
       - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
@@ -102,13 +115,14 @@ pipeline:
     aggregate_func_name : median
     groupers:
       - item_id
-      - hour
+      - dayofweek
     lags:
       - ${eval:'${model.model_config.prediction_length}'}D
       - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
       - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
       - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
       - ${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*4'}D
+      
 
 train_test_pred:
   date_col: date

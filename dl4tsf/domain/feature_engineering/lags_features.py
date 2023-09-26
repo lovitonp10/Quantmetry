@@ -30,10 +30,13 @@ class LagsFeatures(BaseEstimator, TransformerMixin):
     def transform(self, df: pd.DataFrame, y=None) -> pd.DataFrame:
         df_out = df.set_index([self.date_col] + self.groupers).copy()
         for lag in self.lags:
-
-            df_out[f"{self.column_name}_prev={lag}"] = self.get_shifted_value(
-                df_out[self.column_name], freq=lag, groupers=self.groupers
-            )
+            if self.groupers and any(grouper != 'item_id' for grouper in self.groupers):
+                df_out[f"{self.column_name}_{'_'.join([grouper for grouper in self.groupers if grouper != 'item_id'])}_prev={lag}"] = self.get_shifted_value(
+                    df_out[self.column_name], freq=lag, groupers=self.groupers
+                )
+            else : 
+                df_out[f"{self.column_name}_prev={lag}"] = self.get_shifted_value(
+                    df_out[self.column_name], freq=lag, groupers=self.groupers)
 
         return df_out.reset_index()
 

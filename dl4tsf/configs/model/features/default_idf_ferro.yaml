@@ -36,38 +36,48 @@
 - season_south=Winter
 - is_vacances_zone=B
 - is_vacances_zone=C
-- VALD_TOTAL_prev=7D
-- VALD_TOTAL_prev=14D
-- VALD_TOTAL_prev=21D
-- VALD_TOTAL_prev=28D
+# classic lags
+- VALD_TOTAL_prev=${eval:'${model.model_config.prediction_length}'}D
+- VALD_TOTAL_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- VALD_TOTAL_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- VALD_TOTAL_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
+# lags with groupers
+- VALD_TOTAL_day_prev=${eval:'${model.model_config.prediction_length}'}D
+- VALD_TOTAL_day_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- VALD_TOTAL_day_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- VALD_TOTAL_day_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
 
-- NB_VALD=IMAGINE_R_prev=7D
-- NB_VALD=IMAGINE_R_prev=14D
-- NB_VALD=IMAGINE_R_prev=21D
-- NB_VALD=IMAGINE_R_prev=28D
+- NB_VALD=IMAGINE_R_prev=${eval:'${model.model_config.prediction_length}'}D
+- NB_VALD=IMAGINE_R_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- NB_VALD=IMAGINE_R_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- NB_VALD=IMAGINE_R_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
 
-# - NB_VALD=NAVIGO_prev=7D
-# - NB_VALD=NAVIGO_prev=14D
-# - NB_VALD=NAVIGO_prev=21D
-# - NB_VALD=NAVIGO_prev=28D
-
-# - NB_VALD=NAVIGO_JOUR_prev=7D
-# - NB_VALD=NAVIGO_JOUR_prev=14D
-# - NB_VALD=NAVIGO_JOUR_prev=21D
-# - NB_VALD=NAVIGO_JOUR_prev=28D
-
-
-# - NB_VALD=AMETHYSTE_prev=7D
-# - NB_VALD=AMETHYSTE_prev=14D
-# - NB_VALD=AMETHYSTE_prev=21D
-# - NB_VALD=AMETHYSTE_prev=28D
+- NB_VALD=NAVIGO_prev=${eval:'${model.model_config.prediction_length}'}D
+- NB_VALD=NAVIGO_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- NB_VALD=NAVIGO_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- NB_VALD=NAVIGO_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
 
 
-# - VALD_TOTAL_prev=7D_rolling_mean=7D
-# - VALD_TOTAL_prev=7D_rolling_mean=14D
-# - VALD_TOTAL_prev=7D_rolling_mean=21D
-# - VALD_TOTAL_prev=7D_rolling_mean=28D
-# - VALD_TOTAL_prev=7D_rolling_median=7D
-# - VALD_TOTAL_prev=7D_rolling_median=14D
-# - VALD_TOTAL_prev=7D_rolling_median=21D
-# - VALD_TOTAL_prev=7D_rolling_median=28D
+
+- NB_VALD=NAVIGO_JOUR_prev=${eval:'${model.model_config.prediction_length}'}D
+- NB_VALD=NAVIGO_JOUR_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- NB_VALD=NAVIGO_JOUR_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- NB_VALD=NAVIGO_JOUR_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
+
+
+- NB_VALD=AMETHYSTE_prev=${eval:'${model.model_config.prediction_length}'}D
+- NB_VALD=AMETHYSTE_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- NB_VALD=AMETHYSTE_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- NB_VALD=AMETHYSTE_prev=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
+
+# rolling mean
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_mean=${eval:'${model.model_config.prediction_length}'}D
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_mean=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_mean=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_mean=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
+
+# rolling median
+- VALD_TOTAL_prev=${eval:'${model.model_config.prediction_length}'}D_rolling_median=${eval:'${model.model_config.prediction_length}'}D
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_median=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*1'}D
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_median=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*2'}D
+- VALD_TOTAL_prev=${model.model_config.prediction_length}D_rolling_median=${eval:'${model.model_config.prediction_length}+ ${model.model_config.freq_increm}*3'}D
