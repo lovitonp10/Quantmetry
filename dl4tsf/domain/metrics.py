@@ -30,10 +30,8 @@ def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> li
     """
     mae_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        if len(ts) == prediction_length:
-            true_value = ts
-        else:
-            true_value = np.array(ts[-prediction_length:][0])
+
+        true_value = np.array(ts[-prediction_length:][0])
         # try et except
         if forecast.ndim == 2:
             forecast_value = np.array(forecast.median(axis=1))
@@ -77,10 +75,8 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
 
     rmse_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        if len(ts) == prediction_length:
-            true_value = ts
-        else:
-            true_value = np.array(ts[-prediction_length:][0])
+
+        true_value = np.array(ts[-prediction_length:][0])
 
         if forecast.ndim == 2:
             forecast_value = np.array(forecast.median(axis=1))
@@ -104,10 +100,8 @@ def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> l
     """
     mape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        if len(ts) == prediction_length:
-            true_value = ts
-        else:
-            true_value = np.array(ts[-prediction_length:][0])
+
+        true_value = np.array(ts[-prediction_length:][0])
         if forecast.ndim == 2:
             forecast_value = np.array(forecast.median(axis=1))
         else:
@@ -166,10 +160,8 @@ def estimate_wmape(
     """
     wmape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        if len(ts) == prediction_length:
-            true_value = ts
-        else:
-            true_value = np.array(ts[-prediction_length:][0])
+
+        true_value = np.array(ts[-prediction_length:][0])
         if forecast.ndim == 2:
             forecast_value = np.array(forecast.median(axis=1))
         else:

@@ -61,6 +61,7 @@ class Enedis:
         df_out = df_out[
             ~df_out.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
         ]
+        df_out = df_out[df_out.region.isin(["Normandie", "Bretagne"])]
         return df_out
 
     def add_power_values(self, df: pd.DataFrame) -> pd.DataFrame:

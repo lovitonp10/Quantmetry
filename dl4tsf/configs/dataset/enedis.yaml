@@ -11,7 +11,7 @@ load:
   freq: ${dataset.freq}
   name_feats: ${dataset.name_feats}
 test_length: 12H
-context_length: 24
+context_length: 12
 freq: 30T
 static_cardinality: [12, 2, 8]
 dynamic_cardinality: [9]

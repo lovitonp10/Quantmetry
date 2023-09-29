@@ -5,12 +5,12 @@ model_config:
   context_length : ${dataset.context_length}
   lags_sequence:
     - 1
-    - 168 # 7*24 -> to modify : 7*24*2
+    - 18 # 7*24 -> to modify : 7*24*2
   dropout: 0.1
-  num_heads:  4
+  num_heads:  16
   variable_dim: null
-  encoder_layers: 1
-  decoder_layers: 1
+  encoder_layers: 6
+  decoder_layers: 2
   d_models: 64
   scaling: mean
   num_parallel_samples: 100

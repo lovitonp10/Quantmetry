@@ -537,7 +537,7 @@ class InformerForecaster(Forecaster):
             config=self.model_config_informer,
             freq=self.freq,
             data=valid_dataset,
-            batch_size=self.cfg_train.batch_size_train,
+            batch_size=self.cfg_train.batch_size_test,
         )
 
     def get_test_dataloader(self, test_dataset: List[Dict[str, Any]], validation=True):
@@ -607,6 +607,7 @@ class InformerForecaster(Forecaster):
                 {np.mean(loss_train_epoch)}, val: {np.mean(loss_val_epoch)}"
             )
             global_step += self.cfg_train.nb_batch_per_epoch
+            print(global_step, loss_train_epoch)
             self.logger.log_metrics(
                 {
                     "train_loss": np.mean(loss_train_epoch),
@@ -760,7 +761,7 @@ class InformerForecaster(Forecaster):
             )  # ici
 
             forecasts_.append(outputs.sequences.cpu().numpy())
-            ts_it_.append(batch["past_values"].numpy())
+            ts_it_.append(batch["future_values"].numpy())
             i = i + 1
         forecasts = np.vstack(forecasts_)
         true_ts = np.vstack(ts_it_)
@@ -804,12 +805,11 @@ class InformerForecaster(Forecaster):
         Forecasts_all = []
         True_ts_all = []
 
-        for i in range(len(forecasts_all[0])):
-            element = forecasts_all[i]
-            df_element = pd.DataFrame(element)
+        for element_forecast, element_true in zip(forecasts_all, true_ts_all):
+            df_element = pd.DataFrame(element_forecast)
             df_element = df_element.T
 
-            df_true = pd.DataFrame(true_ts_all[i])
+            df_true = pd.DataFrame(element_true)
             Forecasts_all.append(df_element)
             True_ts_all.append(df_true)
 
