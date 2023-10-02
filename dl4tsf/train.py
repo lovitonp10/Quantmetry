@@ -75,10 +75,13 @@ def main(cfgHydra: DictConfig):
     metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.test)
     items = ts_it.reset_index()["item_id"].unique().tolist()
     # for i in range(10):
-    for i in items:
+    for i in range(10):  
         logging_mlflow.log_plots_lgbm(
             item_id=i,
             ts_it=ts_it,
+            ts_train = dataset.train,
+            target=cfg.dataset.load["target"],
+            context_length= cfg.dataset.load["prediction_length"]*4,
             forecast_it=forecast_it,
             map_item_id=loader_data.get_map_item_id(),
             nb_past_pts=cfg.model.model_config["prediction_length"] * 10,

@@ -19,8 +19,7 @@ def apply_processing(cfg: Dict[str, Any], df: pd.DataFrame) -> HuggingFaceDatase
 
     pipeline_feature = Pipeline(steps=preprocessors)
     df_flux = pipeline_feature.fit_transform(df_out, y=None)
-
-    df_flux = df_flux.set_index(["date", "item_id", "STATION"])
+    df_flux = df_flux.set_index(["date", "item_id"]+cfg.item_id_list)
 
     train, validation, test = split_train_test(df_flux, cfg=cfg.train_test_pred)
     dataset = HuggingFaceDataset(train=train, validation=validation, test=test)

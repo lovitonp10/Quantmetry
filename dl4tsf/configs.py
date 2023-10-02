@@ -101,6 +101,7 @@ class TrainSklean(BaseModel):
 class Preprocess(BaseModel):
     pipeline: Dict[str, Any]
     train_test_pred: TrainTestSplitConfig
+    item_id_list: Optional[List[str]]
 
 
 class Configs(BaseModel):

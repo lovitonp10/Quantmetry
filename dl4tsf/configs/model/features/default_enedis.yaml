@@ -1,0 +1,31 @@
+- temperature
+- pressure
+- rainfall
+- quarter
+- month
+- day
+- dayofweek
+- hour
+- week
+- isweekend
+- isholiday
+- season_north=Fall
+# - season_north=Spring
+- season_north=Summer
+- season_north=Winter
+# - season_south=Fall
+- season_south=Spring
+- season_south=Summer
+- season_south=Winter
+- is_vacances_zone=B
+- is_vacances_zone=C
+- soutirage
+# classic lags
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/ 2'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*1'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*2'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*3'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*55'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*111'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*7'}H
+- total_energy_prev=${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*15'}H

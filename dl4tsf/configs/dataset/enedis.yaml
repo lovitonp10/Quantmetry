@@ -7,11 +7,13 @@ load:
   _target_: load.load_data.enedis
   path: data/enedis/
   target: total_energy
-  prediction_length: 7
+  prediction_length: 6
   freq: ${dataset.freq}
   name_feats: ${dataset.name_feats}
-test_length: 12D
-context_length: 28
+
+freq_increm: 6  #même ordre de grandeur que prediction length
+test_length: 12T
+context_length: ${eval:${dataset.load.prediction_length}*4}
 freq: 30T
 static_cardinality: [12, 2, 8]
 dynamic_cardinality: [9]

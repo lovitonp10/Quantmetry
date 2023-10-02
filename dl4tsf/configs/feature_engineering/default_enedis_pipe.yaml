@@ -1,0 +1,46 @@
+defaults:
+  - _self_
+  - pipeline: default
+
+pipeline:
+  Create_calendar_features:
+    _target_: domain.feature_engineering.calendar_features.CalendarFeatures
+    column_name: date
+  Create_holidays_features:
+    _target_: domain.feature_engineering.calendar_features.AddHolidays
+    date_col: date
+    config_country_holidays:
+      country: FR
+      subdiv: Métropole
+    replace_values: ${_constants.holidaysrenaming}
+    year_start: 2020
+    year_end: 2023
+    features:
+      - isholiday
+      - is_vacances_zone=B
+      - is_vacances_zone=C
+  Create_lagsfeatures:
+    _target_: domain.feature_engineering.lags_features.LagsFeatures
+    column_name:  ${dataset.load.target}
+    date_col: date
+    lags:
+      - ${eval:'${model.model_config.prediction_length} / 2'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*1'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*2'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*3'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*7'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*15'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*55'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*111'}H
+    groupers:
+      - item_id
+      
+
+train_test_pred:
+  date_col: date
+  date_start_train: 2020-12-11
+  date_split_train_test: 2023-03-31
+  date_split_test_pred: 2023-03-31
+  split_variable: null
+  
+item_id_list: ${dataset.name_feats.feat_for_item_id}

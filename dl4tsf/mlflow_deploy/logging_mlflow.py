@@ -48,7 +48,10 @@ def log_features(parent_name, v):
 
 def log_plots_lgbm(
     item_id: int,
+    target: str,
+    context_length: int,
     ts_it: List[pd.DataFrame],
+    ts_train: List[pd.DataFrame],
     forecast_it: List[pd.DataFrame],
     map_item_id: pd.DataFrame,
     nb_past_pts: int,
@@ -56,9 +59,17 @@ def log_plots_lgbm(
 ):
     pred_color = "green"
 
+    ts_train = ts_train[target].groupby(["item_id", "date"]).mean()
+    ts_train = ts_train.loc[item_id]
+
+
     forecast_it = forecast_it.groupby(["item_id", "date"])["y_pred"].mean()
     ts_it = ts_it.groupby(["item_id", "date"]).mean()
-    ts_plot = ts_it.loc[item_id].tail(nb_past_pts)
+
+    ts_plot = ts_it.loc[item_id].tail(nb_past_pts+context_length)
+    if ts_it.loc[item_id].shape[0] <= (nb_past_pts+context_length):
+        ts_plot = pd.concat([ts_train.tail(context_length), ts_plot], axis=0)
+      
     forecast_plot = forecast_it.loc[item_id].tail(nb_past_pts)
 
     title = ", ".join(
@@ -72,8 +83,9 @@ def log_plots_lgbm(
     plt.plot(forecast_plot.index, forecast_plot.values, color=pred_color, label="Forecast")
     plt.xticks(rotation=15)
     plt.suptitle(title)
-    mae = round(utils_metrics.mae(ts_plot.values, forecast_plot.values), 2)
-    wmape = round(utils_metrics.wmape(ts_plot.values, forecast_plot.values), 2)
+   
+    mae = round(utils_metrics.mae(ts_plot[context_length:].values, forecast_plot.values), 2)
+    wmape = round(utils_metrics.wmape(ts_plot[context_length:].values, forecast_plot.values), 2)
     plt.title(f"MAE : {mae}, WMAPE: {wmape}")
     plt.legend()
     # plt.close()
