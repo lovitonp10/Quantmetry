@@ -101,7 +101,7 @@ def calculate_log_errors(
     log.info(f"Errors on all Test {prefix}")
     log.info(errs)
 
-    df_err = calculate_metric_level(df, target, metrics, "STATION", None)
+    df_err = calculate_metric_level(df, target, metrics, None, None)
 
     return errs, df_err
     # df_err_0, df_err_diff0 = calculate_metrics_byflowvalue(

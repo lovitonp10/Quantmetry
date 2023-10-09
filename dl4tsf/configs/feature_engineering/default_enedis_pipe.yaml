@@ -28,17 +28,42 @@ pipeline:
       - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*1'}H
       - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*2'}H
       - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*3'}H
-      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*7'}H
-      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*15'}H
-      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*55'}H
-      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*111'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*(24-${model.model_config.prediction_length}/2)/3'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*(48-${model.model_config.prediction_length}/2)/3'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*(168-${model.model_config.prediction_length}/2)/3'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*(336-${model.model_config.prediction_length}/2)/3'}H
     groupers:
       - item_id
+  # Create_lagsfeatures_groups:
+  #   _target_: domain.feature_engineering.lags_features.LagsFeatures
+  #   column_name:  ${dataset.load.target}
+  #   date_col: date
+  #   lags:
+  #     - ${eval:'${model.model_config.prediction_length} / 2'}H
+  #     - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*7'}H
+  #   groupers:
+  #     - item_id
+  #     - hour
+  Create_roll_mean_features:
+    _target_: domain.feature_engineering.lags_features.RollingFeatures
+    column_name: ${dataset.load.target}_prev=${eval:'${model.model_config.prediction_length} / 2'}H
+    date_col: date
+    min_periods: 7
+    aggregate_func_name : mean
+    groupers:
+      - item_id
+      #- dayofweek
+      - hour
+    lags:
+      - ${eval:'${model.model_config.prediction_length}/2'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*1'}H
+      - ${eval:'${model.model_config.prediction_length}/2+ ${model.model_config.freq_increm}/2*(24-${model.model_config.prediction_length}/2)/3'}H
+
       
 
 train_test_pred:
   date_col: date
-  date_start_train: 2020-12-11
+  date_start_train: 2021-01-01
   date_split_train_test: 2023-03-31
   date_split_test_pred: 2023-03-31
   split_variable: null

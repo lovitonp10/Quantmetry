@@ -2,6 +2,7 @@ import glob
 import logging
 
 import pandas as pd
+from qolmat.imputations import imputers
 
 logger = logging.getLogger(__name__)
 
@@ -48,19 +49,21 @@ class Enedis:
     def filter_data(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.sort_values(by=["region", "profil", "power", "date"]).copy()
         df_out["date"] = pd.to_datetime(df_out["date"])
-        df_out = df_out.set_index("date")
+        df_out["hour_test"] = df_out.date.dt.hour
+        df_out = df_out.set_index(["date","hour_test","profil","region","power"])
+        imputer = imputers.ImputerLOCF(groups=["profil","region","power","hour_test"])
+        df_out["total_energy"] = imputer.fit_transform(df_out[["total_energy"]])
         # df = df[["region", "profil", "power", self.target, "soutirage"]]
-        df_na = df_out[df_out.total_energy.isna()]
-        groups_with_nan = list(
-            df_na[["region", "profil", "power"]]
-            .drop_duplicates()
-            .itertuples(index=False, name=None)
-        )
-
-        df_out = df_out[
-            ~df_out.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
-        ]
-        return df_out
+        #df_na = df_out[df_out.total_energy.isna()]
+        # groups_with_nan = list(
+        #     df_na[["region", "profil", "power"]]
+        #     .drop_duplicates()
+        #     .itertuples(index=False, name=None)
+        # )
+        # df_out = df_out[
+        #     ~df_out.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
+        # ]
+        return df_out.reset_index().drop(columns= ["hour_test"]).set_index("date")
 
     def add_power_values(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
