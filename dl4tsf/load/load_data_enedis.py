@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class Enedis:
     def __init__(
         self,
-        path: str = "data/enedis/",
+        path: str = "data/all_enedis/",
         target: str = "total_energy",
     ) -> None:
         self.path = path
@@ -22,6 +22,7 @@ class Enedis:
         df = pd.DataFrame()
         for file in list_csv:
             df_tmp = pd.read_csv(file)
+            df_tmp = df_tmp[df_tmp.profil.isin(["RES3", "RES4"])]
             self.df = pd.concat([df, df_tmp], axis=0)
 
     def get_preprocessed_data(self):
@@ -30,8 +31,17 @@ class Enedis:
 
         df = self.change_columns_name(self.df)
         df = self.filter_data(df)
+        df = self.impute_data(df) 
         df = self.add_power_values(df)
+        
         return df
+    
+    def impute_data(self, df: pd.DataFrame)-> pd.DataFrame:
+        df_out = df.set_index(["date","hour","profil","region","power"]).copy()
+        imputer = imputers.ImputerLOCF(groups=["profil","region","power","hour"])
+        df_out["total_energy"] = imputer.fit_transform(df_out[["total_energy"]])
+        
+        return df_out.reset_index().set_index("date").drop(columns=["Unnamed: 0", "hour"], axis=1)
 
     def change_columns_name(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
@@ -49,10 +59,10 @@ class Enedis:
     def filter_data(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.sort_values(by=["region", "profil", "power", "date"]).copy()
         df_out["date"] = pd.to_datetime(df_out["date"])
-        df_out["hour_test"] = df_out.date.dt.hour
-        df_out = df_out.set_index(["date","hour_test","profil","region","power"])
-        imputer = imputers.ImputerLOCF(groups=["profil","region","power","hour_test"])
-        df_out["total_energy"] = imputer.fit_transform(df_out[["total_energy"]])
+        df_out["hour"] = df_out.date.dt.hour
+        # df_out = df_out.set_index(["date","hour_test","profil","region","power"])
+        # imputer = imputers.ImputerLOCF(groups=["profil","region","power","hour_test"])
+        # df_out["total_energy"] = imputer.fit_transform(df_out[["total_energy"]])
         # df = df[["region", "profil", "power", self.target, "soutirage"]]
         #df_na = df_out[df_out.total_energy.isna()]
         # groups_with_nan = list(
@@ -63,7 +73,7 @@ class Enedis:
         # df_out = df_out[
         #     ~df_out.set_index(["region", "profil", "power"]).index.isin(groups_with_nan)
         # ]
-        return df_out.reset_index().drop(columns= ["hour_test"]).set_index("date")
+        return df_out
 
     def add_power_values(self, df: pd.DataFrame) -> pd.DataFrame:
         df_out = df.copy()
