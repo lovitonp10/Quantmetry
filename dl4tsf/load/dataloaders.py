@@ -26,6 +26,7 @@ class CustomDataLoader:
         self.static_cardinality = cfg_model.model_config.static_cardinality
         self.dynamic_cardinality = cfg_model.model_config.dynamic_cardinality
         self.model_name = cfg_model.model_name
+        self.dates_split = cfg_dataset.train_test_val_split
 
     def get_map_item_id(self):
         df_map = self.tmp[["item_id"] + self.name_feats.feat_for_item_id].drop_duplicates()
@@ -73,6 +74,7 @@ class CustomDataLoader:
             self.static_cardinality,
             self.dynamic_cardinality,
             self.df_forecast,
+            self.dates_split,
         )
 
     def get_dataset(self):

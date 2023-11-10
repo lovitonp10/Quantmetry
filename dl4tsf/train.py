@@ -18,6 +18,8 @@ from utils.utils_gluonts import get_mean_metrics
 logger = logging.getLogger(__name__)
 logger.info("Start")
 
+OmegaConf.register_new_resolver("eval", eval)
+
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
@@ -66,7 +68,6 @@ def main(cfgHydra: DictConfig):
     )
     dataset = loader_data.get_dataset()
     logger.info("Prepare Completed")
-
     logger.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
     forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)

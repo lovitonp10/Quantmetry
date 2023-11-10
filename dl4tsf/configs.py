@@ -12,6 +12,12 @@ class Feats(BaseModel):
     feat_dynamic_cat: List[str]
 
 
+class dates_split(BaseModel):
+    date_split_train: str
+    date_split_val: str
+    date_split_test: str
+
+
 class Dataset(BaseModel):
     dataset_name: str
     load: Dict[str, Any]
@@ -21,6 +27,7 @@ class Dataset(BaseModel):
     static_cardinality: Optional[List[int]]
     dynamic_cardinality: Optional[List[int]]
     name_feats: Feats
+    train_test_val_split: dates_split
 
 
 class ModelConfig(BaseModel):

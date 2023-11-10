@@ -94,7 +94,7 @@ def energy(
 
 
 def enedis(
-    path: str = "data/enedis/",
+    path: str = "data/all_enedis/",
     target: str = "total_energy",
     prediction_length: int = 7,
     freq: str = "30T",

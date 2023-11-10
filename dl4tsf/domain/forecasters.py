@@ -30,7 +30,7 @@ from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import IterableDataset
-from gluonts.transform import (
+from gluonts.transform import (  # ValidationSplitSampler,
     AddAgeFeature,
     AddObservedValuesIndicator,
     AddTimeFeatures,
@@ -42,7 +42,6 @@ from gluonts.transform import (
     SetField,
     TestSplitSampler,
     Transformation,
-    ValidationSplitSampler,
     VstackFeatures,
 )
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -54,6 +53,7 @@ from utils import utils_gluonts
 from utils.training_logging import MLFLogger
 from utils.utils_informer.configuration_informer import CustomInformerConfig
 from utils.utils_informer.modeling_informer import CustomInformerForPrediction
+from utils.utils_tft.sampler_tft import ValidationSplitSamplerIncremental
 from utils.utils_tft.split import CustomTFTInstanceSplitter
 
 logger = logging.getLogger(__name__)
@@ -200,8 +200,14 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         self.train_sampler = self.cfg_train.train_sampler or ExpectedNumInstanceSampler(
             num_instances=1.0, min_future=self.model_config.prediction_length
         )
-        self.validation_sampler = self.cfg_train.validation_sampler or ValidationSplitSampler(
-            min_future=self.model_config.prediction_length
+        self.validation_sampler = (
+            self.cfg_train.validation_sampler
+            # or ValidationSplitSampler(min_future=self.model_config.prediction_length)
+            or ValidationSplitSamplerIncremental(
+                min_future=self.model_config.prediction_length,
+                step=self.model_config.prediction_length,
+                context=max(self.model_config.lags_sequence),
+            )
         )
 
     def train(
@@ -563,7 +569,9 @@ class InformerForecaster(Forecaster):
             )
 
     def train(
-        self, input_data_train: List[Dict[str, Any]], input_data_validation: List[Dict[str, Any]]
+        self,
+        input_data_train: List[Dict[str, Any]],
+        input_data_validation: List[Dict[str, Any]],
     ):
         if self.from_mlflow is not None:
             logger.error("Model already trained, cannot be retrained from scratch")
@@ -608,7 +616,10 @@ class InformerForecaster(Forecaster):
             )
             global_step += self.cfg_train.nb_batch_per_epoch
             self.logger.log_metrics(
-                {"train_loss": np.mean(loss_train_epoch), "val_loss": np.mean(loss_val_epoch)},
+                {
+                    "train_loss": np.mean(loss_train_epoch),
+                    "val_loss": np.mean(loss_val_epoch),
+                },
                 epoch,
             )
 
