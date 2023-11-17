@@ -63,6 +63,7 @@ class TrainTestSplitConfig(BaseModel):
     date_split_train_test: str
     date_split_test_pred: str
     split_variable: Optional[str]
+    prediction_length: int
 
 
 class CrossValConfig(BaseModel):

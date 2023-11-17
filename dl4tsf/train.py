@@ -17,18 +17,20 @@ from utils.utils_gluonts import get_mean_metrics
 
 logger = logging.getLogger(__name__)
 logger.info("Start")
- 
+
 OmegaConf.register_new_resolver("eval", eval)
+
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfgHydra: DictConfig):
-
     # Convert hydra config to dict
     cfg = OmegaConf.to_object(cfgHydra)
 
     cfg: Configs = Configs(**cfg)
 
-    hydra_output_dir = hydra.core.hydra_config.HydraConfig.get()["runtime"]["output_dir"]
+    hydra_output_dir = hydra.core.hydra_config.HydraConfig.get()["runtime"][
+        "output_dir"
+    ]
 
     azure_logger = "azure.core.pipeline.policies.http_logging_policy"
     logging.getLogger(azure_logger).setLevel(logging.WARNING)
@@ -66,7 +68,9 @@ def main(cfgHydra: DictConfig):
 
     logger.info("Training")
     forecaster_inst = getattr(forecasters, cfg.model.model_name)
-    forecaster = forecaster_inst(cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset)
+    forecaster = forecaster_inst(
+        cfg_model=cfg.model, cfg_train=cfg.train, cfg_dataset=cfg.dataset
+    )
     forecaster.train(input_data=dataset.train)
     logger.info("Training Completed")
 
@@ -74,17 +78,16 @@ def main(cfgHydra: DictConfig):
     # ts_it, forecast_it = forecaster.predict(test_dataset=dataset.validation, validation=True)
     metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.test)
     items = ts_it.reset_index()["item_id"].unique().tolist()
-    # for i in range(10):
-    for i in range(10):  
+    for i in range(10):
         logging_mlflow.log_plots_lgbm(
             item_id=i,
             ts_it=ts_it,
-            ts_train = dataset.train,
+            ts_train=dataset.train,
             target=cfg.dataset.load["target"],
-            context_length= cfg.dataset.load["prediction_length"]*4,
+            context_length=cfg.dataset.load["prediction_length"] * 4,
             forecast_it=forecast_it,
             map_item_id=loader_data.get_map_item_id(),
-            nb_past_pts=cfg.model.model_config["prediction_length"] * 10,
+            nb_past_pts=cfg.model.model_config["prediction_length"],
             validation=True,
         )
         # logging_mlflow.log_plots(

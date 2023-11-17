@@ -127,9 +127,10 @@ pipeline:
 train_test_pred:
   date_col: date
   date_start_train: 2016-01-01
-  date_split_train_test: 2019-10-${eval:'30 - ${model.model_config.prediction_length}'}
-  date_split_test_pred: 2019-10-${eval:'30 - ${model.model_config.prediction_length}'}
+  date_split_train_test: 2019-10-30 #${eval:'30 - ${model.model_config.prediction_length}'}
+  date_split_test_pred: 2019-10-30 #${eval:'30 - ${model.model_config.prediction_length}'}
   split_variable: null
+  prediction_length: ${eval:'${model.model_config.prediction_length}'}
 
 
 item_id_list: ${dataset.name_feats.feat_for_item_id}

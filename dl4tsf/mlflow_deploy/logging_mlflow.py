@@ -84,8 +84,8 @@ def log_plots_lgbm(
     plt.xticks(rotation=15)
     plt.suptitle(title)
    
-    mae = round(utils_metrics.mae(ts_plot[context_length:].values, forecast_plot.values), 2)
-    wmape = round(utils_metrics.wmape(ts_plot[context_length:].values, forecast_plot.values), 2)
+    mae = round(utils_metrics.mae(ts_plot.tail(int(context_length/4)).values, forecast_plot.values), 2)
+    wmape = round(utils_metrics.wmape(ts_plot.tail(int(context_length/4)).values, forecast_plot.values), 2)
     plt.title(f"MAE : {mae}, WMAPE: {wmape}")
     plt.legend()
     # plt.close()

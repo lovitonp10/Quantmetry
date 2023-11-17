@@ -67,5 +67,6 @@ train_test_pred:
   date_split_train_test: 2023-03-31
   date_split_test_pred: 2023-03-31
   split_variable: null
+  prediction_length: ${eval:'${model.model_config.prediction_length}'}
   
 item_id_list: ${dataset.name_feats.feat_for_item_id}
