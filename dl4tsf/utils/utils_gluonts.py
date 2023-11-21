@@ -135,6 +135,7 @@ def sample_df(
     if validation is True:
         ts_length = ts_length - pred_length
     dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(ts_length)
+
     return pd.DataFrame(samples.T, index=dates)
 
 
@@ -609,8 +610,8 @@ def train_val_test_inf_split(
     # validation
     # df_val = df_pivot[: -test_length_rows * 2].copy()
     df_val = df_pivot[
-        (df_pivot.index > dates_split.date_split_train)
-        & (df_pivot.index <= dates_split.date_split_val)
+        (df_pivot.index > dates_split.date_split_val_start)
+        & (df_pivot.index <= dates_split.date_split_val_end)
     ].copy()
     item_ids = df["item_id"].unique()
     val = create_dict_dataset(

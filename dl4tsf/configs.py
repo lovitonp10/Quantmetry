@@ -14,7 +14,8 @@ class Feats(BaseModel):
 
 class dates_split(BaseModel):
     date_split_train: str
-    date_split_val: str
+    date_split_val_start: str
+    date_split_val_end: str
     date_split_test: str
 
 

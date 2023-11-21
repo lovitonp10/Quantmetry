@@ -30,7 +30,7 @@ from gluonts.torch.model.estimator import PyTorchLightningEstimator
 from gluonts.torch.model.predictor import PyTorchPredictor
 from gluonts.torch.modules.loss import DistributionLoss, NegativeLogLikelihood
 from gluonts.torch.util import IterableDataset
-from gluonts.transform import (  # ValidationSplitSampler,
+from gluonts.transform import (  # TestSplitSampler,
     AddAgeFeature,
     AddObservedValuesIndicator,
     AddTimeFeatures,
@@ -40,7 +40,6 @@ from gluonts.transform import (  # ValidationSplitSampler,
     RemoveFields,
     SelectFields,
     SetField,
-    TestSplitSampler,
     Transformation,
     VstackFeatures,
 )
@@ -248,7 +247,17 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
             ls.index = ls.index.to_timestamp()
             list_it.append(ls)
 
-        return list_it, forecasts_df
+        list_forecast_df = []
+        length_ts = int(len(forecasts_df) / len(list_it))
+        idx = 0
+        while idx <= (len(forecasts_df) - length_ts):
+            list_forecast_df.append(pd.concat(forecasts_df[idx : idx + length_ts]))
+            idx += length_ts
+
+        for i in range(len(list_it)):
+            list_it[i] = list_it[i][list_it[i].index.isin(list_forecast_df[i].index)]
+
+        return list_it, list_forecast_df
 
     def get_callback_losses(self, type: str = "train") -> Dict[str, Any]:
         return self.callback.metrics["loss"][f"{type}_loss"]
@@ -392,7 +401,7 @@ class TFTForecaster(Forecaster, PyTorchLightningEstimator):
         instance_sampler = {
             "training": self.train_sampler,
             "validation": self.validation_sampler,
-            "test": TestSplitSampler(),
+            "test": self.validation_sampler,  # TestSplitSampler(),
         }[mode]
 
         ts_fields = [

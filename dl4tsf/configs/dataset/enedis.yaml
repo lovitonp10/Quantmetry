@@ -25,5 +25,6 @@ name_feats:
 
 train_test_val_split:
   date_split_train: 2022-01-01
-  date_split_val: 2022-07-01
-  date_split_test: 2022-07-01
+  date_split_val_start: 2021-12-02
+  date_split_val_end: 2023-01-01
+  date_split_test: 2022-12-02

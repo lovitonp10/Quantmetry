@@ -19,7 +19,7 @@ class Enedis:
     def load_data(self) -> pd.DataFrame:
         list_csv = glob.glob(self.path + "*.csv")
         df = pd.DataFrame()
-        for file in list_csv[:1]:
+        for file in list_csv:
             df_tmp = pd.read_csv(file)
             df_tmp = df_tmp[df_tmp.profil.isin(["RES3", "RES4"])]
             df = pd.concat([df, df_tmp], axis=0)

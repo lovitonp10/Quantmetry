@@ -86,3 +86,41 @@ def log_plots(
     if validation:
         name = "evaluation.png"
     mlflow.log_figure(fig, name)
+
+
+def log_plots_test_data(
+    item_id: int,
+    ts_it: List[pd.DataFrame],
+    forecast_it: List[pd.DataFrame],
+    map_item_id: pd.DataFrame,
+    nb_past_pts: int,
+    validation=False,
+):
+    ts_it = ts_it[item_id].tail(nb_past_pts)
+    x0 = ts_it.index
+    y0 = ts_it.values
+
+    forecast_it = forecast_it[item_id].mean(axis=1).tail(nb_past_pts)
+
+    pred_color = "green"
+
+    x1, y1 = forecast_it.index, forecast_it.values
+
+    fig = plt.figure()
+
+    plt.plot(x0, y0, color="blue", label="Target")
+    plt.plot(x1, y1, color=pred_color, label="Forecast")
+    plt.legend()
+
+    title = ", ".join(
+        str(value) for value in map_item_id[map_item_id["item_id"] == item_id].values
+    )
+    plt.title(title)
+
+    name = "forecast.png"
+    if validation:
+        name = "evaluation.png"
+
+    mlflow.log_figure(fig, f"{name}_{item_id}.png")
+    plt.savefig(f"{name}_{item_id}.png")
+    plt.close()

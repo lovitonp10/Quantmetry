@@ -81,7 +81,7 @@ def main(cfgHydra: DictConfig):
     metrics, ts_it, forecast_it = forecaster.evaluate(test_dataset=dataset.test)
 
     for i in range(10):
-        logging_mlflow.log_plots(
+        logging_mlflow.log_plots_test_data(
             item_id=i,
             ts_it=ts_it,
             forecast_it=forecast_it,
@@ -100,7 +100,7 @@ def main(cfgHydra: DictConfig):
     # forecast_it = list(forecast_it.values())
     logger.info(np.mean(forecast_it))
 
-    logging_mlflow.log_plots(
+    logging_mlflow.log_plots_test_data(
         item_id=0,
         ts_it=ts_it,
         forecast_it=forecast_it,
