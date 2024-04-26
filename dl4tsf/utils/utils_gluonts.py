@@ -135,6 +135,7 @@ def sample_df(
     if validation is True:
         ts_length = ts_length - pred_length
     dates = pd.date_range(start_date.to_timestamp(), freq=freq, periods=periods).shift(ts_length)
+
     return pd.DataFrame(samples.T, index=dates)
 
 
@@ -214,6 +215,7 @@ def create_ts_with_features(
     static_cardinality: List[int],
     dynamic_cardinality: List[int],
     df_forecast: pd.DataFrame,
+    dates_split: configs.dates_split,
 ) -> TrainDatasets:
     """
     Create time series datasets with different features.
@@ -287,6 +289,7 @@ def create_ts_with_features(
         test_length_rows=test_length_rows,
         prediction_length=prediction_length,
         df_dynamic_feat_forecast=df_dynamic_feat_forecast,
+        dates_split=dates_split,
     )
 
     if dataset_type == "gluonts":
@@ -385,7 +388,11 @@ def gluonts_format(
     inference = cast(Dataset, Map(process, df_inference))
 
     dataset = TrainDatasets(
-        metadata=meta, train=train, validation=validation, test=test, inference=inference
+        metadata=meta,
+        train=train,
+        validation=validation,
+        test=test,
+        inference=inference,
     )
 
     return dataset
@@ -552,6 +559,7 @@ def train_val_test_inf_split(
     test_length_rows: int,
     prediction_length: int,
     df_dynamic_feat_forecast: pd.DataFrame,
+    dates_split: configs.dates_split,
 ) -> List[Dict[str, Any]]:
     """
     Split the data into train, validation, and test sets for time series forecasting.
@@ -585,7 +593,8 @@ def train_val_test_inf_split(
     """
 
     # train
-    df_train = df_pivot[: -test_length_rows * 3].copy()
+    # df_train = df_pivot[: -test_length_rows * 3].copy()
+    df_train = df_pivot[df_pivot.index <= dates_split.date_split_train].copy()
     item_ids = df["item_id"].unique()
     train = create_dict_dataset(
         target=df_train[target],
@@ -599,7 +608,11 @@ def train_val_test_inf_split(
     )
 
     # validation
-    df_val = df_pivot[: -test_length_rows * 2].copy()
+    # df_val = df_pivot[: -test_length_rows * 2].copy()
+    df_val = df_pivot[
+        (df_pivot.index > dates_split.date_split_val_start)
+        & (df_pivot.index <= dates_split.date_split_val_end)
+    ].copy()
     item_ids = df["item_id"].unique()
     val = create_dict_dataset(
         target=df_val[target],
@@ -613,7 +626,8 @@ def train_val_test_inf_split(
     )
 
     # test
-    df_test = df_pivot[: -test_length_rows * 1].copy()
+    # df_test = df_pivot[: -test_length_rows * 1].copy()
+    df_test = df_pivot[df_pivot.index > dates_split.date_split_test].copy()
     item_ids = df["item_id"].unique()
     test = create_dict_dataset(
         target=df_test[target],

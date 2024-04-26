@@ -5,13 +5,13 @@ defaults:
 dataset_name: enedis
 load:
   _target_: load.load_data.enedis
-  path: data/enedis/
+  path: data/all_enedis/
   target: total_energy
   prediction_length: 6
   freq: ${dataset.freq}
   name_feats: ${dataset.name_feats}
 test_length: 12H
-context_length: 24
+context_length: ${eval:${dataset.load.prediction_length}*4}
 freq: 30T
 static_cardinality: [12, 2, 8]
 dynamic_cardinality: [9]
@@ -21,4 +21,10 @@ name_feats:
   feat_static_cat: ["region", "profil", "power"]
   feat_static_real: ["power_min", "power_max"]
   past_feat_dynamic_real: ["soutirage"]
-  feat_dynamic_cat : ["barometric_trend"]
+  feat_dynamic_cat: ["barometric_trend"]
+
+train_test_val_split:
+  date_split_train: 2022-01-01
+  date_split_val_start: 2021-12-02
+  date_split_val_end: 2023-01-01
+  date_split_test: 2022-12-02

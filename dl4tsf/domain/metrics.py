@@ -28,7 +28,8 @@ def estimate_mae(forecasts: list, true_ts: list, prediction_length: float) -> li
     """
     mae_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_value = np.array(forecast.median(axis=1))
         # mae_metrics.append(metrics.abs_error(true_value, forecast_value) / prediction_length)
         mae_metrics.append(mae(forecast_value, true_value))
@@ -57,7 +58,8 @@ def estimate_rmse(forecasts: list, true_ts: list, prediction_length: float) -> l
 
     rmse_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_value = np.array(forecast.mean(axis=1))
         rmse_metric = rmse(forecast_value, true_value)
         rmse_metrics.append(rmse_metric)
@@ -73,7 +75,8 @@ def estimate_mape(forecasts: list, true_ts: list, prediction_length: float) -> l
     """
     mape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_value = np.array(forecast.median(axis=1))
         mape_metrics.append(metrics.mape(true_value, forecast_value))
 
@@ -107,7 +110,8 @@ def estimate_smape(
 
     smape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_value = np.array(forecast.median(axis=1))
         smape_metrics.append(smape(true_value, forecast_value))
 
@@ -138,7 +142,8 @@ def estimate_wmape(
     """
     wmape_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_value = np.array(forecast.median(axis=1))
         wmape_metrics.append(wmape(forecast_value, true_value))
 
@@ -172,7 +177,8 @@ def estimate_mase(forecasts: list, true_ts: list, prediction_length: float, freq
 
     mase_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_value = np.array(forecast.median(axis=1))
 
         mase_metrics.append(
@@ -193,7 +199,8 @@ def quantileloss(
 
     quantile_loss_metrics = []
     for idx, (forecast, ts) in enumerate(zip(forecasts, true_ts)):
-        true_value = np.array(ts[-prediction_length:][0])
+        # true_value = np.array(ts[-prediction_length:][0])
+        true_value = np.array(ts[0])
         forecast_quantile = np.array(forecast[int(quantile * 100)])
         quantile_loss_metrics.append(
             metrics.quantile_loss(true_value, forecast_quantile, quantile)
